@@ -22,6 +22,7 @@ import { runDemoAcquire } from "./orders/demo.js";
 import { DevPaymentAdapter } from "./payment/adapter.js";
 import type { PaymentAdapter } from "./payment/adapter.js";
 import { LivePaymentAdapter } from "./payment/live.js";
+import { reconcileSettlements } from "./payment/reconcile.js";
 import { runPayoutWorker } from "./payout/worker.js";
 import { renderDashboard } from "./dashboard.js";
 
@@ -29,6 +30,8 @@ export interface CreateAppOptions {
   config?: AppConfig;
   now?: () => number;
   dbPath?: string;
+  /** Inject a payment adapter (tests use a fake live adapter to exercise the x402 path offline). */
+  payment?: PaymentAdapter;
 }
 
 const SIGNED_URL_TTL = 3 * 3600;
@@ -56,7 +59,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   if (seed.skipped.length > 0) console.warn("[LICENSE402] catalog skipped:", seed.skipped);
   console.log(`[LICENSE402] catalog loaded: ${seed.loaded} offers`);
 
-  const payment: PaymentAdapter = config.paymentMode === "live" ? new LivePaymentAdapter(config) : new DevPaymentAdapter();
+  const payment: PaymentAdapter = options.payment ?? (config.paymentMode === "live" ? new LivePaymentAdapter(config) : new DevPaymentAdapter());
 
   const app = express();
   app.disable("x-powered-by");
@@ -167,7 +170,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
 
   // --- POST /v1/acquire/social-commercial (x402-protected) -------------------
   app.post("/v1/acquire/social-commercial", async (req: Request, res: Response) => {
-    const verified = payment.verify(req);
+    const verified = await payment.verify(req);
     if (!verified) {
       const challenge = payment.challenge(config.priceUsd, config.network, config.payToAddress);
       for (const [k, v] of Object.entries(challenge.headers)) res.setHeader(k, v);
@@ -220,12 +223,13 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return;
     }
     if (outcome.status === "pending") {
-      repo.updateOrderStatus(prepared.delivery.orderId, "SETTLEMENT_PENDING", now());
+      // Persist the broadcast tx so the reconciler can poll it to a terminal state.
+      repo.markSettlementPending(prepared.delivery.orderId, outcome.tx, "SETTLEMENT_PENDING", null, now());
       res.status(202).json({ orderId: prepared.delivery.orderId, settlement: { status: "PENDING" }, statusUrl: prepared.delivery.credential.statusUrl });
       return;
     }
     if (outcome.status === "timeout") {
-      repo.updateOrderStatus(prepared.delivery.orderId, "SETTLEMENT_TIMEOUT", now(), outcome.detail);
+      repo.markSettlementPending(prepared.delivery.orderId, outcome.tx, "SETTLEMENT_TIMEOUT", outcome.detail, now());
       res.status(202).json({ orderId: prepared.delivery.orderId, settlement: { status: "TIMEOUT" }, statusUrl: prepared.delivery.credential.statusUrl });
       return;
     }
@@ -409,6 +413,18 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   app.get("/config.json", (_req, res) => {
     res.json({ paymentMode: config.paymentMode, network: config.network, issuer: config.issuerAddress, payTo: config.payToAddress, price: config.priceUsd });
   });
+  // Reconcile settlements the facilitator left pending/timeout, then drain payouts.
+  // Idempotent and side-effect-safe (never moves new buyer funds); also runs on a
+  // live-mode interval below. Exposed for ops/manual drain and for tests.
+  app.post("/internal/reconcile", async (_req, res) => {
+    try {
+      const settled = await reconcileSettlements(repo, payment, now);
+      const payouts = await runPayoutWorker(repo, config, now);
+      res.json({ ok: true, settled, payouts });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e instanceof Error ? e.message : "reconcile failed" });
+    }
+  });
   app.get("/ledger.html", (_req, res) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderDashboard(db, config));
@@ -432,6 +448,25 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     console.error("[LICENSE402] unhandled:", err);
     res.status(500).json({ error: "INTERNAL", detail: err instanceof Error ? err.message : "error" });
   });
+
+  // Live mode: periodically finalize pending settlements and drain creator payouts.
+  // Never started in dev/test (no pending settlements exist; would leak a timer).
+  if (config.paymentMode === "live" && payment.settleStatus) {
+    let running = false;
+    const timer = setInterval(async () => {
+      if (running) return; // no overlapping passes
+      running = true;
+      try {
+        await reconcileSettlements(repo, payment, now);
+        await runPayoutWorker(repo, config, now);
+      } catch (e) {
+        console.warn("[reconcile] interval error:", (e as Error).message);
+      } finally {
+        running = false;
+      }
+    }, 20_000);
+    timer.unref?.();
+  }
 
   return app;
 }

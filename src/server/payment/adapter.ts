@@ -18,17 +18,34 @@ export interface VerifiedPayment {
 export type SettleOutcome =
   | { status: "success"; tx: string | null }
   | { status: "pending"; tx: string | null }
-  | { status: "timeout"; detail: string }
+  | { status: "timeout"; tx: string | null; detail: string }
   | { status: "failed"; detail: string };
+
+/** Result of polling GET /settle/status for a previously-broadcast settlement. */
+export interface SettleStatus {
+  status: "pending" | "success" | "failed" | "unknown";
+  transaction?: string;
+  detail?: string;
+}
 
 export interface PaymentAdapter {
   readonly mode: "dev" | "live";
   /** Present a challenge (returns a 402 body/headers) when no valid payment is attached. */
   challenge(priceUsd: string, network: string, payTo: string): { status: 402; headers: Record<string, string>; body: unknown };
-  /** Extract & verify the attached payment. Returns null when absent → caller issues a challenge. */
-  verify(req: Request): VerifiedPayment | null;
+  /**
+   * Extract & verify the attached payment WITHOUT moving funds. Returns null when
+   * absent or invalid → caller issues a 402 challenge. For live x402 this calls the
+   * facilitator's verify endpoint, which returns the cryptographically-recovered
+   * payer; the payer is known here, before any credential is issued or funds move.
+   */
+  verify(req: Request): Promise<VerifiedPayment | null>;
   /** Settle the verified payment on-chain. spec v4: only "success" activates the license. */
   settle(payment: VerifiedPayment): Promise<SettleOutcome>;
+  /**
+   * Poll settlement status by tx hash (live only). Used by the reconciler to
+   * finalize orders that settle() left "pending"/"timeout". Absent in dev mode.
+   */
+  settleStatus?(txHash: string): Promise<SettleStatus>;
 }
 
 /**
@@ -49,7 +66,7 @@ export class DevPaymentAdapter implements PaymentAdapter {
     return { status: 402, headers: { "PAYMENT-REQUIRED": Buffer.from(JSON.stringify(body)).toString("base64") }, body };
   }
 
-  verify(req: Request): VerifiedPayment | null {
+  async verify(req: Request): Promise<VerifiedPayment | null> {
     const payer = req.header("x-dev-payer");
     const paymentId = req.header("x-dev-payment-id");
     if (!payer || !paymentId) return null;

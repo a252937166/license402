@@ -308,6 +308,30 @@ export class Repo {
       .run(buyerPaymentId, buyerSettleTx, paymentAuthDigest, nowSeconds, orderId);
   }
 
+  /**
+   * Record a settlement that the facilitator left non-final (pending/timeout).
+   * The tx hash is persisted so the reconciler can poll GET /settle/status and
+   * later activate or fail the order. Never called for a "success" settle.
+   */
+  markSettlementPending(orderId: string, txHash: string | null, status: OrderStatus, detail: string | null, nowSeconds: number): void {
+    this.db
+      .prepare(`UPDATE orders SET status = ?, buyer_settle_tx = ?, settle_status_detail = ?, updated_at = ? WHERE order_id = ?`)
+      .run(status, txHash, detail, nowSeconds, orderId);
+  }
+
+  /** Orders awaiting reconciliation: broadcast but not yet finalized on-chain. */
+  listUnsettledOrders(): OrderRow[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM orders
+           WHERE status IN ('SETTLEMENT_PENDING','SETTLEMENT_TIMEOUT','SETTLEMENT_UNKNOWN')
+             AND buyer_settle_tx IS NOT NULL
+           ORDER BY created_at ASC`
+      )
+      .all() as Record<string, unknown>[];
+    return rows.map((r) => this.mapOrder(r));
+  }
+
   // --- licenses -------------------------------------------------------------
 
   insertLicense(credential: LicenseCredential, nowSeconds: number): void {
