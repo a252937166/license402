@@ -2,6 +2,7 @@ import { sha256Hex } from "../domain/index.js";
 import { privateKeyToAddress, purchaseIntentToTypedMessage, signTypedData } from "../license/eip712.js";
 import { buildQuote } from "../license/quote.js";
 import { useSpecHash } from "../license/commitments.js";
+import { legalTextHash } from "../legal.js";
 import type { CatalogOffer } from "../license/quote.js";
 import { PurchaseIntentSchema, UseSpecSchema } from "../license/types.js";
 import { prepareDelivery, onSettlementSuccess } from "./prepare.js";
@@ -9,7 +10,7 @@ import { runPayoutWorker } from "../payout/worker.js";
 import type { Repo } from "../store/repo.js";
 import type { AppConfig } from "../config.js";
 
-const LEGAL_TEXT_HASH = sha256Hex("legal/social-commercial-v1.md:v1");
+
 
 export interface DemoAcquireResult {
   ok: boolean;
@@ -72,7 +73,7 @@ export async function runDemoAcquire(
     assetSha256: sel.assetSha256,
     offerDigest: sel.offerDigest,
     policyAstHash: sel.policyAstHash,
-    legalTextHash: LEGAL_TEXT_HASH,
+    legalTextHash: legalTextHash(),
     totalPrice: sel.price,
     currency: "USDT" as const,
     expiresAt: sel.quoteExpiresAt,

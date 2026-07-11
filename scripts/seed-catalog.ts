@@ -14,6 +14,7 @@ import { PROJECT_ROOT } from "../src/server/config.js";
 import { offerToTypedMessage, privateKeyToAddress, signTypedData } from "../src/server/license/eip712.js";
 import { CreatorOfferSchema } from "../src/server/license/types.js";
 import type { PolicyV1, UnsignedCreatorOffer } from "../src/server/license/types.js";
+import { legalTextHash } from "../src/server/legal.js";
 
 const config = loadConfig();
 const creatorKey = process.env.DEMO_CREATOR_PRIVATE_KEY;
@@ -42,7 +43,7 @@ function standardPolicy(overrides: Partial<PolicyV1> = {}): PolicyV1 {
   };
 }
 
-const legalTextHash = sha256Hex("legal/social-commercial-v1.md:v1");
+
 
 interface SeedSpec {
   slug: string;
@@ -95,7 +96,7 @@ for (const spec of SPECS) {
     licensorWallet: creatorAddress,
     payoutWallet: creatorAddress,
     templateId: "social-commercial-v1",
-    legalTextHash,
+    legalTextHash: legalTextHash(),
     policy,
     creatorNetPrice: "0.07",
     currency: "USDT",

@@ -6,6 +6,7 @@ import { createHmac } from "node:crypto";
 import { loadConfig, PROJECT_ROOT } from "./config.js";
 import type { AppConfig } from "./config.js";
 import { sha256Hex } from "./domain/index.js";
+import { legalTextHash } from "./legal.js";
 import { openDatabase } from "./store/db.js";
 import type { AppDatabase } from "./store/db.js";
 import { Repo } from "./store/repo.js";
@@ -31,7 +32,7 @@ export interface CreateAppOptions {
 }
 
 const SIGNED_URL_TTL = 3 * 3600;
-const LEGAL_TEXT_HASH = sha256Hex("legal/social-commercial-v1.md:v1");
+
 
 function signedAssetUrl(config: AppConfig, assetId: string, nowSeconds: number): string {
   const exp = nowSeconds + SIGNED_URL_TTL;
@@ -73,7 +74,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         storedAssetSha256: row.assetSha256,
         previewUrl: `${config.publicOrigin}/v1/previews/${row.assetId}`,
         title: asset?.title ?? row.assetId,
-        creatorDisplay: asset?.creatorDisplay ?? "creator"
+        creatorDisplay: asset?.creatorDisplay ?? "creator",
+        tags: asset?.tags ?? []
       };
     });
 
@@ -134,7 +136,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         title: quote.selected.title,
         creator: quote.selected.creatorDisplay
       },
-      legalTextHash: LEGAL_TEXT_HASH,
+      legalTextHash: legalTextHash(),
       legalTextVersion: "social-commercial-v1:v1",
       effectiveGrant: quote.selected.effectiveGrant,
       policyAstHash: quote.selected.policyAstHash,
@@ -156,7 +158,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         assetSha256: quote.selected.assetSha256,
         offerDigest: quote.selected.offerDigest,
         policyAstHash: quote.selected.policyAstHash,
-        legalTextHash: LEGAL_TEXT_HASH,
+        legalTextHash: legalTextHash(),
         totalPrice: quote.selected.price,
         currency: "USDT"
       }
@@ -249,8 +251,18 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       else if (licenseStatus === "VOID_SETTLEMENT_FAILED") currentStatus = "REVOKED";
     }
 
+    // Merge scope + status into one effective decision so a downstream agent
+    // reading a single field can't act on a PERMITTED scope over a REVOKED
+    // credential. Anything but a clean scope over a live/offline credential fails closed.
+    const scopeOk = result.decision === "PERMITTED" || result.decision === "PERMITTED_WITH_DUTIES";
+    const statusOk = currentStatus === "ACTIVE" || currentStatus === "UNKNOWN_OFFLINE";
+    const effectiveDecision = scopeOk && statusOk ? result.decision : result.decision === "INVALID_CREDENTIAL" ? "INVALID_CREDENTIAL" : "NOT_PERMITTED";
+
     res.status(200).json({
       decision: result.decision,
+      staticScopeDecision: result.decision,
+      credentialStatus: currentStatus,
+      effectiveDecision,
       staticScope: result.staticScope,
       currentStatus,
       reasonCodes: result.reasonCodes,
@@ -296,6 +308,32 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
               creatorPayoutPayable: formatMicroUsdt(CREATOR_PAYOUT_MICRO),
               payoutStatus: (payout?.state as string) ?? "PENDING"
             }
+    });
+  });
+
+  // --- GET /v1/orders/:orderId/bundle — the full reproducible proof chain ----
+  app.get("/v1/orders/:orderId/bundle", (req: Request, res: Response) => {
+    const order = repo.getOrder(String(req.params.orderId));
+    if (!order) {
+      res.status(404).json({ error: "ORDER_NOT_FOUND" });
+      return;
+    }
+    const quote = repo.getQuoteById(order.quoteId);
+    const offerRow = quote ? repo.getOffer(quote.offerId) : undefined;
+    const credential = repo.getLicenseByOrder(order.orderId);
+    const payout = repo.getPayout(order.orderId);
+    res.status(200).json({
+      generatedFor: order.orderId,
+      environment: config.paymentMode === "live" ? "production" : "sample",
+      creatorOffer: offerRow?.offer ?? null,
+      quote: quote
+        ? { quoteId: quote.quoteId, quoteCommitment: quote.quoteCommitment, offerDigest: quote.offerDigest, useSpec: quote.useSpec, priceMicro: quote.priceMicro, platformFeeMicro: quote.platformFeeMicro, creatorPayoutMicro: quote.creatorPayoutMicro, expiresAt: quote.expiresAt }
+        : null,
+      purchaseIntent: order.purchaseIntent,
+      licenseCredential: credential ?? null,
+      order: { orderId: order.orderId, status: order.status, buyerPaymentId: order.buyerPaymentId, buyerSettleTx: order.buyerSettleTx, paymentAuthorizationDigest: order.paymentAuthorizationDigest },
+      creatorPayout: payout ? { state: payout.state, amountMicro: payout.amount_micro, confirmedTx: payout.confirmed_tx ?? null } : null,
+      notes: "Verify: recover CreatorOffer + PurchaseIntent signers (EIP-712), recompute quoteCommitment, recover the credential issuer signature, and re-run check-license-scope. Sample environment = simulated settlement, no funds moved."
     });
   });
 

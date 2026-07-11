@@ -1,7 +1,7 @@
 import { canonicalHash } from "../domain/index.js";
 import { evaluateOfferEligibility } from "./eligibility.js";
 import { offerDigestHex, policyAstHash, quoteCommitment, useSpecHash } from "./commitments.js";
-import { CREATOR_PAYOUT_MICRO, PLATFORM_FEE_MICRO, SALE_PRICE_MICRO, formatMicroUsdt } from "./money.js";
+import { SALE_PRICE_MICRO, formatMicroUsdt, parseUsdtToMicro } from "./money.js";
 import type { ReasonCode } from "./vocab.js";
 import type { CreatorOffer, PolicyV1, UseSpec } from "./types.js";
 
@@ -11,6 +11,22 @@ export interface CatalogOffer {
   previewUrl: string;
   title: string;
   creatorDisplay: string;
+  tags?: string[];
+}
+
+/** Relevance of a candidate to the buyer's brief: title + tag token overlap. */
+function briefRelevance(brief: string, title: string, tags: string[]): number {
+  const tokens = new Set(
+    brief
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 3)
+  );
+  if (tokens.size === 0) return 0;
+  const hay = (title + " " + tags.join(" ")).toLowerCase();
+  let score = 0;
+  for (const t of tokens) if (hay.includes(t)) score += 1;
+  return score;
 }
 
 export interface RejectedCandidate {
@@ -95,8 +111,12 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
     return { serviceable: false, reasons: allReasons, rejectedCandidates: rejected };
   }
 
-  // Phase 2 soft ranking: cheapest creator price wins, tie-break by offerId for determinism.
+  // Phase 2 soft ranking (survivors only): brief relevance first, then cheaper
+  // creator price, then offerId for determinism. Hard gates already ran.
   eligible.sort((a, b) => {
+    const ra = briefRelevance(use.brief, a.title, a.tags ?? []);
+    const rb = briefRelevance(use.brief, b.title, b.tags ?? []);
+    if (ra !== rb) return rb - ra;
     const pa = Number(a.offer.creatorNetPrice);
     const pb = Number(b.offer.creatorNetPrice);
     if (pa !== pb) return pa - pb;
@@ -113,13 +133,20 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
   const quoteId = deriveQuoteId(offerDigest, licenseeWallet.toLowerCase(), specHash, ttlBucket);
   const idempotencyKey = quoteId;
 
+  // Honor the creator's SIGNED net price; the platform fee is the remainder of
+  // the fixed sale price. The eligibility gate already rejected offers whose
+  // net price exceeds the buyer budget; a net price above the sale price is
+  // impossible for a first-party catalog but we clamp defensively.
+  const creatorPayoutMicro = Math.min(parseUsdtToMicro(offer.creatorNetPrice), SALE_PRICE_MICRO);
+  const platformFeeMicro = SALE_PRICE_MICRO - creatorPayoutMicro;
+
   const commitment = quoteCommitment({
     offerDigest,
     licenseeWallet: licenseeWallet.toLowerCase(),
     useSpecHash: specHash,
     priceMicro: SALE_PRICE_MICRO,
-    platformFeeMicro: PLATFORM_FEE_MICRO,
-    creatorPayoutMicro: CREATOR_PAYOUT_MICRO,
+    platformFeeMicro,
+    creatorPayoutMicro,
     quoteExpiresAt,
     idempotencyKey
   });
@@ -145,11 +172,11 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
         durationDays: use.durationDays
       },
       priceMicro: SALE_PRICE_MICRO,
-      platformFeeMicro: PLATFORM_FEE_MICRO,
-      creatorPayoutMicro: CREATOR_PAYOUT_MICRO,
+      platformFeeMicro,
+      creatorPayoutMicro,
       price: formatMicroUsdt(SALE_PRICE_MICRO),
-      platformFee: formatMicroUsdt(PLATFORM_FEE_MICRO),
-      creatorPayout: formatMicroUsdt(CREATOR_PAYOUT_MICRO),
+      platformFee: formatMicroUsdt(platformFeeMicro),
+      creatorPayout: formatMicroUsdt(creatorPayoutMicro),
       currency: "USDT",
       quoteCommitment: commitment,
       quoteExpiresAt,

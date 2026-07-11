@@ -24,8 +24,18 @@ export async function runPayoutWorker(
   repo: Repo,
   config: AppConfig,
   now: () => number,
-  sender: PayoutSender = new DevPayoutSender()
+  sender?: PayoutSender
 ): Promise<{ processed: number }> {
+  // Safety: the simulated sender may ONLY run in dev/off mode. In live mode a
+  // real on-chain sender must be injected; without one, payouts stay PENDING
+  // rather than being marked PAID against a synthetic tx.
+  if (!sender) {
+    if (config.paymentMode === "live") {
+      console.warn("[payout] live mode with no live sender — leaving payouts CREATOR_PAYOUT_PENDING");
+      return { processed: 0 };
+    }
+    sender = new DevPayoutSender();
+  }
   const nowSeconds = now();
   const orderIds = repo.claimPayoutJobs(nowSeconds, 300, 10);
   let processed = 0;

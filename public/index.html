@@ -93,6 +93,24 @@
   .verbs span:last-child{border:0}
   .verbs b{color:var(--proof);font-weight:500}
   .cta-row{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
+  .cta-note{font-family:var(--mono);font-size:11px;color:var(--fog-2);margin-top:12px;letter-spacing:.02em;max-width:52ch;line-height:1.6}
+  #ctaBuy[data-pending="1"]{opacity:.72}
+  .step{cursor:default}
+  .rail.armed .step{cursor:pointer}
+  .rail.armed .step:hover .lbl{color:#fff}
+  .rail.armed .step:hover .node{border-color:var(--proof)}
+  .rail-hint{font-family:var(--mono);font-size:10px;color:var(--proof);letter-spacing:.04em;margin-left:6px}
+  .modal-back{position:fixed;inset:0;background:rgba(5,7,11,.72);backdrop-filter:blur(3px);z-index:60;display:none;align-items:center;justify-content:center;padding:24px}
+  .modal-back.show{display:flex}
+  .modal{max-width:560px;width:100%;max-height:82vh;overflow:auto;background:var(--raised);border:1px solid var(--line-strong);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .modal-h{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .modal-h .t{font-weight:700;font-size:16px}
+  .modal-h .t small{display:block;font-family:var(--mono);font-size:11px;color:var(--fog-2);font-weight:400;margin-top:2px}
+  .modal-x{background:none;border:0;color:var(--fog);font-size:22px;cursor:pointer;line-height:1}
+  .modal-b{padding:14px 20px 20px}
+  .modal-b .mk{display:flex;justify-content:space-between;gap:14px;padding:6px 0;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--line)}
+  .modal-b .mk .k{color:var(--fog)} .modal-b .mk .v{color:#c6ccd8;word-break:break-all;text-align:right;max-width:64%}
+  .modal-b .mk .v.ok{color:var(--cleared)}
   .btn{font-family:var(--mono);font-size:13px;letter-spacing:.04em;padding:14px 22px;border-radius:var(--radius);cursor:pointer;border:1px solid transparent;transition:transform .12s ease,background .18s,border-color .18s;display:inline-flex;align-items:center;gap:10px}
   .btn:active{transform:translateY(1px)}
   .btn-primary{background:var(--proof);color:#04121a;font-weight:600}
@@ -369,10 +387,11 @@
         <div class="cta-row">
           <a class="btn btn-primary" href="#console" id="ctaClear">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
-            Try a signed sample
+            Try the signed sample
           </a>
-          <a class="btn btn-ghost" href="#lens">Check a use case</a>
+          <a class="btn btn-ghost" id="ctaBuy" href="https://www.okx.ai/agents" target="_blank" rel="noopener" title="ASP listing under review">Buy live on OKX.AI · 0.10 USDT</a>
         </div>
+        <div class="cta-note" id="ctaNote">Free sample — no wallet, no funds moved. Live purchase settles on X Layer once the ASP is approved.</div>
       </div>
       <div class="specimen">
         <div class="specimen-label"><span>Live license sample</span><span class="sample-note">signed sample · no funds moved</span></div>
@@ -434,13 +453,13 @@
       </div>
 
       <div class="col">
-        <h3><span class="idx">03</span> Proof rail</h3>
+        <h3><span class="idx">03</span> Proof rail <span class="rail-hint" id="railHint"></span></h3>
         <div class="rail" id="rail">
-          <div class="step" data-k="offer"><span class="node"></span><div><div class="lbl">Signed creator offer</div><div class="sub">EIP-712</div></div></div>
-          <div class="step" data-k="quote"><span class="node"></span><div><div class="lbl">Exact quote locked</div><div class="sub">terms commitment</div></div></div>
-          <div class="step" data-k="intent"><span class="node"></span><div><div class="lbl">Buyer purchase intent</div><div class="sub">EIP-712 signature</div></div></div>
-          <div class="step" data-k="pay"><span class="node"></span><div><div class="lbl">402 payment</div><div class="sub">settled · X Layer</div></div></div>
-          <div class="step" data-k="cred"><span class="node"></span><div><div class="lbl">License credential</div><div class="sub">issuer signature</div></div></div>
+          <div class="step" data-k="offer"><span class="node"></span><div><div class="lbl">Creator signed the offer</div><div class="sub">EIP-712 · offer digest</div></div></div>
+          <div class="step" data-k="quote"><span class="node"></span><div><div class="lbl">Exact asset &amp; price locked</div><div class="sub">terms commitment</div></div></div>
+          <div class="step" data-k="intent"><span class="node"></span><div><div class="lbl">Buyer accepted the terms</div><div class="sub">EIP-712 purchase intent</div></div></div>
+          <div class="step" data-k="pay"><span class="node"></span><div><div class="lbl">Payment settled</div><div class="sub">402 · X Layer</div></div></div>
+          <div class="step" data-k="cred"><span class="node"></span><div><div class="lbl">License issued</div><div class="sub">issuer signature</div></div></div>
           <div class="step" data-k="payout"><span class="node"></span><div><div class="lbl">Creator paid</div><div class="sub">0.07 USDT</div></div></div>
         </div>
         <div class="rail-price">
@@ -503,6 +522,7 @@
         </div>
         <div class="pp-actions">
           <button class="pp-btn" id="dlAsset">Download licensed asset</button>
+          <button class="pp-btn" id="dlBundle">Download proof bundle</button>
           <button class="pp-btn sec" id="dlCred">Download credential</button>
           <button class="pp-btn sec" id="viewOrder">View payment record</button>
         </div>
@@ -632,6 +652,13 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   </div>
 </footer>
 
+<div class="modal-back" id="modalBack">
+  <div class="modal">
+    <div class="modal-h"><div class="t" id="modalTitle">—<small id="modalSub"></small></div><button class="modal-x" id="modalX" aria-label="Close">×</button></div>
+    <div class="modal-b" id="modalBody"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -723,8 +750,13 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
         $("#heroTitle").textContent=first.title; $("#heroCreator").textContent="by "+(first.creator||"Genesis Studio"); }
     }catch(e){}
     // Preload a signed sample so the hero scope demo works immediately (no wallet, no purchase).
+    // The sample's asset is the brief-matched one — use it for the hero AND console so the
+    // whole page shows ONE exact asset (same assetId / sha256 / offer).
     try{ const s=await api("/v1/demo/acquire",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
-      if(s.ok){ HERO_CRED=s.credential; heroCheck("commercial_social_post","x"); }
+      if(s.ok){ HERO_CRED=s.credential;
+        if(s.asset){ $("#heroArt").src=s.asset.previewUrl; $("#consoleArt").src=s.asset.previewUrl;
+          $("#heroTitle").textContent=s.asset.title; }
+        heroCheck("commercial_social_post","x"); }
       else { $("#heroVerdict").innerHTML='<span class="hd-spin">sample unavailable</span>'; }
     }catch(e){ $("#heroVerdict").innerHTML='<span class="hd-spin">sample unavailable</span>'; }
     renderRejectsPlaceholder();
@@ -799,6 +831,8 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
       if(rej.length){$("#rejects").innerHTML=rej.map(r=>`<div class="reject"><span class="t">Offer · ${r.title.replace(/\\(demo reject\\)/i,'').trim()}</span><span class="why">${(r.reasonCodes[0]||'').replace(/_/g,' ').toLowerCase()}</span></div>`).join("")+`<div class="reject match"><span class="t">Offer · ${res.quote.asset.title}</span><span class="why">cleared</span></div>`;}
       renderPassport();
       toast("Signed sample issued — passport ready");
+      $("#rail").classList.add("armed");
+      $("#railHint").textContent="· click any step for evidence";
       $("#ppEmpty").style.display="none";
       $("#ppCard").style.display="grid";
       $("#verdictIdle").textContent="Send the licensed asset into a scenario. The stamp lands live.";
@@ -885,9 +919,41 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   ts.addEventListener("keydown",e=>{if(e.key===" "||e.key==="Enter"){e.preventDefault();toggleTamper();}});
 
   // ---- passport actions ----
+  function download(name,obj){ const b=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
   $("#dlAsset").addEventListener("click",()=>{ if(ASSET) window.open(ASSET.url,"_blank"); });
-  $("#dlCred").addEventListener("click",()=>{ if(!CRED)return; const b=new Blob([JSON.stringify(CRED,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=CRED.licenseId+".license402.json"; a.click(); URL.revokeObjectURL(u); });
+  $("#dlCred").addEventListener("click",()=>{ if(CRED) download(CRED.licenseId+".license402.json",CRED); });
   $("#viewOrder").addEventListener("click",()=>{ if(CRED) window.open("/v1/orders/"+CRED.orderId,"_blank"); });
+  $("#dlBundle").addEventListener("click",async()=>{
+    if(!CRED)return;
+    try{ const bundle=await api("/v1/orders/"+CRED.orderId+"/bundle");
+      download("proof-bundle-"+CRED.orderId+".json",bundle); toast("Proof bundle downloaded — offer + intent + credential, all signed");
+    }catch(e){ toast("Bundle unavailable"); }
+  });
+
+  // ---- evidence modal (progressive disclosure on the proof rail) ----
+  function openModal(title,sub,rows){
+    $("#modalTitle").childNodes[0].nodeValue=title;
+    $("#modalSub").textContent=sub||"";
+    $("#modalBody").innerHTML=rows.map(([k,v,ok])=>`<div class="mk"><span class="k">${k}</span><span class="v ${ok?'ok':''}">${v}</span></div>`).join("");
+    $("#modalBack").classList.add("show");
+  }
+  const closeModal=()=>$("#modalBack").classList.remove("show");
+  $("#modalX").addEventListener("click",closeModal);
+  $("#modalBack").addEventListener("click",e=>{ if(e.target===$("#modalBack")) closeModal(); });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+
+  function railEvidence(k){
+    if(!CRED){ toast("Acquire the signed sample first"); return; }
+    const c=CRED, isSample=(CFG&&CFG.paymentMode!=="live");
+    const env=isSample?"sample · no funds moved":"production";
+    if(k==="offer") openModal("Creator signed the offer","EIP-712 CreatorOffer",[["asset sha-256",c.assetSha256,true],["offer digest",c.offerDigest],["licensor wallet",c.licensorWallet],["legal text hash",c.legalTextHash],["policy hash",c.policyAstHash],["verify","recover EIP-712 signer == licensor (in proof bundle)"]]);
+    else if(k==="quote") openModal("Exact asset & price locked","terms commitment",[["quote commitment",c.quoteCommitment||"(in bundle)"],["asset sha-256",c.assetSha256,true],["price","0.10 USDT"],["creator payout","0.07 USDT"],["platform fee","0.03 USDT"],["drift guard","mismatch → 409 before the 402 challenge"]]);
+    else if(k==="intent") openModal("Buyer accepted the terms","EIP-712 PurchaseIntent",[["purchase intent digest",c.purchaseIntentDigest],["licensee",c.licenseeWallet],["binds","asset + offer + policy + legal text + price"],["rule","payer == buyer == licensee"],["verify","recover EIP-712 signer == buyer (in proof bundle)"]]);
+    else if(k==="pay") openModal("Payment settled","402 · X Layer ("+env+")",[["network","eip155:196 · X Layer"],["payment auth digest",c.paymentAuthorizationDigest||"(in order)"],["buyer payment id",c.buyerPaymentId],["settlement","only status===success activates the license"],["environment",env]]);
+    else if(k==="cred") openModal("License issued","issuer-signed credential",[["license id",c.licenseId,true],["issuer",c.issuer],["issuer signature",short(c.issuerSignature)],["evidence root",c.evidenceRoot||"—"],["receipt hash",c.receiptHash||"—"],["download","use “Download proof bundle” for the full envelope"]]);
+    else if(k==="payout") openModal("Creator paid","creator net price",[["payout wallet",c.licensorWallet],["amount","0.07 USDT"],["order status","see “View payment record”"],["rule","payout is a liability once the buyer settles; retried, never dropped"],["environment",env]]);
+  }
+  $$('#rail .step').forEach(s=>s.addEventListener("click",()=>railEvidence(s.dataset.k)));
 
   boot();
 })();
