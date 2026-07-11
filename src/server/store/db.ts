@@ -122,12 +122,13 @@ CREATE TABLE IF NOT EXISTS creator_payouts (
 );
 
 CREATE TABLE IF NOT EXISTS faucet_claims (
-  address TEXT PRIMARY KEY,
+  address TEXT NOT NULL,
   ip TEXT,
   tx TEXT,
   amount_micro INTEGER NOT NULL,
   network TEXT NOT NULL DEFAULT 'testnet',
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (address, network)
 );
 
 CREATE TABLE IF NOT EXISTS outbox_jobs (
@@ -172,11 +173,27 @@ function migrate(db: Database): void {
     db.exec(`ALTER TABLE quotes ADD COLUMN payment_asset TEXT NOT NULL DEFAULT ''`);
     db.exec(`ALTER TABLE quotes ADD COLUMN pay_to TEXT NOT NULL DEFAULT ''`);
   }
-  const fcols = db.prepare(`PRAGMA table_info(faucet_claims)`).all() as { name: string }[];
+  const fcols = db.prepare(`PRAGMA table_info(faucet_claims)`).all() as { name: string; pk: number }[];
   if (fcols.length > 0 && !fcols.some((c) => c.name === "network")) {
     // The two pre-existing claims were the mainnet-era grants; new claims are
     // testnet-only. Sponsorship joins now match on the SAME rail only.
     db.exec(`ALTER TABLE faucet_claims ADD COLUMN network TEXT NOT NULL DEFAULT 'mainnet'`);
+  }
+  // One claim per address PER NETWORK: a mainnet-era claim must not block the
+  // same wallet's testnet grant. Rebuild the table when the PK is address-only.
+  const addrPkOnly = fcols.length > 0 && fcols.some((c) => c.name === "address" && c.pk === 1) && !fcols.some((c) => c.name === "network" && c.pk > 0);
+  if (addrPkOnly) {
+    db.exec(`
+      CREATE TABLE faucet_claims_v2 (
+        address TEXT NOT NULL, ip TEXT, tx TEXT, amount_micro INTEGER NOT NULL,
+        network TEXT NOT NULL DEFAULT 'testnet', created_at INTEGER NOT NULL,
+        PRIMARY KEY (address, network)
+      );
+      INSERT INTO faucet_claims_v2 (address, ip, tx, amount_micro, network, created_at)
+        SELECT address, ip, tx, amount_micro, COALESCE(network,'mainnet'), created_at FROM faucet_claims;
+      DROP TABLE faucet_claims;
+      ALTER TABLE faucet_claims_v2 RENAME TO faucet_claims;
+    `);
   }
 }
 

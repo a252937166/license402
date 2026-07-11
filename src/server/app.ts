@@ -158,7 +158,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-    if (req.path.endsWith(".html") || req.path === "/" || ["/buy", "/market", "/verify"].includes(req.path)) {
+    if (req.path.endsWith(".html") || req.path.startsWith("/js/") || req.path === "/" || ["/buy", "/market", "/verify"].includes(req.path)) {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
     } else {
@@ -852,11 +852,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       res.status(400).json({ error: "INVALID_ADDRESS" });
       return;
     }
-    if (repo.faucetClaimCount() >= FAUCET_GLOBAL_CAP) {
+    if (repo.faucetClaimCount("testnet") >= FAUCET_GLOBAL_CAP) {
       res.status(429).json({ error: "FAUCET_EXHAUSTED" });
       return;
     }
-    const prior = repo.getFaucetClaim(address);
+    const prior = repo.getFaucetClaim(address, "testnet");
     if (prior) {
       res.status(200).json({ ok: true, alreadyClaimed: true, network: "testnet", tx: prior.tx ?? null });
       return;
@@ -868,10 +868,10 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
     try {
       const tx = await chainTest.transferUsdt(address, FAUCET_AMOUNT_MICRO);
-      repo.recordFaucetTx(address, tx);
+      repo.recordFaucetTx(address, "testnet", tx);
       res.status(200).json({ ok: true, network: "testnet", tx, amount: "0.50", explorer: `${config.testnet.explorerTx}${tx}` });
     } catch (e) {
-      repo.releaseFaucetClaim(address);
+      repo.releaseFaucetClaim(address, "testnet");
       res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
     }
   });

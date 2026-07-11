@@ -497,30 +497,30 @@ export class Repo {
 
   // --- faucet (judge onboarding, live mode) ---------------------------------
 
-  faucetClaimCount(): number {
-    return (this.db.prepare(`SELECT COUNT(*) AS n FROM faucet_claims`).get() as { n: number }).n;
+  faucetClaimCount(network: string): number {
+    return (this.db.prepare(`SELECT COUNT(*) AS n FROM faucet_claims WHERE network = ?`).get(network) as { n: number }).n;
   }
 
-  getFaucetClaim(address: string): Record<string, unknown> | undefined {
-    return this.db.prepare(`SELECT * FROM faucet_claims WHERE address = ?`).get(address.toLowerCase()) as
+  getFaucetClaim(address: string, network: string): Record<string, unknown> | undefined {
+    return this.db.prepare(`SELECT * FROM faucet_claims WHERE address = ? AND network = ?`).get(address.toLowerCase(), network) as
       | Record<string, unknown>
       | undefined;
   }
 
-  /** Atomically reserve a claim (one per address, ever). Returns false if already claimed. */
+  /** Atomically reserve a claim (one per address PER NETWORK). Returns false if already claimed. */
   reserveFaucetClaim(address: string, ip: string, amountMicro: number, network: string, nowSeconds: number): boolean {
     const result = this.db
-      .prepare(`INSERT INTO faucet_claims (address, ip, amount_micro, network, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(address) DO NOTHING`)
+      .prepare(`INSERT INTO faucet_claims (address, ip, amount_micro, network, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(address, network) DO NOTHING`)
       .run(address.toLowerCase(), ip, amountMicro, network, nowSeconds);
     return Number(result.changes) === 1;
   }
 
-  recordFaucetTx(address: string, tx: string): void {
-    this.db.prepare(`UPDATE faucet_claims SET tx = ? WHERE address = ?`).run(tx, address.toLowerCase());
+  recordFaucetTx(address: string, network: string, tx: string): void {
+    this.db.prepare(`UPDATE faucet_claims SET tx = ? WHERE address = ? AND network = ?`).run(tx, address.toLowerCase(), network);
   }
 
-  releaseFaucetClaim(address: string): void {
-    this.db.prepare(`DELETE FROM faucet_claims WHERE address = ? AND tx IS NULL`).run(address.toLowerCase());
+  releaseFaucetClaim(address: string, network: string): void {
+    this.db.prepare(`DELETE FROM faucet_claims WHERE address = ? AND network = ? AND tx IS NULL`).run(address.toLowerCase(), network);
   }
 
   markPayoutPaid(orderId: string, confirmedTx: string, nowSeconds: number): void {
