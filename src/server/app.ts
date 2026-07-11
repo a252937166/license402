@@ -43,6 +43,13 @@ function signedAssetUrl(config: AppConfig, assetId: string, nowSeconds: number):
   return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}?exp=${exp}&sig=${sig}`;
 }
 
+/** Same signature/expiry as the download URL, but serves the fast webp display rendition. */
+function signedDisplayUrl(config: AppConfig, assetId: string, nowSeconds: number): string {
+  const exp = nowSeconds + SIGNED_URL_TTL;
+  const sig = createHmac("sha256", config.servicePrivateKey).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
+  return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}/display?exp=${exp}&sig=${sig}`;
+}
+
 function verifyAssetSig(config: AppConfig, assetId: string, exp: number, sig: string, nowSeconds: number): boolean {
   if (!Number.isFinite(exp) || exp < nowSeconds) return false;
   const expected = createHmac("sha256", config.servicePrivateKey).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
@@ -214,6 +221,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         asset: {
           assetId: prepared.delivery.assetId,
           url: signedAssetUrl(config, prepared.delivery.assetId, now()),
+          displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
           sha256: prepared.delivery.credential.assetSha256,
           mimeType: "image/png"
         },
@@ -342,13 +350,38 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   });
 
   // --- previews (free) & full asset (signed, post-payment) -------------------
+  const imageMime = (path: string): string => (path.endsWith(".webp") ? "image/webp" : "image/png");
+
   app.get("/v1/previews/:assetId", (req: Request, res: Response) => {
     const asset = repo.getAsset(String(req.params.assetId));
     if (!asset) return void res.status(404).json({ error: "NOT_FOUND" });
     const path = resolve(PROJECT_ROOT, asset.previewPath);
     if (!existsSync(path)) return void res.status(404).json({ error: "NOT_FOUND" });
-    res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Content-Type", imageMime(path));
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(readFileSync(path));
+  });
+
+  /**
+   * Post-purchase DISPLAY rendition (clean webp, ~1400px) — what the UI shows.
+   * The signed download URL below still delivers the exact sha256-bound PNG;
+   * this exists only so the page doesn't pull multi-MB originals to render.
+   * Derived from the asset file path, e.g. catalog/assets/x.png → catalog/display/x.display.webp.
+   */
+  app.get("/v1/assets/:assetId/display", (req: Request, res: Response) => {
+    const exp = Number(req.query.exp);
+    const sig = String(req.query.sig ?? "");
+    const assetId = String(req.params.assetId);
+    if (!verifyAssetSig(config, assetId, exp, sig, now())) {
+      return void res.status(403).json({ error: "INVALID_OR_EXPIRED_URL" });
+    }
+    const asset = repo.getAsset(assetId);
+    if (!asset) return void res.status(404).json({ error: "NOT_FOUND" });
+    const slug = asset.filePath.replace(/^.*\//, "").replace(/\.[a-z]+$/i, "");
+    const displayPath = resolve(PROJECT_ROOT, `catalog/display/${slug}.display.webp`);
+    const path = existsSync(displayPath) ? displayPath : resolve(PROJECT_ROOT, asset.filePath);
+    res.setHeader("Content-Type", imageMime(path));
+    res.setHeader("Cache-Control", "private, max-age=3600");
     res.send(readFileSync(path));
   });
 
@@ -363,6 +396,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     const path = resolve(PROJECT_ROOT, asset.filePath);
     if (!existsSync(path)) return void res.status(404).json({ error: "NOT_FOUND" });
     res.setHeader("Content-Type", asset.mimeType);
+    res.setHeader("Content-Disposition", `attachment; filename="${asset.filePath.replace(/^.*\//, "")}"`);
+    res.setHeader("Cache-Control", "private, max-age=3600");
     res.send(readFileSync(path));
   });
 
@@ -389,7 +424,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       config.demoBuyerPrivateKey,
       now(),
       (assetId) => `${config.publicOrigin}/v1/previews/${assetId}`,
-      (assetId) => signedAssetUrl(config, assetId, now())
+      (assetId) => signedAssetUrl(config, assetId, now()),
+      (assetId) => signedDisplayUrl(config, assetId, now())
     );
     res.status(result.ok ? 200 : 400).json(result);
   });

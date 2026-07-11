@@ -41,7 +41,7 @@
       "signature": "0xb1c9bfaff68ccb393baf69429978fb19e21d4de03c196d0fa3240ddd0b30803f4d867d9d1614d5edf02b8e692765426da1a117405cc1d65a62a9bc2c08f839b11b"
     },
     "assetFile": "catalog/assets/cyber-dragon.png",
-    "previewFile": "catalog/previews/cyber-dragon.preview.png",
+    "previewFile": "catalog/previews/cyber-dragon.preview.webp",
     "title": "Ember Drake",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
@@ -92,7 +92,7 @@
       "signature": "0x46882e3ee84e69226720f0822ac80777a9b06903320440688b0902af28160dcc256c47209f47f46d3e24c1fbfe6b6a66b346c09169be195494b86d2c2c1e8be41c"
     },
     "assetFile": "catalog/assets/neon-city.png",
-    "previewFile": "catalog/previews/neon-city.preview.png",
+    "previewFile": "catalog/previews/neon-city.preview.webp",
     "title": "Neon Harbor",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
@@ -143,7 +143,7 @@
       "signature": "0xb1f67f58b2d275a91765bab0843c7bc616335bfa8f2374aa22116390c2bb1eb33fba6697ec14409fbd36802d7ebf17458b0ccc6225d06a8f64529722893febf11c"
     },
     "assetFile": "catalog/assets/synth-portal.png",
-    "previewFile": "catalog/previews/synth-portal.preview.png",
+    "previewFile": "catalog/previews/synth-portal.preview.webp",
     "title": "Solar Gate",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
@@ -194,7 +194,7 @@
       "signature": "0x60ca402570dca0fc0afe310c5dd56c7e669decfc02de3ffe4c7e3a19e37c400c0fa6bf6de653f04aa9299d67a2ce41f036ac4194f2ca8ccb2b8499b37826c33b1c"
     },
     "assetFile": "catalog/assets/aurora-koi.png",
-    "previewFile": "catalog/previews/aurora-koi.preview.png",
+    "previewFile": "catalog/previews/aurora-koi.preview.webp",
     "title": "Aurora Koi",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
@@ -245,7 +245,7 @@
       "signature": "0xcc5f629e18d2d5173ea6fcc594e42dade8bcf15981fc17b446e48cebae9edead7cf8dc074a990d93074fe12bb5eaae3d4d05b6643c21bdcd35715e81ece6dfdb1b"
     },
     "assetFile": "catalog/assets/glitch-mask.png",
-    "previewFile": "catalog/previews/glitch-mask.preview.png",
+    "previewFile": "catalog/previews/glitch-mask.preview.webp",
     "title": "Cobalt Mask",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
@@ -296,7 +296,7 @@
       "signature": "0x9478fd5017b8a9ab07dc55ad4babd05cba5a129c7aab9177c1d18ac0789e065d53de70ff0fd9940f489a2b7681134e3b64d9fd4f28b7746c8fa06cfacefe4e9c1b"
     },
     "assetFile": "catalog/assets/expired-relic.png",
-    "previewFile": "catalog/previews/expired-relic.preview.png",
+    "previewFile": "catalog/previews/expired-relic.preview.webp",
     "title": "Bronze Relic",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
@@ -346,7 +346,7 @@
       "signature": "0x5ab1a66e583bd85c0eeccd46b64cd929b087ef324af053d75855afa1c09b5d0574f22eb14cb51165a697a15f1dcd60cc255889e59b33956b72fc25f389d662131b"
     },
     "assetFile": "catalog/assets/editorial-only.png",
-    "previewFile": "catalog/previews/editorial-only.preview.png",
+    "previewFile": "catalog/previews/editorial-only.preview.webp",
     "title": "Editorial Study",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [

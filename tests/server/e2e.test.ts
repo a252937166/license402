@@ -252,14 +252,17 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
     expect(res.json.error).toBe("INTENT_SIGNATURE_INVALID");
   });
 
-  it("serves watermarked previews but gates full assets behind a signed URL", async () => {
+  it("serves watermarked previews but gates full assets + display renditions behind a signed URL", async () => {
     const q = await post(base, "/v1/quote", { use: USE, licenseeWallet: BUYER });
     const assetId = q.json.asset.assetId;
     const preview = await fetch(`${base}/v1/previews/${assetId}`);
     expect(preview.status).toBe(200);
-    expect(preview.headers.get("content-type")).toBe("image/png");
+    expect(preview.headers.get("content-type")).toBe("image/webp");
+    expect(preview.headers.get("cache-control")).toContain("max-age=86400");
 
     const unsigned = await fetch(`${base}/v1/assets/${assetId}`);
     expect(unsigned.status).toBe(403);
+    const unsignedDisplay = await fetch(`${base}/v1/assets/${assetId}/display`);
+    expect(unsignedDisplay.status).toBe(403);
   });
 });

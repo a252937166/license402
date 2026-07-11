@@ -4,7 +4,7 @@
  * deliberately expired / non-commercial so the demo's "rejected candidates"
  * beat is honest (our own labeled data).
  *
- * Usage: python3 scripts/gen_catalog.py && tsx scripts/seed-catalog.ts
+ * Usage: python3 scripts/make_media.py && tsx scripts/seed-catalog.ts
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -74,10 +74,10 @@ const catalog: unknown[] = [];
 
 for (const spec of SPECS) {
   const assetFile = `catalog/assets/${spec.slug}.png`;
-  const previewFile = `catalog/previews/${spec.slug}.preview.png`;
+  const previewFile = `catalog/previews/${spec.slug}.preview.webp`;
   const assetPath = resolve(PROJECT_ROOT, assetFile);
   if (!existsSync(assetPath)) {
-    throw new Error(`Missing art file ${assetFile} — run: python3 scripts/gen_catalog.py`);
+    throw new Error(`Missing art file ${assetFile} — drop the original PNG into catalog/assets/`);
   }
   const assetSha256 = sha256Hex(readFileSync(assetPath));
 

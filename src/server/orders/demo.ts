@@ -17,7 +17,7 @@ export interface DemoAcquireResult {
   error?: string;
   orderId?: string;
   credential?: unknown;
-  asset?: { assetId: string; url: string; sha256: string; mimeType: string; previewUrl: string; title: string };
+  asset?: { assetId: string; url: string; displayUrl: string; sha256: string; mimeType: string; previewUrl: string; title: string };
   quote?: unknown;
 }
 
@@ -35,7 +35,8 @@ export async function runDemoAcquire(
   demoBuyerKey: string,
   nowSeconds: number,
   buildPreviewUrl: (assetId: string) => string,
-  signAssetUrl: (assetId: string) => string
+  signAssetUrl: (assetId: string) => string,
+  signDisplayUrl: (assetId: string) => string
 ): Promise<DemoAcquireResult> {
   if (config.paymentMode !== "off") return { ok: false, error: "DEMO_DISABLED_IN_LIVE_MODE" };
 
@@ -106,6 +107,7 @@ export async function runDemoAcquire(
     asset: {
       assetId: prepared.delivery.assetId,
       url: signAssetUrl(prepared.delivery.assetId),
+      displayUrl: signDisplayUrl(prepared.delivery.assetId),
       sha256: prepared.delivery.credential.assetSha256,
       mimeType: "image/png",
       previewUrl: buildPreviewUrl(prepared.delivery.assetId),
