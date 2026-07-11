@@ -90,10 +90,28 @@
 
   /* hero specimen: the licensed artwork under security paper */
   .specimen{position:relative}
-  .specimen-frame{position:relative;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:var(--raised);aspect-ratio:1/1;box-shadow:var(--shadow)}
+  .specimen-frame{position:relative;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:var(--raised);aspect-ratio:16/10;box-shadow:var(--shadow)}
   .specimen-frame img{width:100%;height:100%;object-fit:cover;display:block}
-  .specimen-tag{position:absolute;top:12px;left:12px;z-index:3;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;background:rgba(10,13,19,.72);backdrop-filter:blur(6px);border:1px solid var(--line-strong);padding:5px 9px;border-radius:2px;color:var(--fog)}
-  .specimen-label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--fog-2);margin-bottom:10px}
+  .specimen-tag{position:absolute;top:12px;left:12px;z-index:3;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;background:rgba(10,13,19,.6);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);padding:5px 9px;border-radius:100px;color:#d6dae4}
+  .specimen-label{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--proof);margin-bottom:10px}
+  .specimen-label .sample-note{color:var(--fog-2);letter-spacing:.08em}
+  .hero-demo{margin-top:16px}
+  .hd-q{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--fog);margin-bottom:10px}
+  .hd-btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .hd-btn{font-family:var(--mono);font-size:12px;padding:8px 13px;border-radius:100px;border:1px solid var(--line-strong);background:var(--ink);color:#cdd3df;cursor:pointer;transition:all .15s}
+  .hd-btn:hover{border-color:var(--proof);color:#fff}
+  .hd-btn.on{border-color:var(--proof);background:rgba(57,174,192,.12);color:#fff}
+  .hd-verdict{border:1px solid var(--line);border-left-width:3px;border-radius:var(--radius);background:var(--raised);padding:14px 16px;min-height:64px;display:flex;flex-direction:column;justify-content:center;transition:border-color .2s}
+  .hd-verdict.permitted{border-left-color:var(--cleared)}
+  .hd-verdict.duties{border-left-color:var(--duty)}
+  .hd-verdict.denied{border-left-color:var(--denied)}
+  .hd-verdict .hd-v{font-family:var(--sans);font-weight:700;font-size:16px;letter-spacing:.01em;display:flex;align-items:center;gap:9px}
+  .hd-verdict.permitted .hd-v{color:var(--cleared)} .hd-verdict.duties .hd-v{color:var(--duty)} .hd-verdict.denied .hd-v{color:var(--denied)}
+  .hd-verdict .hd-r{font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--fog);margin-top:5px}
+  .hd-verdict .hd-tick{width:16px;height:16px;flex:none}
+  .hd-spin{font-family:var(--mono);font-size:12px;color:var(--fog-2)}
+  .hd-more{display:inline-block;margin-top:12px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--proof);border-bottom:1px solid transparent}
+  .hd-more:hover{border-bottom-color:var(--proof)}
   .specimen-caption{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:26px 14px 12px;background:linear-gradient(180deg,transparent,rgba(8,10,15,.86) 62%)}
   .specimen-caption .cap-l{display:flex;flex-direction:column;gap:1px}
   .specimen-caption .cap-l b{font-family:var(--sans);font-weight:700;font-size:16px;letter-spacing:.01em}
@@ -297,16 +315,26 @@
         </div>
       </div>
       <div class="specimen">
-        <div class="specimen-label">Catalog asset · what an agent licenses</div>
+        <div class="specimen-label"><span>Live license sample</span><span class="sample-note">signed sample · no funds moved</span></div>
         <div class="specimen-frame">
-          <span class="specimen-tag">Preview only · not yet licensed</span>
+          <span class="specimen-tag">Preview · license not purchased</span>
           <img id="heroArt" alt="Original artwork available to license" />
           <div class="specimen-caption">
-            <div class="cap-l"><b id="heroTitle">—</b><span id="heroCreator">original artwork</span></div>
-            <div class="cap-r">Commercial license<b>0.10 USDT</b></div>
+            <div class="cap-l"><b id="heroTitle">—</b><span id="heroCreator">first-party signed offer</span></div>
+            <div class="cap-r">Commercial license<b>0.10 USDT0</b></div>
           </div>
         </div>
-        <div class="scope-strip" id="heroScope"></div>
+        <div class="hero-demo">
+          <div class="hd-q">What may an agent do with it?</div>
+          <div class="hd-btns">
+            <button class="hd-btn on" data-action="commercial_social_post" data-channel="x">Publish an X campaign</button>
+            <button class="hd-btn" data-action="model_training">Train an AI model</button>
+            <button class="hd-btn" data-action="resale">Resell the file</button>
+          </div>
+          <div class="hd-verdict" id="heroVerdict">
+            <span class="hd-spin">checking scope…</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -543,22 +571,51 @@
     </svg>`;
   }
 
-  // ---- scope strip / grant tags ----
-  const SCOPE=[["Commercial social use","y"],["X · LinkedIn · Instagram","y"],["Worldwide","y"],["Up to 30 days","y"],["Crop · resize · add text","y"],["Model training","n"],["RAG indexing","n"]];
-  $("#heroScope").innerHTML=SCOPE.map(([k,m])=>`<div class="row"><span class="k">${k}</span><span class="mark ${m}">${m==="y"?"CLEARED":"DENIED"}</span></div>`).join("");
+  // ---- hero live-sample scope demo ----
+  let HERO_CRED=null, heroChecking=false;
+  function paintHeroVerdict(decision,reasons,duties){
+    const box=$("#heroVerdict");
+    const tick=`<svg class="hd-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l5 5L20 7"/></svg>`;
+    const cross=`<svg class="hd-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+    let cls="permitted",word="Permitted by this license",icon=tick;
+    if(decision==="PERMITTED_WITH_DUTIES"){cls="duties";word="Permitted — with duty";icon=tick;}
+    else if(decision==="NOT_PERMITTED"){cls="denied";word="Not permitted by this license";icon=cross;}
+    else if(decision==="INVALID_CREDENTIAL"){cls="denied";word="Invalid credential";icon=cross;}
+    else if(decision==="INDETERMINATE"){cls="duties";word="Indeterminate";icon=cross;}
+    box.className="hd-verdict "+cls;
+    const dutyLine=(duties&&duties.length)?" · duty: "+duties.map(d=>d.text||d.type).join("; "):"";
+    box.innerHTML=`<div class="hd-v">${icon}${word}</div><div class="hd-r">${(reasons||[]).slice(0,3).join(" · ")}${dutyLine}</div>`;
+  }
+  async function heroCheck(action,channel){
+    if(!HERO_CRED){return;}
+    heroChecking=true;
+    try{ const res=await api("/v1/check-license-scope",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({license:HERO_CRED,action,channel,licensee:HERO_CRED.licenseeWallet})});
+      paintHeroVerdict(res.decision,res.reasonCodes,res.duties);
+    }catch(e){ $("#heroVerdict").innerHTML='<span class="hd-spin">scope check unavailable</span>'; }
+    heroChecking=false;
+  }
+  $$(".hd-btn").forEach(b=>b.addEventListener("click",()=>{
+    $$(".hd-btn").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    heroCheck(b.dataset.action,b.dataset.channel);
+  }));
 
-  // ---- load config + catalog + ledger ----
+  // ---- load config + catalog + sample + ledger ----
   async function boot(){
     try{ CFG=await api("/config.json");
-      const pill=$("#modePill"); pill.textContent=CFG.paymentMode==="live"?"LIVE":"DEV"; pill.dataset.mode=CFG.paymentMode;
+      const pill=$("#modePill"); pill.textContent=CFG.paymentMode==="live"?"LIVE":"PUBLIC DEMO"; pill.dataset.mode=CFG.paymentMode;
       if(CFG.paymentMode!=="live"){$("#devBanner").style.display="flex";}
-      $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>price ${CFG.price} USDT`;
+      $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>settlement asset USDT0`;
     }catch(e){}
     try{ const cat=await api("/v1/catalog");
       const first=(cat.offers||[]).find(o=>o.commercialUse)||cat.offers[0];
       if(first){ $("#heroArt").src=first.previewUrl; $("#consoleArt").src=first.previewUrl;
         $("#heroTitle").textContent=first.title; $("#heroCreator").textContent="by "+(first.creator||"Genesis Studio"); }
     }catch(e){}
+    // Preload a signed sample so the hero scope demo works immediately (no wallet, no purchase).
+    try{ const s=await api("/v1/demo/acquire",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
+      if(s.ok){ HERO_CRED=s.credential; heroCheck("commercial_social_post","x"); }
+      else { $("#heroVerdict").innerHTML='<span class="hd-spin">sample unavailable</span>'; }
+    }catch(e){ $("#heroVerdict").innerHTML='<span class="hd-spin">sample unavailable</span>'; }
     renderRejectsPlaceholder();
     refreshLedger();
   }

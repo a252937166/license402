@@ -27,14 +27,15 @@ SPECS = [
 ]
 
 
-def watermark(img, size=640):
+def watermark(img, size=768):
+    # Preview is a downscaled, very lightly marked copy — enough to signal
+    # "not licensed" without destroying the art (heavy stripes read as cheap).
     p = img.resize((size, size), Image.LANCZOS)
-    # darken for preview
-    p = Image.eval(p, lambda x: int(x * 0.82))
+    p = Image.eval(p, lambda x: int(x * 0.9))
     draw = ImageDraw.Draw(p, "RGBA")
-    step = 46
+    step = 84
     for i in range(-size, size * 2, step):
-        draw.line([(i, 0), (i - size, size)], fill=(230, 235, 245, 26), width=2)
+        draw.line([(i, 0), (i - size, size)], fill=(235, 238, 246, 12), width=1)
     return p
 
 
