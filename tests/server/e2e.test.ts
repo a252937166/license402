@@ -399,3 +399,31 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
     expect(unsignedDisplay.status).toBe(403);
   });
 });
+
+describe("direct mode terms discipline (round-10)", () => {
+  let base: string;
+  let server: Server;
+  beforeAll(async () => {
+    const app = await createApp({ config: testConfig, now: () => FIXED_NOW });
+    const started = await listen(app);
+    base = started.base;
+    server = started.server;
+    PORT = started.port;
+    return () => server.close();
+  });
+
+  it("a PROVIDED but invalid use is 400 INVALID_USESPEC — never silently replaced with SKU defaults", async () => {
+    // Rejected before any 402 challenge: the agent never pays for a doomed request.
+    const res = await post(base, "/v1/acquire/social-commercial", {
+      use: { channel: 999, commercial: "yes" } // garbage shape
+    });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toBe("INVALID_USESPEC");
+    expect(res.json.hint).toContain("marketplace SKU");
+  });
+
+  it("an ABSENT use selects the fixed marketplace SKU (that IS the direct-mode contract)", async () => {
+    const res = await post(base, "/v1/acquire/social-commercial", { brief: "poster art for launch" });
+    expect(res.status).toBe(402); // proceeds to the payment challenge
+  });
+});

@@ -147,6 +147,36 @@ export class Repo {
     };
   }
 
+  /** Append a signed offer version (no-op if this exact digest is already archived). */
+  archiveOfferVersion(offerDigest: string, offerId: string, offer: CreatorOffer, nowSeconds: number): void {
+    this.db
+      .prepare(`INSERT INTO offer_versions (offer_digest, offer_id, offer_json, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(offer_digest) DO NOTHING`)
+      .run(offerDigest, offerId, JSON.stringify(offer), nowSeconds);
+  }
+
+  /** Fetch the EXACT historical offer a quote/credential referenced. */
+  getOfferByDigest(offerDigest: string): CreatorOffer | undefined {
+    const row = this.db.prepare(`SELECT offer_json FROM offer_versions WHERE offer_digest = ?`).get(offerDigest) as
+      | { offer_json: string }
+      | undefined;
+    if (row) return JSON.parse(row.offer_json) as CreatorOffer;
+    const head = this.db.prepare(`SELECT offer_json FROM offers WHERE offer_digest = ?`).get(offerDigest) as
+      | { offer_json: string }
+      | undefined;
+    return head ? (JSON.parse(head.offer_json) as CreatorOffer) : undefined;
+  }
+
+  archiveLegalText(hash: string, body: string, nowSeconds: number): void {
+    this.db
+      .prepare(`INSERT INTO legal_texts (legal_text_hash, body, created_at) VALUES (?, ?, ?) ON CONFLICT(legal_text_hash) DO NOTHING`)
+      .run(hash, body, nowSeconds);
+  }
+
+  getLegalText(hash: string): string | undefined {
+    const row = this.db.prepare(`SELECT body FROM legal_texts WHERE legal_text_hash = ?`).get(hash) as { body: string } | undefined;
+    return row?.body;
+  }
+
   listActiveOffers(): OfferRow[] {
     const rows = this.db.prepare(`SELECT * FROM offers WHERE active = 1`).all() as Record<string, unknown>[];
     return rows.map((r) => this.mapOffer(r));
@@ -517,6 +547,33 @@ export class Repo {
       .run(address.toLowerCase(), ip, amountMicro, network, nowSeconds);
   }
 
+  /**
+   * ATOMIC cooldown take (round-10): one statement either inserts the first
+   * claim or refreshes an existing one — the refresh succeeding ONLY when the
+   * previous claim is at least `cooldownSeconds` old. Two concurrent requests
+   * can never both win; the check and the write are the same SQL step.
+   */
+  tryTakeFaucetSlot(address: string, ip: string, amountMicro: number, network: string, nowSeconds: number, cooldownSeconds: number): boolean {
+    const r = this.db
+      .prepare(
+        `INSERT INTO faucet_claims (address, ip, amount_micro, network, created_at) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(address, network) DO UPDATE SET
+             ip=excluded.ip, amount_micro=excluded.amount_micro, created_at=excluded.created_at, tx=NULL
+           WHERE excluded.created_at - faucet_claims.created_at >= ?`
+      )
+      .run(address.toLowerCase(), ip, amountMicro, network, nowSeconds, cooldownSeconds);
+    return Number(r.changes) === 1;
+  }
+
+  /**
+   * A failed send must not burn the cooldown: reopen the slot (tx IS NULL ⇒
+   * nothing was delivered this round). The row itself stays — the sponsored
+   * marker only ever errs toward UNDER-counting qualified revenue.
+   */
+  reopenFaucetSlot(address: string, network: string): void {
+    this.db.prepare(`UPDATE faucet_claims SET created_at = 0 WHERE address = ? AND network = ? AND tx IS NULL`).run(address.toLowerCase(), network);
+  }
+
   /** Atomically reserve a claim (one per address PER NETWORK). Returns false if already claimed. */
   reserveFaucetClaim(address: string, ip: string, amountMicro: number, network: string, nowSeconds: number): boolean {
     const result = this.db
@@ -542,6 +599,82 @@ export class Repo {
       this.db.prepare(`UPDATE orders SET status = 'CREATOR_PAID', updated_at = ? WHERE order_id = ?`).run(nowSeconds, orderId);
     });
     tx();
+  }
+
+  /**
+   * Round-10 P0: the send failed with "nonce already consumed" and we hold no
+   * broadcast tx hash to check — an earlier broadcast may have landed untracked.
+   * The only safe automatic action is NONE: park the payout outside the
+   * claimable pool until the admin checks the explorer and either attaches the
+   * found tx or releases a fresh nonce. Auto-retrying with a new nonce here is
+   * exactly the double-pay bug this state exists to prevent.
+   */
+  markPayoutNeedsReconciliation(orderId: string, error: string, nowSeconds: number): void {
+    const tx = this.db.transaction(() => {
+      this.db
+        .prepare(`UPDATE creator_payouts SET state = 'NEEDS_RECONCILIATION', last_error = ?, updated_at = ? WHERE order_id = ? AND payout_type = 'creator_net'`)
+        .run(error, nowSeconds, orderId);
+      // outbox state outside PENDING/LEASED ⇒ claimPayoutJobs can never pick it up again.
+      this.db
+        .prepare(`UPDATE outbox_jobs SET state = 'NEEDS_RECONCILIATION', last_error = ?, updated_at = ? WHERE kind = 'creator_payout' AND ref_id = ?`)
+        .run(error, nowSeconds, orderId);
+      this.db.prepare(`UPDATE orders SET status = 'PAYOUT_NEEDS_RECONCILIATION', updated_at = ? WHERE order_id = ?`).run(nowSeconds, orderId);
+    });
+    tx();
+  }
+
+  /**
+   * Receipt-proven revert: the nonce WAS consumed but no value moved, so — and
+   * only because a receipt proves that — the pinned nonce may be released for
+   * a fresh retry.
+   */
+  clearPayoutNonceAfterRevert(orderId: string, nowSeconds: number): void {
+    this.db
+      .prepare(`UPDATE creator_payouts SET chain_nonce = NULL, broadcast_tx = NULL, updated_at = ? WHERE order_id = ? AND payout_type = 'creator_net'`)
+      .run(nowSeconds, orderId);
+  }
+
+  /** Admin reconcile: attach the explorer-found tx; the worker's receipt check finishes the job. */
+  attachReconciledPayoutTx(orderId: string, broadcastTx: string, nowSeconds: number): boolean {
+    const tx = this.db.transaction(() => {
+      const r = this.db
+        .prepare(
+          `UPDATE creator_payouts SET state = 'BROADCAST', broadcast_tx = ?, last_error = NULL, updated_at = ?
+             WHERE order_id = ? AND payout_type = 'creator_net' AND state = 'NEEDS_RECONCILIATION'`
+        )
+        .run(broadcastTx, nowSeconds, orderId);
+      if (Number(r.changes) !== 1) return false;
+      this.db
+        .prepare(`UPDATE outbox_jobs SET state = 'PENDING', run_after = ?, updated_at = ? WHERE kind = 'creator_payout' AND ref_id = ?`)
+        .run(nowSeconds, nowSeconds, orderId);
+      return true;
+    });
+    return tx();
+  }
+
+  /** Admin reconcile: explorer verified the nonce went to an UNRELATED tx → release for a fresh nonce. */
+  releasePayoutForFreshNonce(orderId: string, nowSeconds: number): boolean {
+    const tx = this.db.transaction(() => {
+      const r = this.db
+        .prepare(
+          `UPDATE creator_payouts SET state = 'PENDING', chain_nonce = NULL, broadcast_tx = NULL, last_error = NULL, updated_at = ?
+             WHERE order_id = ? AND payout_type = 'creator_net' AND state = 'NEEDS_RECONCILIATION'`
+        )
+        .run(nowSeconds, orderId);
+      if (Number(r.changes) !== 1) return false;
+      this.db
+        .prepare(`UPDATE outbox_jobs SET state = 'PENDING', run_after = ?, updated_at = ? WHERE kind = 'creator_payout' AND ref_id = ?`)
+        .run(nowSeconds, nowSeconds, orderId);
+      return true;
+    });
+    return tx();
+  }
+
+  /** Fast requeue while a broadcast awaits its receipt (~seconds, not the full lease). */
+  requeuePayoutJob(orderId: string, runAfter: number, nowSeconds: number): void {
+    this.db
+      .prepare(`UPDATE outbox_jobs SET state = 'PENDING', run_after = ?, updated_at = ? WHERE kind = 'creator_payout' AND ref_id = ? AND state = 'LEASED'`)
+      .run(runAfter, nowSeconds, orderId);
   }
 
   markPayoutFailed(orderId: string, error: string, retryAt: number, terminal: boolean, nowSeconds: number): void {

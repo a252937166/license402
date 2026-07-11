@@ -24,6 +24,8 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test
+      - name: Evidence bundles verify offline (signatures, digests, commitments)
+        run: npm run verify:evidence
       - name: Build
         run: npm run build
       - name: Audit (report-only, non-blocking by design)

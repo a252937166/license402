@@ -16,7 +16,7 @@ import type { CatalogOffer } from "./license/quote.js";
 import { useSpecHash } from "./license/commitments.js";
 import { checkLicenseScope } from "./license/scopeCheck.js";
 import { EIP712_TYPES } from "./license/eip712.js";
-import { EIP712_DOMAIN } from "./license/vocab.js";
+import { CREDENTIAL_VERSION, EIP712_DOMAIN } from "./license/vocab.js";
 import { formatMicroUsdt, CREATOR_PAYOUT_MICRO, PLATFORM_FEE_MICRO, SALE_PRICE_MICRO } from "./license/money.js";
 import { UseSpecSchema } from "./license/types.js";
 import { onSettlementFailure, onSettlementSuccess, prepareDelivery, prepareDirectDelivery, validateSignedAcquire, SETTLED_STATES } from "./orders/prepare.js";
@@ -184,6 +184,27 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.json({ ok: true, service: "license402", paymentMode: config.paymentMode, issuer: config.issuerAddress });
   });
 
+  // Deep readiness (round-10): proves the pieces a purchase would touch are
+  // actually wired — db writable, catalog loaded, rails + live secrets present.
+  app.get("/readyz", (_req, res) => {
+    const checks: Record<string, boolean> = {};
+    try {
+      checks.db = Boolean(db.prepare("SELECT 1 AS one").get());
+    } catch {
+      checks.db = false;
+    }
+    checks.catalog = catalogOffers().length > 0;
+    checks.mainnetRail = Boolean(payment);
+    checks.testnetRail = Boolean(paymentTestnet);
+    if (config.paymentMode === "live") {
+      checks.assetUrlSecret = Boolean(process.env.ASSET_URL_HMAC_SECRET?.trim());
+      checks.deliveryTicketSecret = Boolean(process.env.DELIVERY_TICKET_HMAC_SECRET?.trim());
+      checks.adminToken = Boolean(process.env.ADMIN_TOKEN?.trim());
+    }
+    const ready = Object.values(checks).every(Boolean);
+    res.status(ready ? 200 : 503).json({ ready, checks, paymentMode: config.paymentMode });
+  });
+
   // --- POST /v1/quote (free) -------------------------------------------------
   app.post("/v1/quote", (req: Request, res: Response) => {
     const parsedUse = UseSpecSchema.safeParse(req.body?.use);
@@ -334,6 +355,25 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
     const isDirect = !hasCommitment;
 
+    // Direct-mode terms (round-10): an x402 payment signature binds the MONEY,
+    // not the terms — so direct mode sells exactly ONE fixed marketplace SKU
+    // (documented default terms), and the terms binding is the issuer-signed
+    // credential over the canonical UseSpec. A PROVIDED `use` that fails
+    // validation is therefore a 400 — never silently replaced with defaults
+    // the caller didn't ask for. Checked BEFORE the 402 challenge so an agent
+    // never signs a payment for a doomed request.
+    if (isDirect && req.body?.use !== undefined) {
+      const probe = UseSpecSchema.safeParse(req.body.use);
+      if (!probe.success) {
+        res.status(400).json({
+          error: "INVALID_USESPEC",
+          detail: probe.error.issues.slice(0, 3).map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+          hint: "omit `use` to buy the fixed marketplace SKU (default terms), or send a valid UseSpec"
+        });
+        return;
+      }
+    }
+
     const verified = await rail.verify(req);
     if (!verified) {
       // Business preflight BEFORE the 402 challenge (review §9): a buyer is
@@ -372,6 +412,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         typeof req.body?.brief === "string" && req.body.brief.trim()
           ? req.body.brief.trim().slice(0, 240)
           : "commercial social campaign image";
+      // By this point `use` is either ABSENT (→ the fixed marketplace SKU
+      // below) or VALID (the guard above already 400'd anything else).
       const parsedUse = UseSpecSchema.safeParse(req.body?.use);
       // payment-ref salt in the brief → every distinct payment pins its own
       // quote/order (direct purchases are one-license-per-payment by design).
@@ -489,7 +531,10 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     const outcome = await rail.settle(verified);
     if (outcome.status === "success") {
       onSettlementSuccess(repo, prepared.delivery.orderId, outcome.tx, { nowSeconds: now() });
-      await runPayoutWorker(repo, config, now, payoutSenders).catch((e) => console.warn("[payout] inline:", e));
+      // Payout runs ASYNC — the buyer's delivery must never wait on the creator
+      // broadcast. The outbox job is already persisted; this kick plus the live
+      // reconcile interval drain it, and a crash loses nothing.
+      void runPayoutWorker(repo, config, now, payoutSenders).catch((e) => console.warn("[payout] inline:", e));
       // Standard x402 v2 receipt: the settle response, base64-encoded —
       // persisted so idempotent replays return the identical header.
       if (outcome.responseHeader) {
@@ -521,7 +566,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
           const st = await rail.settleStatus(outcome.tx);
           if (st.status === "success") {
             onSettlementSuccess(repo, prepared.delivery.orderId, outcome.tx, { nowSeconds: now() });
-            await runPayoutWorker(repo, config, now, payoutSenders).catch(() => {});
+            void runPayoutWorker(repo, config, now, payoutSenders).catch(() => {});
             const header = synthesizePaymentResponse(outcome.tx, wantTestnet ? config.testnet!.network : config.network, verified.verifiedPayer);
             if (header) {
               repo.setPaymentResponseHeader(prepared.delivery.orderId, header, now());
@@ -723,6 +768,38 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     });
   });
 
+  // --- GET /v1/offers/:offerId — the full signed CreatorOffer (head version)
+  app.get("/v1/offers/:offerId", (req: Request, res: Response) => {
+    const row = repo.getOffer(String(req.params.offerId));
+    if (!row) return void res.status(404).json({ error: "OFFER_NOT_FOUND" });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ offer: row.offer, offerDigest: row.offerDigest, verify: "recover the EIP-712 CreatorOffer signer; it must equal licensorWallet" });
+  });
+
+  // --- GET /v1/attestations/:slug — the rights attestation whose sha256 the offer pins
+  app.get("/v1/attestations/:slug", (req: Request, res: Response) => {
+    const slug = String(req.params.slug);
+    if (!/^[a-z0-9-]{1,64}$/.test(slug)) return void res.status(400).json({ error: "INVALID_SLUG" });
+    const path = resolve(PROJECT_ROOT, `catalog/attestations/${slug}.md`);
+    if (!existsSync(path)) return void res.status(404).json({ error: "ATTESTATION_NOT_FOUND" });
+    const body = readFileSync(path);
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader("X-Attestation-Sha256", sha256Hex(body));
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(body);
+  });
+
+  // --- GET /v1/legal/:hash — the exact legal text bytes a credential references
+  app.get("/v1/legal/:hash", (req: Request, res: Response) => {
+    const hash = String(req.params.hash);
+    if (!/^0x[0-9a-f]{64}$/.test(hash)) return void res.status(400).json({ error: "INVALID_HASH" });
+    const body = repo.getLegalText(hash);
+    if (!body) return void res.status(404).json({ error: "LEGAL_TEXT_NOT_FOUND" });
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    res.send(body);
+  });
+
   // --- GET /v1/orders/:orderId/bundle — the full reproducible proof chain ----
   app.get("/v1/orders/:orderId/bundle", (req: Request, res: Response) => {
     const order = repo.getOrder(String(req.params.orderId));
@@ -731,6 +808,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return;
     }
     const quote = repo.getQuoteById(order.quoteId);
+    // The bundle must carry the offer version THIS order was made under —
+    // never the current head, which may have been re-signed since.
+    const historicalOffer = quote ? repo.getOfferByDigest(quote.offerDigest) : undefined;
     const offerRow = quote ? repo.getOffer(quote.offerId) : undefined;
     const credential = repo.getLicenseByOrder(order.orderId);
     const payout = repo.getPayout(order.orderId);
@@ -745,9 +825,28 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
               record: order.purchaseIntent
             }
           : { mode: "eip712_purchase_intent", note: "Buyer-signed EIP-712 PurchaseIntent (recover the signer to verify)." },
-      creatorOffer: offerRow?.offer ?? null,
+      creatorOffer: historicalOffer ?? offerRow?.offer ?? null,
+      legalTextUrl: historicalOffer ? `${config.publicOrigin}/v1/legal/${historicalOffer.legalTextHash}` : null,
       quote: quote
-        ? { quoteId: quote.quoteId, quoteCommitment: quote.quoteCommitment, offerDigest: quote.offerDigest, useSpec: quote.useSpec, priceMicro: quote.priceMicro, platformFeeMicro: quote.platformFeeMicro, creatorPayoutMicro: quote.creatorPayoutMicro, expiresAt: quote.expiresAt }
+        ? {
+            quoteId: quote.quoteId,
+            quoteCommitment: quote.quoteCommitment,
+            offerDigest: quote.offerDigest,
+            useSpec: quote.useSpec,
+            priceMicro: quote.priceMicro,
+            platformFeeMicro: quote.platformFeeMicro,
+            creatorPayoutMicro: quote.creatorPayoutMicro,
+            // Rail + idempotency key make the commitment fully recomputable
+            // offline (scripts/verify-evidence.ts) — nothing here is secret
+            // once the purchase exists. v1-era quotes (migration backfill has
+            // an empty paymentAsset) are emitted WITHOUT rail fields: their
+            // commitment predates rail binding and must recompute as v1.
+            ...(quote.paymentAsset
+              ? { settlementNetwork: quote.settlementNetwork, paymentAsset: quote.paymentAsset, payTo: quote.payTo }
+              : {}),
+            idempotencyKey: quote.idempotencyKey,
+            expiresAt: quote.expiresAt
+          }
         : null,
       purchaseIntent: order.purchaseIntent,
       licenseCredential: credential ?? null,
@@ -863,11 +962,6 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       res.status(400).json({ error: "INVALID_ADDRESS" });
       return;
     }
-    const prior = repo.getFaucetClaim(address, "testnet");
-    if (prior && now() - Number(prior.created_at ?? 0) < 60) {
-      res.status(429).json({ error: "COOLDOWN", detail: "wait a minute between claims" });
-      return;
-    }
     try {
       const pool = Number(await chainTest.usdtBalance(chainTest.address));
       if (pool - 100_000 < FAUCET_AMOUNT_MICRO) {
@@ -878,13 +972,20 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       res.status(502).json({ error: "CHAIN_UNAVAILABLE" });
       return;
     }
+    // ATOMIC cooldown (round-10): check-and-take is ONE sql statement — two
+    // concurrent claims for the same address can never both pass.
     const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
-    repo.upsertFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, "testnet", now());
+    if (!repo.tryTakeFaucetSlot(address, ip, FAUCET_AMOUNT_MICRO, "testnet", now(), 60)) {
+      res.status(429).json({ error: "COOLDOWN", detail: "wait a minute between claims" });
+      return;
+    }
     try {
       const tx = await chainTest.transferUsdt(address, FAUCET_AMOUNT_MICRO);
       repo.recordFaucetTx(address, "testnet", tx);
       res.status(200).json({ ok: true, network: "testnet", tx, amount: "0.5", explorer: `${config.testnet.explorerTx}${tx}` });
     } catch (e) {
+      // Nothing was delivered — reopen the slot so the retry isn't punished.
+      repo.reopenFaucetSlot(address, "testnet");
       res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
     }
   });
@@ -926,6 +1027,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.json({
       offers: catalogOffers().map((c) => ({
         assetId: c.offer.assetId,
+        offerId: c.offer.offerId,
         title: c.title,
         creator: c.creatorDisplay,
         previewUrl: `${config.publicOrigin}/v1/previews/${c.offer.assetId}`,
@@ -933,6 +1035,10 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         modelTraining: c.offer.policy.modelTraining,
         expired: c.offer.validUntil < now(),
         creatorNetPrice: c.offer.creatorNetPrice,
+        // Provenance: the signed offer JSON + the rights attestation the
+        // creator hashed into it — both linkable from the market cards.
+        offerUrl: `${config.publicOrigin}/v1/offers/${c.offer.offerId}`,
+        attestationUrl: `${config.publicOrigin}/v1/attestations/${c.offer.offerId.replace(/^off-/, "")}`,
         tags: c.tags ?? []
       }))
     });
@@ -965,7 +1071,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     } catch {
       // local dev — no build stamp
     }
-    res.json({ ...build, paymentMode: config.paymentMode, apiVersion: "1", credentialVersion: "1", x402Version: 2 });
+    res.json({ ...build, paymentMode: config.paymentMode, apiVersion: "2", credentialVersion: CREDENTIAL_VERSION, eip712DomainVersion: EIP712_DOMAIN.version, x402Version: 2 });
   });
   // Reconcile settlements the facilitator left pending/timeout, then drain payouts.
   // Idempotent and side-effect-safe (never moves new buyer funds); also runs on a
@@ -987,6 +1093,38 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     } catch (e) {
       res.status(500).json({ ok: false, error: e instanceof Error ? e.message : "reconcile failed" });
     }
+  });
+
+  // Resolve a payout parked in NEEDS_RECONCILIATION (nonce consumed, hash lost).
+  // Two explicit admin actions, mirroring what the explorer shows:
+  //   {action:"attach_tx", tx}   — the broadcast DID land; worker confirms → PAID
+  //   {action:"fresh_nonce"}     — nonce went to an unrelated tx; retry fresh
+  // There is deliberately NO automatic path out of this state (round-10 P0).
+  app.post("/internal/payouts/:orderId/reconcile", express.json(), (req, res) => {
+    if (config.paymentMode === "live") {
+      const adminToken = process.env.ADMIN_TOKEN?.trim();
+      if (!adminToken || req.header("x-admin-token") !== adminToken) {
+        res.status(401).json({ error: "UNAUTHORIZED" });
+        return;
+      }
+    }
+    const orderId = String(req.params.orderId);
+    const action = (req.body as { action?: string })?.action;
+    if (action === "attach_tx") {
+      const tx = (req.body as { tx?: string })?.tx;
+      if (!tx || !/^0x[0-9a-fA-F]{64}$/.test(tx)) return void res.status(400).json({ error: "INVALID_TX" });
+      const ok = repo.attachReconciledPayoutTx(orderId, tx, now());
+      if (!ok) return void res.status(409).json({ error: "NOT_IN_NEEDS_RECONCILIATION" });
+      void runPayoutWorker(repo, config, now, payoutSenders).catch(() => {});
+      return void res.json({ ok: true, orderId, state: "BROADCAST", tx });
+    }
+    if (action === "fresh_nonce") {
+      const ok = repo.releasePayoutForFreshNonce(orderId, now());
+      if (!ok) return void res.status(409).json({ error: "NOT_IN_NEEDS_RECONCILIATION" });
+      void runPayoutWorker(repo, config, now, payoutSenders).catch(() => {});
+      return void res.json({ ok: true, orderId, state: "PENDING" });
+    }
+    res.status(400).json({ error: "INVALID_ACTION", allowed: ["attach_tx", "fresh_nonce"] });
   });
   app.get("/ledger.html", (_req, res) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -1055,8 +1193,11 @@ function ledgerJson(db: AppDatabase): unknown {
   const orders = db
     .prepare(
       `SELECT o.order_id, o.status, o.buyer_settle_tx, o.environment, o.created_at,
+              p.confirmed_tx AS creator_payout_tx, p.state AS payout_state,
               CASE WHEN f.address IS NOT NULL THEN 1 ELSE 0 END AS sponsored
-         FROM orders o LEFT JOIN faucet_claims f
+         FROM orders o
+         LEFT JOIN creator_payouts p ON p.order_id = o.order_id AND p.payout_type = 'creator_net'
+         LEFT JOIN faucet_claims f
            ON f.address = o.licensee_wallet AND f.network = 'mainnet' AND o.environment = 'production'
          ORDER BY o.created_at DESC LIMIT 100`
     )
@@ -1076,6 +1217,19 @@ function ledgerJson(db: AppDatabase): unknown {
     .prepare(
       `SELECT COUNT(*) AS n FROM creator_payouts p JOIN orders o ON o.order_id = p.order_id
          WHERE p.state = 'PAID' AND o.environment = 'production'`
+    )
+    .get() as { n: number };
+  // Testnet split (round-10): settled ≠ paid-out — show both, never conflate.
+  const testnetSettled = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM orders
+         WHERE environment = 'testnet' AND status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','CREATOR_PAID')`
+    )
+    .get() as { n: number };
+  const testnetPaid = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM creator_payouts p JOIN orders o ON o.order_id = p.order_id
+         WHERE p.state = 'PAID' AND o.environment = 'testnet'`
     )
     .get() as { n: number };
   // Qualified = production AND the buyer never drew faucet funds (self-funded).
@@ -1098,6 +1252,7 @@ function ledgerJson(db: AppDatabase): unknown {
       qualified: qualified.n,
       sponsored: prodSettled.n - qualified.n
     },
+    testnet: { settled: testnetSettled.n, payoutsPaid: testnetPaid.n },
     orders
   };
 }

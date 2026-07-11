@@ -76,8 +76,9 @@ describe("EIP-712 implementation", () => {
     expect(ours).toBe(theirs.toLowerCase());
   });
 
-  it("produces signatures viem can recover (cross-recovery)", async () => {
-    const offer = makeOffer();
+  it("produces signatures viem can recover (cross-recovery, both domain versions)", async () => {
+    // Current domain (v2): an offerVersion-2 offer recovers under version "2".
+    const offer = makeOffer({ offer: { offerVersion: 2 } });
     const { signature, ...unsigned } = offer;
     const recovered = await recoverTypedDataAddress({
       domain: VIEM_DOMAIN,
@@ -87,6 +88,19 @@ describe("EIP-712 implementation", () => {
       signature: signature as `0x${string}`
     });
     expect(recovered.toLowerCase()).toBe(CREATOR_ADDRESS);
+
+    // Historical domain (v1): archived offerVersion-1 offers stay recoverable
+    // under version "1" forever — the compatibility promise of round-10.
+    const offerV1 = makeOffer();
+    const { signature: sigV1, ...unsignedV1 } = offerV1;
+    const recoveredV1 = await recoverTypedDataAddress({
+      domain: { ...VIEM_DOMAIN, version: "1" },
+      types: VIEM_TYPES,
+      primaryType: "CreatorOffer",
+      message: toViemMessage(offerToTypedMessage(unsignedV1)) as never,
+      signature: sigV1 as `0x${string}`
+    });
+    expect(recoveredV1.toLowerCase()).toBe(CREATOR_ADDRESS);
   });
 
   it("sign/recover roundtrip and tamper detection", () => {

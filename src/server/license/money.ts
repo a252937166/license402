@@ -7,6 +7,12 @@ export const CREATOR_PAYOUT_MICRO = 70_000; // 0.07 USDT
 export const PLATFORM_FEE_MICRO = 30_000; // 0.03 USDT — platform fee, not profit
 export const CURRENCY = "USDT";
 
+// The split MUST cover the sale exactly — asserted at load so a careless edit
+// to one constant can never ship a quote whose parts disagree with its total.
+if (CREATOR_PAYOUT_MICRO + PLATFORM_FEE_MICRO !== SALE_PRICE_MICRO) {
+  throw new Error("price split invariant broken: CREATOR_PAYOUT_MICRO + PLATFORM_FEE_MICRO must equal SALE_PRICE_MICRO");
+}
+
 export function parseUsdtToMicro(value: string): number {
   if (!USDT_DECIMAL_PATTERN.test(value)) {
     throw new TypeError(`Not a plain USDT decimal string: ${JSON.stringify(value)}`);

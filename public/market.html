@@ -39,6 +39,7 @@
   .card .in{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
   .card .t{font-weight:800;font-size:17px}
   .card .c{font-family:var(--mono);font-size:10.5px;color:var(--fog-2)}
+  .prov{font-family:var(--mono,monospace);font-size:11px;margin:6px 0 2px;opacity:.75}.prov a{color:inherit;text-decoration:underline dotted}.prov a:hover{opacity:1}
   .chips{display:flex;flex-wrap:wrap;gap:5px}
   .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;padding:3px 8px;border:1px solid var(--line-strong);border-radius:999px;color:var(--fog)}
   .chip.no{color:var(--denied);border-color:var(--denied)}
@@ -84,16 +85,19 @@
       const chips=o.commercialUse===false
         ?'<span class="chip no">Commercial use</span><span class="chip">Editorial only</span>'
         :'<span class="chip">Commercial social</span><span class="chip">Crop · text</span><span class="chip">Worldwide</span><span class="chip no">Training</span><span class="chip no">Resale</span>';
-      const offerId="off-"+o.assetId.replace(/^asset-/,"");
+      const offerId=o.offerId||("off-"+o.assetId.replace(/^asset-/,""));
       const cta=eligible
         ?`<span class="price"><b>0.10</b> USDT</span><a class="go" href="/buy?offerId=${encodeURIComponent(offerId)}">BUY THIS →</a>`
         :`<span class="why">${o.commercialUse===false?"COMMERCIAL_USE_PROHIBITED":"OFFER_EXPIRED"}</span><a class="go" href="/#console">SEE THE REJECT →</a>`;
+      const prov=(o.offerUrl?`<a href="${o.offerUrl}" target="_blank" rel="noopener">Signed offer ↗</a>`:"")
+        +(o.attestationUrl?` · <a href="${o.attestationUrl}" target="_blank" rel="noopener">Rights attestation ↗</a>`:"");
       return `<div class="card">
         <div class="imgwrap"><img loading="lazy" decoding="async" src="${o.previewUrl}" alt="${o.title}">${badge}</div>
         <div class="in">
           <div class="t">${o.title}</div>
           <div class="c">by ${o.creator||"Genesis Studio"} · ${o.assetId}</div>
           <div class="chips">${chips}</div>
+          <div class="prov">${prov}</div>
           <div class="row">${cta}</div>
         </div>
       </div>`;

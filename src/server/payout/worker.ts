@@ -85,7 +85,7 @@ export async function runPayoutWorker(
 
   for (const orderId of orderIds) {
     const payout = repo.getPayout(orderId);
-    if (!payout || payout.state === "PAID") continue;
+    if (!payout || payout.state === "PAID" || payout.state === "NEEDS_RECONCILIATION") continue;
     const order = repo.getOrder(orderId);
     const sender = senderFor(order?.environment ?? "sample");
     if (!sender) {
@@ -95,35 +95,46 @@ export async function runPayoutWorker(
 
     try {
       // Already broadcast → only the receipt decides. Never re-send, never
-      // assume: confirmed → PAID; reverted → retry with a fresh nonce;
-      // pending → leave for the next pass.
+      // assume: confirmed → PAID; reverted → receipt proves no value moved, so
+      // (and only then) the nonce is released for a fresh retry; pending →
+      // fast-requeue so the receipt is re-checked in seconds, not a full lease.
       if (payout.state === "BROADCAST" && payout.broadcast_tx) {
         const status = await sender.confirm(payout.broadcast_tx as string);
         if (status === "confirmed") {
           repo.markPayoutPaid(orderId, payout.broadcast_tx as string, now());
           processed += 1;
         } else if (status === "reverted") {
+          repo.clearPayoutNonceAfterRevert(orderId, now());
           repo.markPayoutFailed(orderId, "payout tx reverted", now() + 60, false, now());
+        } else {
+          repo.requeuePayoutJob(orderId, now() + 8, now());
         }
         continue;
       }
 
       const amountMicro = payout.amount_micro as number;
       const wallet = payout.payout_wallet as string;
-      // Crash recovery: a SENDING row already reserved its nonce — retry with
-      // the SAME nonce so at most one transfer can ever land.
-      const nonce =
-        payout.state === "SENDING" && payout.chain_nonce != null ? Number(payout.chain_nonce) : await sender.reserveNonce();
+      // NONCE DISCIPLINE (round-10 P0): a payout that has EVER persisted a
+      // nonce may only ever retry with that same nonce — whatever intermediate
+      // state a crash or error left it in. The chain accepts one tx per nonce,
+      // so the same-nonce retry can never produce a second transfer. Reserving
+      // a fresh nonce for a row that already holds one is the only way this
+      // system could pay a creator twice; it never does.
+      const nonce = payout.chain_nonce != null ? Number(payout.chain_nonce) : await sender.reserveNonce();
       repo.recordPayoutIntent(orderId, nonce, now());
       let tx: string;
       try {
         tx = await sender.send(orderId, wallet, amountMicro, nonce);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        // "nonce too low" after a crash-retry means the earlier broadcast DID
-        // land — flag for reconciliation rather than paying twice.
+        // "nonce too low / already known" on a pinned-nonce retry means an
+        // earlier broadcast DID land but we never learned its hash. That money
+        // may already be with the creator — so this is parked for explicit
+        // reconciliation (admin attaches the explorer-found tx, or releases a
+        // fresh nonce after verifying the nonce went elsewhere). NEVER retried
+        // automatically, NEVER given a new nonce.
         if (/nonce too low|already known|replacement/i.test(msg)) {
-          repo.markPayoutFailed(orderId, `nonce ${nonce} already consumed — verify on explorer before manual retry`, now() + 3600, false, now());
+          repo.markPayoutNeedsReconciliation(orderId, `nonce ${nonce} already consumed — verify on explorer, then attach tx or release`, now());
           continue;
         }
         throw e;
@@ -133,8 +144,10 @@ export async function runPayoutWorker(
       if (status === "confirmed") {
         repo.markPayoutPaid(orderId, tx, now());
         processed += 1;
+      } else {
+        // Receipt not yet visible → re-check in seconds (state BROADCAST).
+        repo.requeuePayoutJob(orderId, now() + 8, now());
       }
-      // pending → next pass re-checks the receipt (state BROADCAST).
     } catch (error) {
       const attempts = Number(payout.attempts ?? 0);
       const terminal = attempts >= 5;

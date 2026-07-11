@@ -213,8 +213,11 @@
         if (!QUOTE) throw new Error("Re-quote failed");
       }
       const f2 = QUOTE.purchaseIntentFields;
+      // Price comes from the QUOTE (exact integer sum of the signed split) —
+      // never a hardcoded constant that could drift from what the server binds.
+      const priceMicro = String(Number(f2.creatorPayoutMicro) + Number(f2.platformFeeMicro));
       const nonce = randNonce();
-      const message = { quoteId: f2.quoteId, quoteCommitment: f2.quoteCommitment, buyer: ACC, licensee: ACC, assetSha256: f2.assetSha256, offerDigest: f2.offerDigest, policyAstHash: f2.policyAstHash, legalTextHash: f2.legalTextHash, totalPriceMicro: "100000", currency: "USDT", settlementNetwork: f2.settlementNetwork, paymentAsset: f2.paymentAsset, payTo: f2.payTo, creatorPayoutMicro: String(f2.creatorPayoutMicro), platformFeeMicro: String(f2.platformFeeMicro), expiresAt: f2.expiresAt, nonce };
+      const message = { quoteId: f2.quoteId, quoteCommitment: f2.quoteCommitment, buyer: ACC, licensee: ACC, assetSha256: f2.assetSha256, offerDigest: f2.offerDigest, policyAstHash: f2.policyAstHash, legalTextHash: f2.legalTextHash, totalPriceMicro: priceMicro, currency: "USDT", settlementNetwork: f2.settlementNetwork, paymentAsset: f2.paymentAsset, payTo: f2.payTo, creatorPayoutMicro: String(f2.creatorPayoutMicro), platformFeeMicro: String(f2.platformFeeMicro), expiresAt: f2.expiresAt, nonce };
       btn.textContent = "Signature 1/2 — terms…";
       const sig = await eth.request({ method: "eth_signTypedData_v4", params: [ACC, JSON.stringify({ domain: td.domain, types: td.types, primaryType: "PurchaseIntent", message })] });
       $("#sigIntentTxt").textContent = short(sig) + " ✓"; $("#sigIntentTxt").classList.add("ok");
@@ -230,8 +233,9 @@
       let payHeaders = null;
       if (r.status === 402) {
         btn.textContent = "Signature 2/2 — payment…";
-        // Business preflight: the challenge must match the displayed terms.
-        payHeaders = await L402PAY.buildPaymentHeaders(r.json, eth, ACC, { network: rail().network, asset: rail().asset, amount: "100000" });
+        // Business preflight: the challenge must match the displayed terms —
+        // rail, token, RECIPIENT and amount all pinned to the signed quote.
+        payHeaders = await L402PAY.buildPaymentHeaders(r.json, eth, ACC, { network: rail().network, asset: rail().asset, payTo: f2.payTo, amount: priceMicro });
         $("#sigPayTxt").textContent = "authorized ✓"; $("#sigPayTxt").classList.add("ok");
         // Crash recovery: persist BEFORE the settle round-trip. Replays are
         // idempotent server-side (same authorization → same delivery).

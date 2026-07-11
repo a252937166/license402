@@ -30,7 +30,9 @@ export interface EligibilityContext {
 
 export function verifyOfferSignature(offer: CreatorOffer): boolean {
   const { signature, ...unsigned } = offer;
-  const signer = recoverTypedDataSigner("CreatorOffer", offerToTypedMessage(unsigned), signature);
+  // Verified under the domain version the offer was signed with — archived
+  // v1 offers stay verifiable after the service's domain moved to v2.
+  const signer = recoverTypedDataSigner("CreatorOffer", offerToTypedMessage(unsigned), signature, offer.offerVersion >= 2 ? "2" : "1");
   return signer !== null && signer === normalizeAddress(offer.licensorWallet);
 }
 

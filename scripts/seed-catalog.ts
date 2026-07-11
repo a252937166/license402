@@ -89,7 +89,7 @@ for (const spec of SPECS) {
 
   const unsigned: UnsignedCreatorOffer = {
     offerId: `off-${spec.slug}`,
-    offerVersion: 1,
+    offerVersion: 2, // v2 = signed under EIP-712 domain version 2 (round-10)
     assetId: `asset-${spec.slug}`,
     assetSha256,
     mimeType: "image/png",

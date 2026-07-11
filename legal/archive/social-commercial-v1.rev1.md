@@ -1,14 +1,12 @@
 LICENSE402 STANDARD SOCIAL COMMERCIAL LICENSE
 Template ID: social-commercial-v1
-Version: 2 (Pilot Terms)
+Version: 1 (Pilot Terms)
 
 1. PARTIES.
    "Licensor" is the wallet address that signed the CreatorOffer for the Asset.
-   "Licensee" is the wallet address that expressly authorized the purchase and
-   settled payment — either by signing an EIP-712 PurchaseIntent, or by signing
-   the x402 payment authorization itself in a direct purchase (the credential's
-   authorizationMode records which). "LICENSE402" (the "Service") is the issuer
-   that mints the License Credential after verifying consent and settlement.
+   "Licensee" is the wallet address that signed the PurchaseIntent and settled
+   payment. "LICENSE402" (the "Service") is the issuer that mints the License
+   Credential after verifying consent and settlement.
 
 2. ASSET. This license applies to the single image identified by the SHA-256
    hash recorded in the License Credential ("assetSha256"). It applies to no

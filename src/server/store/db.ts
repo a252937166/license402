@@ -56,6 +56,23 @@ CREATE TABLE IF NOT EXISTS assets (
   created_at INTEGER NOT NULL
 );
 
+-- APPEND-ONLY signed-material archive (review round 10 P0-1): a signed offer
+-- or legal text is NEVER updated in place. Heads (the mutable current catalog)
+-- live in the offers table; every version ever seen lives here forever, so
+-- historical proof bundles re-verify byte-for-byte.
+CREATE TABLE IF NOT EXISTS offer_versions (
+  offer_digest TEXT PRIMARY KEY,
+  offer_id TEXT NOT NULL,
+  offer_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS legal_texts (
+  legal_text_hash TEXT PRIMARY KEY,
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS quotes (
   quote_id TEXT PRIMARY KEY,
   quote_commitment TEXT NOT NULL,

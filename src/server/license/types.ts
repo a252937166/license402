@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   ACTIONS,
   CHANNEL_NAMES,
-  CREDENTIAL_VERSION,
+  CREDENTIAL_VERSIONS,
   TEMPLATE_ID,
   TRANSFORMATION_NAMES
 } from "./vocab.js";
@@ -123,7 +123,7 @@ export type AuthorizationMode = "eip712_purchase_intent" | "x402_direct";
  * final settlement truth lives at statusUrl (`GET /v1/orders/:orderId`).
  */
 export const LicenseCredentialSchema = z.strictObject({
-  credentialVersion: z.literal(CREDENTIAL_VERSION),
+  credentialVersion: z.enum(CREDENTIAL_VERSIONS),
   licenseId: id,
   templateId: z.literal(TEMPLATE_ID),
   issuer: address,

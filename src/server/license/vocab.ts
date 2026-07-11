@@ -5,8 +5,14 @@
 
 export const POLICY_VERSION = 1;
 export const TEMPLATE_ID = "social-commercial-v1";
-export const CREDENTIAL_VERSION = "1";
-export const EIP712_DOMAIN = Object.freeze({ name: "LICENSE402", version: "1", chainId: 196 });
+// v2 (round-10): the PurchaseIntent struct gained the settlement-rail fields
+// and the credential gained rail semantics — the version identifiers now say
+// so. v1-signed materials (offers, intents, credentials) remain verifiable
+// forever via the explicit domain-version parameter on the verify functions.
+export const CREDENTIAL_VERSION = "2";
+export const CREDENTIAL_VERSIONS = ["1", "2"] as const;
+export const EIP712_DOMAIN = Object.freeze({ name: "LICENSE402", version: "2", chainId: 196 });
+export const EIP712_DOMAIN_V1 = Object.freeze({ name: "LICENSE402", version: "1", chainId: 196 });
 
 export const CHANNELS = Object.freeze({ x: 1, linkedin: 2, instagram: 4 } as const);
 export type Channel = keyof typeof CHANNELS;

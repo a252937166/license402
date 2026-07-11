@@ -86,9 +86,10 @@ export function validateSignedAcquire(
   if (!parsedIntent.success) return { ok: false, error: { code: "INTENT_INVALID", http: 400, detail: "schema" } };
   const intent: PurchaseIntent = parsedIntent.data;
 
-  const offerRow = repo.getOffer(quote.offerId);
-  if (!offerRow) return { ok: false, error: { code: "QUOTE_NOT_FOUND", http: 404 } };
-  const offer = offerRow.offer;
+  // Resolve the EXACT signed offer version this quote referenced — a catalog
+  // re-sign between quote and payment must never invalidate or reinterpret it.
+  const offer = repo.getOfferByDigest(quote.offerDigest);
+  if (!offer) return { ok: false, error: { code: "QUOTE_NOT_FOUND", http: 404 } };
   const astHash = policyAstHash(offer.policy);
 
   // The intent must reference exactly this quote/offer/policy/legal-text/price

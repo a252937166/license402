@@ -93,10 +93,13 @@ export function makeOffer(options: MakeOfferOptions = {}): CreatorOffer {
     nonce: sha256Hex("offer-nonce-1"),
     ...options.offer
   };
+  // Sign under the offer's OWN domain version (v1 offers ⇄ domain v1),
+  // mirroring the seeder and the version-aware verifier.
   const signature = signTypedData(
     "CreatorOffer",
     offerToTypedMessage(unsigned),
-    options.signingKey ?? CREATOR_KEY
+    options.signingKey ?? CREATOR_KEY,
+    unsigned.offerVersion >= 2 ? "2" : "1"
   );
   return CreatorOfferSchema.parse({ ...unsigned, signature });
 }

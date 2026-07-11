@@ -87,3 +87,65 @@ describe("sqlite anti-duplication invariants", () => {
     ).toThrow(/UNIQUE/);
   });
 });
+
+// Round-10 invariant: signed materials are append-only. A catalog re-sign must
+// never change what an already-issued quote/credential digest resolves to.
+describe("immutable signed materials (offer_versions / legal_texts)", () => {
+  it("a head re-sign never changes what an archived offer digest resolves to", async () => {
+    const { Repo } = await import("../../src/server/store/repo.js");
+    const repo = new Repo(openDatabase(":memory:"));
+    const v1 = { offerId: "off-x", offerVersion: 1, creatorNetPrice: "0.07" } as any;
+    const v2 = { offerId: "off-x", offerVersion: 2, creatorNetPrice: "0.09" } as any;
+    const head = (offer: any, digest: string) => ({
+      offerId: "off-x", offerDigest: digest, assetId: "a", assetSha256: "0xa",
+      licensorWallet: "0x01", payoutWallet: "0x02", creatorNetPriceMicro: 70000,
+      validFrom: 0, validUntil: 99, active: true, offer
+    });
+
+    repo.archiveOfferVersion("0xd1", "off-x", v1, 1);
+    repo.upsertOffer(head(v1, "0xd1"), 1);
+    // Re-sign: head moves to v2, v2 gets archived too.
+    repo.archiveOfferVersion("0xd2", "off-x", v2, 2);
+    repo.upsertOffer(head(v2, "0xd2"), 2);
+
+    expect(repo.getOfferByDigest("0xd1")).toEqual(v1); // old quote still resolves
+    expect(repo.getOfferByDigest("0xd2")).toEqual(v2);
+    expect(repo.getOffer("off-x")?.offerDigest).toBe("0xd2"); // head is new
+
+    // Append-only: re-archiving the same digest with different bytes is a no-op.
+    repo.archiveOfferVersion("0xd1", "off-x", v2, 3);
+    expect(repo.getOfferByDigest("0xd1")).toEqual(v1);
+  });
+
+  it("legal text bytes are pinned by hash forever", async () => {
+    const { Repo } = await import("../../src/server/store/repo.js");
+    const repo = new Repo(openDatabase(":memory:"));
+    repo.archiveLegalText("0xaaa", "original terms", 1);
+    repo.archiveLegalText("0xaaa", "REWRITTEN terms", 2); // must not overwrite
+    expect(repo.getLegalText("0xaaa")).toBe("original terms");
+    expect(repo.getLegalText("0xmissing")).toBeUndefined();
+  });
+});
+
+describe("faucet atomic cooldown (round-10)", () => {
+  it("check-and-take is one statement — a second claim inside the window loses, after it wins", async () => {
+    const { Repo } = await import("../../src/server/store/repo.js");
+    const repo = new Repo(openDatabase(":memory:"));
+    expect(repo.tryTakeFaucetSlot("0xAB", "ip1", 500000, "testnet", 1000, 60)).toBe(true);   // first claim
+    expect(repo.tryTakeFaucetSlot("0xAB", "ip1", 500000, "testnet", 1030, 60)).toBe(false);  // 30s later: blocked
+    expect(repo.tryTakeFaucetSlot("0xAB", "ip1", 500000, "testnet", 1060, 60)).toBe(true);   // 60s later: wins
+    // Per-network isolation: the mainnet-era claim never blocks testnet.
+    expect(repo.tryTakeFaucetSlot("0xAB", "ip1", 100000, "mainnet", 1061, 60)).toBe(true);
+  });
+
+  it("a failed send reopens the slot instead of burning the cooldown", async () => {
+    const { Repo } = await import("../../src/server/store/repo.js");
+    const repo = new Repo(openDatabase(":memory:"));
+    expect(repo.tryTakeFaucetSlot("0xCD", "ip", 500000, "testnet", 1000, 60)).toBe(true);
+    repo.reopenFaucetSlot("0xCD", "testnet"); // send failed, nothing delivered
+    expect(repo.tryTakeFaucetSlot("0xCD", "ip", 500000, "testnet", 1001, 60)).toBe(true); // retry allowed
+    repo.recordFaucetTx("0xCD", "testnet", "0xtx1");
+    repo.reopenFaucetSlot("0xCD", "testnet"); // tx recorded ⇒ no-op (guarded by tx IS NULL)
+    expect(repo.tryTakeFaucetSlot("0xCD", "ip", 500000, "testnet", 1002, 60)).toBe(false);
+  });
+});

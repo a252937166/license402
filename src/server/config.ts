@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { privateKeyToAddress } from "./license/eip712.js";
+import { SALE_PRICE_MICRO } from "./license/money.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = resolve(HERE, "../..");
@@ -93,7 +94,10 @@ export function loadConfig(): AppConfig {
     publicOrigin: process.env.PUBLIC_ORIGIN ?? "https://license402.axiqo.xyz",
     paymentMode,
     network: (process.env.X402_NETWORK ?? "eip155:196") as `${string}:${string}`,
-    priceUsd: process.env.X402_PRICE ?? "$0.10",
+    // SINGLE PRICE SOURCE (round-10): the sale price is code-defined in
+    // money.ts; the x402 challenge amount is DERIVED from it. An env override
+    // could silently charge a different amount than the signed quote binds.
+    priceUsd: `$${(SALE_PRICE_MICRO / 1_000_000).toFixed(2)}`,
     dbPath: process.env.DB_PATH ?? resolve(PROJECT_ROOT, "data/license402.db"),
     issuerPrivateKey,
     issuerAddress: privateKeyToAddress(issuerPrivateKey),
@@ -103,12 +107,22 @@ export function loadConfig(): AppConfig {
     demoBuyerPrivateKey: process.env.DEMO_BUYER_PRIVATE_KEY?.trim() || undefined
   };
 
+  if (process.env.X402_PRICE && process.env.X402_PRICE !== config.priceUsd) {
+    throw new Error(`X402_PRICE is no longer a knob — the price is code-defined as ${config.priceUsd} (money.ts). Remove X402_PRICE from the environment.`);
+  }
+
   if (paymentMode === "live") {
     config.okx = {
       apiKey: required("OKX_API_KEY"),
       secretKey: required("OKX_SECRET_KEY"),
       passphrase: required("OKX_PASSPHRASE")
     };
+    // Fail at BOOT, not first request (round-10): every secret a live request
+    // path depends on must exist before the server accepts traffic. The
+    // request-time checks in app.ts remain as defense in depth.
+    required("ASSET_URL_HMAC_SECRET");
+    required("DELIVERY_TICKET_HMAC_SECRET");
+    required("ADMIN_TOKEN");
   }
 
   // X Layer testnet rail — token is the OFFICIAL x402 testnet default asset

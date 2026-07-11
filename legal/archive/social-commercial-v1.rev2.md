@@ -1,6 +1,6 @@
 LICENSE402 STANDARD SOCIAL COMMERCIAL LICENSE
 Template ID: social-commercial-v1
-Version: 2 (Pilot Terms)
+Version: 1 (Pilot Terms)
 
 1. PARTIES.
    "Licensor" is the wallet address that signed the CreatorOffer for the Asset.

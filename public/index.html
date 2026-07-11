@@ -429,7 +429,7 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="sec-num">01</span>
-      <h2>Clearance console</h2>
+      <h2>Licensing console</h2>
       <p>One intent, one exact asset, one price — locked before payment. No wallet needed for the demo.</p>
     </div>
     <div class="console">
@@ -799,10 +799,10 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     const stat=(l,n)=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
     if(ledgerTab==="production"){
       const P=L.production||{licenses:0,distinctBuyers:0,creatorsPaid:0,qualified:0,sponsored:0};
-      $("#stats").innerHTML=[stat("Production licenses",P.licenses),stat("Qualified revenue",((P.qualified||0)*0.10).toFixed(2)),stat("Sponsored (excluded)",P.sponsored||0),stat("Creators paid",P.creatorsPaid)].join("");
+      $("#stats").innerHTML=[stat("Production licenses",P.licenses),stat("Self-funded production GMV",((P.qualified||0)*0.10).toFixed(2)+" USDT"),stat("Sponsored (excluded)",P.sponsored||0),stat("Creators paid",P.creatorsPaid)].join("");
     }else if(ledgerTab==="testnet"){
-      const tn=settled.filter(o=>o.environment==="testnet").length;
-      $("#stats").innerHTML=[stat("Testnet licenses",tn),stat("Real settlements",tn),stat("Real payouts",tn),stat("Production revenue","0.00")].join("");
+      const T=L.testnet||{settled:settled.filter(o=>o.environment==="testnet").length,payoutsPaid:0};
+      $("#stats").innerHTML=[stat("Testnet licenses",T.settled),stat("Real settlements",T.settled),stat("Creator payouts paid",T.payoutsPaid),stat("Production revenue","0.00")].join("");
     }else{
       $("#stats").innerHTML=[stat("Licenses issued",L.activeLicenses),stat("Distinct buyers",L.distinctBuyers),stat("Creators paid",L.creatorPayoutsPaid),stat("Scope checks",window._checks||0)].join("");
     }
@@ -818,9 +818,14 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
             ? `<a href="${explorer}${o.buyer_settle_tx}" target="_blank" rel="noopener" style="color:inherit">${short(o.buyer_settle_tx)}${o.sponsored?" · SPONSORED":""} ↗</a>`
             : short(o.buyer_settle_tx))
         : "—";
+      const payoutCell=o.creator_payout_tx
+        ? ((o.environment==="production"||o.environment==="testnet")
+            ? `<a href="${explorer}${o.creator_payout_tx}" target="_blank" rel="noopener" style="color:inherit"><span class="pill ok">paid 0.07</span> ${short(o.creator_payout_tx)} ↗</a>`
+            : `<span class="pill ok">paid 0.07</span> ${short(o.creator_payout_tx)}`)
+        : `<span class="pill ${paid?"ok":"pend"}">${paid?"paid 0.07":"payable 0.07"}</span>`;
       return `<tr><td>${short(o.order_id)}</td><td><span class="pill ${paid?"ok":"pend"}">${o.status.replace(/_/g," ").toLowerCase()}</span></td>
         <td>${tx}</td>
-        <td><span class="pill ${paid?"ok":"pend"}">${paid?"paid 0.07":"payable 0.07"}</span></td>
+        <td>${payoutCell}</td>
         <td>${paid?"rev 0.10 · fee 0.03":"pending"}</td></tr>`;}).join("");
   }
   async function refreshLedger(){
@@ -892,7 +897,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     fillGrant();
     // Honest state: signatures (offer/quote/intent/credential) are real even in
     // the sample; only settlement + payout are simulated when funds are off.
-    $("#ppStamp").innerHTML=stampSVG(sample?"SAMPLE":"CLEARED",sample?"v-duty":"v-cleared");
+    $("#ppStamp").innerHTML=stampSVG(sample?"SAMPLE":"LICENSED",sample?"v-duty":"v-cleared");
     $("#ppStatusWrap").classList.toggle("sample",sample);
     $("#ppStatus").textContent=sample?"Signed end-to-end · sample, no funds moved":"License active";
     if(sample){

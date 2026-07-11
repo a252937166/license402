@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test && npm run build",
-    "build:web": "esbuild src/web/x402-pay.ts --bundle --format=iife --global-name=L402PAY --outfile=public/js/x402-pay.js --minify --target=es2022 --alias:crypto=./src/web/crypto-shim.ts"
+    "build:web": "esbuild src/web/x402-pay.ts --bundle --format=iife --global-name=L402PAY --outfile=public/js/x402-pay.js --minify --target=es2022 --alias:crypto=./src/web/crypto-shim.ts",
+    "verify:evidence": "tsx scripts/verify-evidence.ts"
   },
   "dependencies": {
     "@noble/curves": "^2.2.0",

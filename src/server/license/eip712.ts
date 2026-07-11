@@ -120,7 +120,7 @@ function encodeUint(value: string | number | bigint, bits: number): Uint8Array {
   return out;
 }
 
-function encodeAtom(type: FieldType, value: TypedValue): Uint8Array {
+export function encodeAtom(type: FieldType, value: TypedValue): Uint8Array {
   switch (type) {
     case "string":
       if (typeof value !== "string") throw new TypeError("string field requires a string value");
@@ -169,20 +169,23 @@ export function hashStruct(typeName: string, message: TypedMessage): Uint8Array 
   return keccak_256(concatBytes(...chunks));
 }
 
-export function domainSeparator(): Uint8Array {
+/** Domain versions in circulation. v1 materials stay verifiable forever. */
+export type Eip712DomainVersion = "1" | "2";
+
+export function domainSeparator(domainVersion: Eip712DomainVersion = EIP712_DOMAIN.version as Eip712DomainVersion): Uint8Array {
   return hashStruct("EIP712Domain", {
     name: EIP712_DOMAIN.name,
-    version: EIP712_DOMAIN.version,
+    version: domainVersion,
     chainId: BigInt(EIP712_DOMAIN.chainId)
   });
 }
 
-export function typedDataDigest(primaryType: string, message: TypedMessage): Uint8Array {
-  return keccak_256(concatBytes(Uint8Array.of(0x19, 0x01), domainSeparator(), hashStruct(primaryType, message)));
+export function typedDataDigest(primaryType: string, message: TypedMessage, domainVersion?: Eip712DomainVersion): Uint8Array {
+  return keccak_256(concatBytes(Uint8Array.of(0x19, 0x01), domainSeparator(domainVersion), hashStruct(primaryType, message)));
 }
 
-export function typedDataDigestHex(primaryType: string, message: TypedMessage): string {
-  return `0x${bytesToHex(typedDataDigest(primaryType, message))}`;
+export function typedDataDigestHex(primaryType: string, message: TypedMessage, domainVersion?: Eip712DomainVersion): string {
+  return `0x${bytesToHex(typedDataDigest(primaryType, message, domainVersion))}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -296,14 +299,15 @@ export function recoverDigestSigner(digest: Uint8Array, signature: string): stri
   }
 }
 
-export function signTypedData(primaryType: string, message: TypedMessage, privateKey: string): string {
-  return signDigest(typedDataDigest(primaryType, message), privateKey);
+export function signTypedData(primaryType: string, message: TypedMessage, privateKey: string, domainVersion?: Eip712DomainVersion): string {
+  return signDigest(typedDataDigest(primaryType, message, domainVersion), privateKey);
 }
 
 export function recoverTypedDataSigner(
   primaryType: string,
   message: TypedMessage,
-  signature: string
+  signature: string,
+  domainVersion?: Eip712DomainVersion
 ): string | null {
-  return recoverDigestSigner(typedDataDigest(primaryType, message), signature);
+  return recoverDigestSigner(typedDataDigest(primaryType, message, domainVersion), signature);
 }

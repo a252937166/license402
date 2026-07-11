@@ -101,8 +101,12 @@ See `docs/evidence/` and the public **Receipts** tabs (Production / Testnet / Sa
 - `src/server/payment/` — official x402 v2 codecs, verify-before-prepare (payer
   binding), settle with `syncSettle`, reconciler for pending/timeout.
 - `src/server/payout/` — creator payouts: nonce reserved *before* broadcast,
-  fixed-nonce retries, receipt-confirmed `PAID`, expired-lease recovery; serialized
-  per-chain nonce queue shared with the testnet faucet.
+  receipt-confirmed `PAID`, expired-lease recovery; serialized per-chain nonce
+  queue shared with the testnet faucet. Double-pay is structurally impossible:
+  a payout that ever persisted a nonce only ever retries with that SAME nonce,
+  a "nonce already consumed" answer parks it in `NEEDS_RECONCILIATION` (admin
+  attaches the explorer-found tx or explicitly releases a fresh nonce — never
+  automatic), and only a receipt-proven revert unpins a nonce.
 - `src/web/x402-pay.ts` — the browser bundle **is the official x402 client**
   (`x402Client` + `registerExactEvmScheme`, both rails) with a wallet adapter and a
   business preflight that refuses to sign if the challenge differs from displayed terms.

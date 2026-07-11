@@ -2,14 +2,14 @@
   {
     "offer": {
       "offerId": "off-cyber-dragon",
-      "offerVersion": 2,
+      "offerVersion": 1,
       "assetId": "asset-cyber-dragon",
       "assetSha256": "0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -38,7 +38,7 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x8e54568a40f32be638b30164ee2561d1975b5060f904c55a2a6299734af58d66",
-      "signature": "0x6bccc84c69b5c008d7fd2989f668cc1f8b5f38668d0425008569569bb7bc07632fd70b6acd5d6fded1c085d2425c4ef5e88517d6e5975f7cc7a1b13526dcef091b"
+      "signature": "0xbcedcd6aa1bceb7ac34422132d9ff5096b0e6f0bd084aa16d92a5af0e895742c64706b5680c0b400acceacd24d43ff602b971acc881b1488059f0bf4694776b81b"
     },
     "assetFile": "catalog/assets/cyber-dragon.png",
     "previewFile": "catalog/previews/cyber-dragon.preview.webp",
@@ -53,14 +53,14 @@
   {
     "offer": {
       "offerId": "off-neon-city",
-      "offerVersion": 2,
+      "offerVersion": 1,
       "assetId": "asset-neon-city",
       "assetSha256": "0xd4ac896b6b8f3b9f17b8f6cd43876b14922d5aab0fe1434e9acd1c05eee24ada",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -89,7 +89,7 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0ec969d1c0e65f24ff575b82eb158ed337eaa0f7debd078d88864e9f848e81e6",
-      "signature": "0x3a4d0e20def97a294a82ac33b0ae21b623b115c6309e9cf495df54fd06958df03c53466992b56ada882af43fff73c4988f40269e90d6da8b67474a3a6da74a581b"
+      "signature": "0x12a20387214138f9d9b9de4fc1adcfe721f8c4affaa9224f3719888695a7ac12751cb5ca9616c14273d91a92c62d99ef1a5a35f436ac736a60073e458377ab5c1b"
     },
     "assetFile": "catalog/assets/neon-city.png",
     "previewFile": "catalog/previews/neon-city.preview.webp",
@@ -104,14 +104,14 @@
   {
     "offer": {
       "offerId": "off-synth-portal",
-      "offerVersion": 2,
+      "offerVersion": 1,
       "assetId": "asset-synth-portal",
       "assetSha256": "0x21f47cbc16e183f189a4f4c1ee2d8d44eb0b538dc67286964406b810fe5331c0",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -140,7 +140,7 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0152ae8175b5e90d0667e2df76aeee7e9410939f43b58087bef2665b95022b3b",
-      "signature": "0xbe22cc9ffaa76b4c5fe7957653749387bf27261205c7825063ca3df7242e63c26d8977430ddc351619f0d428f1f5cabe49661d6822da8e09dcdbf4abdb123d7e1b"
+      "signature": "0x438cc54f7e3d26d2438a43b458dcd631e7b43d51334930662c25e6fb71620dc263e01eb2cc3cc40f0595a8767751df8cc940a323d150870330fd6d61fa7d29751b"
     },
     "assetFile": "catalog/assets/synth-portal.png",
     "previewFile": "catalog/previews/synth-portal.preview.webp",
@@ -155,14 +155,14 @@
   {
     "offer": {
       "offerId": "off-aurora-koi",
-      "offerVersion": 2,
+      "offerVersion": 1,
       "assetId": "asset-aurora-koi",
       "assetSha256": "0x205e5bc7869888a2f582b38906529d07ade9d56c79498ef286afbe84778493ae",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -191,7 +191,7 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0b34c9719ac8cefe003d14567296592e65c12d4869350f1681f2fad100b82af3",
-      "signature": "0x5923c334db9de1611d9607f590dbd68dc9f9f594f355fe9504243ec521cfc25e79eb09368e5009389d94a96a776beb59f159250a1730d3c6ea665f8a246a36831b"
+      "signature": "0x77cc4bfd977902a3997ec1a529ec55378548fa31d771cef671e2fb8ddf8db12453259fbbda3951598c39c0e6125eb50535a5c2eb01fee08a8190b24d55fa6bef1c"
     },
     "assetFile": "catalog/assets/aurora-koi.png",
     "previewFile": "catalog/previews/aurora-koi.preview.webp",
@@ -206,14 +206,14 @@
   {
     "offer": {
       "offerId": "off-glitch-mask",
-      "offerVersion": 2,
+      "offerVersion": 1,
       "assetId": "asset-glitch-mask",
       "assetSha256": "0xf7d9a2d34957698ca7fbd8f866d8fde86c07bf11360069fa6ff83e155c3e9d08",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -242,7 +242,7 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0xaf8c7bac16b7f043dc650abaacf4d5fcbbec6d7f68c9ffc56870d04446badb19",
-      "signature": "0x9851d05e626bba785efa2fb986e07b8fafe999875d55273eb8a53a51931fc5d15a7474c345846507bdfaf6eb76bec39c744e077c182b057cfdccc29032777f451b"
+      "signature": "0x24eefc2fd9433ab553f2c5645c5dbaff40fee3f53aa49ba74369d143ecc5879015b7e6da8b1074a4f4515723a5e3fc9cfda34fc4be77f926437261407575f42b1c"
     },
     "assetFile": "catalog/assets/glitch-mask.png",
     "previewFile": "catalog/previews/glitch-mask.preview.webp",
@@ -257,14 +257,14 @@
   {
     "offer": {
       "offerId": "off-expired-relic",
-      "offerVersion": 2,
+      "offerVersion": 1,
       "assetId": "asset-expired-relic",
       "assetSha256": "0xa4135054e3d401445f9c8fe39a271046873531a43c3ee7ddb11e8a9cb6963e8a",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -293,7 +293,7 @@
       "validFrom": 1778716800,
       "validUntil": 1781308800,
       "nonce": "0xe83b2aec2816baef71c514903db982bb350f5a15ea874f70da80c9ae0dfd261d",
-      "signature": "0xfb4a68c288027b9b3655dd642fdc102eb2fd57755d76c2a38fb75e28421d1c122f436c52930249a8e533ea30d603ac14aeff4201dc58a503880d9afb690ff8081b"
+      "signature": "0xf86129e4e503671b1663e8adf58d185f171a29a0fad799a12c87189477db85631a89b5e2d6c317a7911c76cf986d8541f302b546235ed664ec5ff9196a5cfdde1c"
     },
     "assetFile": "catalog/assets/expired-relic.png",
     "previewFile": "catalog/previews/expired-relic.preview.webp",
@@ -307,14 +307,14 @@
   {
     "offer": {
       "offerId": "off-editorial-only",
-      "offerVersion": 2,
+      "offerVersion": 1,
       "assetId": "asset-editorial-only",
       "assetSha256": "0x84a9737f8009dfcd4ec49c2e0bad464e25e25d4940ebfc04c846ac449373ef99",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": false,
@@ -343,7 +343,7 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x10153d5bff38165ea3f5b943f60af928a00131503c930a67a377b388c7a3e089",
-      "signature": "0x5e6a5bca35cbe2fa6181801ebedcd998c419d241d0ee6915af82faeaa0e8dd6d1fff75d3028ca3e4640ced70383d2a1d16b149b043c1cbdcd61b43a605de83521c"
+      "signature": "0xc326b055c89fc13755f9e5bb991c67585d9b616a35209bd4fe8ed8045f90438035e1e824ac96e71d8722eefd7ddee1c2949fcc69b9333a08cfa410003e27220d1b"
     },
     "assetFile": "catalog/assets/editorial-only.png",
     "previewFile": "catalog/previews/editorial-only.preview.webp",

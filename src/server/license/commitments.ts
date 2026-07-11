@@ -11,9 +11,15 @@ export function useSpecHash(use: UseSpec): string {
   return canonicalHash(use, "L402:USESPEC:v1");
 }
 
-/** EIP-712 typed-data digest of the CreatorOffer — what the creator signed. */
+/**
+ * EIP-712 typed-data digest of the CreatorOffer — what the creator signed.
+ * PINNED to the domain version the offer was signed under (offerVersion 1 →
+ * domain v1): an offer's digest is its identity in quotes, orders and the
+ * append-only archive, and must never move when the service's current domain
+ * version advances.
+ */
 export function offerDigestHex(offer: UnsignedCreatorOffer): string {
-  return typedDataDigestHex("CreatorOffer", offerToTypedMessage(offer));
+  return typedDataDigestHex("CreatorOffer", offerToTypedMessage(offer), offer.offerVersion >= 2 ? "2" : "1");
 }
 
 /** EIP-712 typed-data digest of the PurchaseIntent — what the buyer signed. */
