@@ -507,6 +507,16 @@ export class Repo {
       | undefined;
   }
 
+  /** Record/refresh a claim (unlimited testnet claims; created_at drives the cooldown). */
+  upsertFaucetClaim(address: string, ip: string, amountMicro: number, network: string, nowSeconds: number): void {
+    this.db
+      .prepare(
+        `INSERT INTO faucet_claims (address, ip, amount_micro, network, created_at) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(address, network) DO UPDATE SET ip=excluded.ip, amount_micro=excluded.amount_micro, created_at=excluded.created_at`
+      )
+      .run(address.toLowerCase(), ip, amountMicro, network, nowSeconds);
+  }
+
   /** Atomically reserve a claim (one per address PER NETWORK). Returns false if already claimed. */
   reserveFaucetClaim(address: string, ip: string, amountMicro: number, network: string, nowSeconds: number): boolean {
     const result = this.db

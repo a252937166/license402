@@ -833,12 +833,26 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.send(readFileSync(path));
   });
 
+  // --- GET /v1/balance/:address — read-only, server-side (no wallet chain dance)
+  app.get("/v1/balance/:address", async (req: Request, res: Response) => {
+    const address = String(req.params.address);
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return void res.status(400).json({ error: "INVALID_ADDRESS" });
+    const svc = req.query.network === "testnet" ? chainTest : chainMain;
+    if (!svc) return void res.status(503).json({ error: "RAIL_UNAVAILABLE" });
+    try {
+      const bal = await svc.usdtBalance(address);
+      res.json({ address: address.toLowerCase(), network: req.query.network === "testnet" ? "testnet" : "mainnet", balanceMicro: Number(bal) });
+    } catch {
+      res.status(502).json({ error: "CHAIN_UNAVAILABLE" });
+    }
+  });
+
   // --- faucet (TESTNET ONLY — free test-value onboarding) ---------------------
   // There is NO mainnet faucet: the real-money experience is self-funded (bring
   // your own 0.10 USDT on X Layer). The testnet rail hands out test USDT freely
   // so anyone can run the full loop at zero cost. One claim per address ever.
-  const FAUCET_AMOUNT_MICRO = 500_000; // 0.5 test USDT = five purchases
-  const FAUCET_GLOBAL_CAP = Number(process.env.FAUCET_CAP ?? 500);
+  const FAUCET_AMOUNT_MICRO = 10_000_000; // 10 test USDT per claim (test-value; unlimited claims, 60s cooldown)
+  const FAUCET_GLOBAL_CAP = Number(process.env.FAUCET_CAP ?? 5000);
   app.post("/v1/faucet", async (req: Request, res: Response) => {
     if (config.paymentMode !== "live" || !chainTest || !config.testnet) {
       res.status(503).json({
@@ -856,22 +870,30 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       res.status(429).json({ error: "FAUCET_EXHAUSTED" });
       return;
     }
+    // Test-value tokens — no per-address limit, just a 60s cooldown per address
+    // and a pool check so a drained service wallet fails loudly, not silently.
     const prior = repo.getFaucetClaim(address, "testnet");
-    if (prior) {
-      res.status(200).json({ ok: true, alreadyClaimed: true, network: "testnet", tx: prior.tx ?? null });
-      return;
-    }
-    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
-    if (!repo.reserveFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, "testnet", now())) {
-      res.status(200).json({ ok: true, alreadyClaimed: true, network: "testnet" });
+    if (prior && now() - Number(prior.created_at ?? 0) < 60) {
+      res.status(429).json({ error: "COOLDOWN", detail: "wait a minute between claims" });
       return;
     }
     try {
+      const pool = await chainTest.usdtBalance(chainTest.address);
+      if (pool < BigInt(FAUCET_AMOUNT_MICRO)) {
+        res.status(503).json({ error: "FAUCET_POOL_LOW", detail: "the test-token pool is being refilled — try again shortly" });
+        return;
+      }
+    } catch {
+      res.status(502).json({ error: "CHAIN_UNAVAILABLE" });
+      return;
+    }
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
+    repo.upsertFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, "testnet", now());
+    try {
       const tx = await chainTest.transferUsdt(address, FAUCET_AMOUNT_MICRO);
       repo.recordFaucetTx(address, "testnet", tx);
-      res.status(200).json({ ok: true, network: "testnet", tx, amount: "0.50", explorer: `${config.testnet.explorerTx}${tx}` });
+      res.status(200).json({ ok: true, network: "testnet", tx, amount: "10", explorer: `${config.testnet.explorerTx}${tx}` });
     } catch (e) {
-      repo.releaseFaucetClaim(address, "testnet");
       res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
     }
   });

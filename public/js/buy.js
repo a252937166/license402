@@ -89,7 +89,7 @@
     try {
       const accs = await eth.request({ method: "eth_requestAccounts" });
       ACC = accs[0];
-      await ensureChain();
+      ensureChain().catch(() => {}); // best-effort: signing works from ANY chain
       onConnected();
       if (eth.on) {
         eth.on("accountsChanged", (a) => { ACC = a && a[0] ? a[0] : null; if (!ACC) { disconnectedUi(); } else { onConnected(); resetCheckout("account"); } });
@@ -115,13 +115,13 @@
   $("#walletBtn").addEventListener("click", () => { if (!ACC) connect(); else toast("Connected: " + ACC); });
 
   // ---- balances (read via the wallet provider on the SELECTED rail) ---------
-  async function refreshBalance(skipChain) {
-    if (!eth || !ACC) return 0n;
+  async function refreshBalance() {
+    if (!ACC) return 0n;
     try {
-      if (!skipChain) await ensureChain();
-      const data = "0x70a08231" + ACC.replace(/^0x/, "").toLowerCase().padStart(64, "0");
-      const hex = await eth.request({ method: "eth_call", params: [{ to: rail().asset, data }, "latest"] });
-      const bal = BigInt(hex);
+      // Server-side read: correct regardless of which chain the wallet is on.
+      const r = await api("/v1/balance/" + ACC + (RAIL === "testnet" ? "?network=testnet" : ""), undefined, 15000);
+      if (!(r.json && typeof r.json.balanceMicro === "number")) throw new Error("balance unavailable");
+      const bal = BigInt(r.json.balanceMicro);
       const label = (Number(bal) / 1e6).toFixed(2) + (RAIL === "testnet" ? " tUSDT" : " USDT");
       $("#balTxt").textContent = label;
       const wb = $("#walletBal"); if (wb) wb.textContent = label;
@@ -130,7 +130,6 @@
       return bal;
     } catch (e) {
       $("#balTxt").textContent = "(balance check failed)";
-      if (e && e.message && /wallet/i.test(e.message)) toast(String(e.message).slice(0, 140));
       return 0n;
     }
   }
@@ -151,19 +150,15 @@
     if (RAIL !== "testnet") { err(2, "The faucet serves testnet only"); return; }
     const b = $("#btnFaucet"); b.disabled = true;
     try {
-      // Make sure the wallet is actually ON testnet first — otherwise the
-      // balance readings below watch the wrong chain forever.
-      b.textContent = "Switch network in your wallet…";
-      await ensureChain();
       b.textContent = "Requesting grant…";
       const r = await api("/v1/faucet", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: ACC }) }, 60000);
       if (r.json && r.json.ok) {
-        toast(r.json.alreadyClaimed ? "Already claimed — checking balance" : "0.50 test USDT sent — confirming on-chain");
+        toast("10 test USDT sent — confirming on-chain");
         b.textContent = "Waiting for confirmation…";
-        for (let i = 0; i < 10; i++) { const bal = await refreshBalance(true); if (bal >= 100000n) { toast("Funded ✓"); break; } await new Promise((r2) => setTimeout(r2, 3000)); }
+        for (let i = 0; i < 10; i++) { const bal = await refreshBalance(); if (bal >= 100000n) { toast("Funded ✓"); break; } await new Promise((r2) => setTimeout(r2, 3000)); }
       } else err(2, (r.json && (r.json.detail || r.json.error)) || "Faucet unavailable");
     } catch (e) { err(2, e && e.message ? String(e.message).slice(0, 180) : "Faucet request failed"); }
-    finally { b.disabled = false; b.textContent = "Claim 0.50 test USDT — free"; }
+    finally { b.disabled = false; b.textContent = "Claim 10 test USDT — free"; }
   });
 
   // ---- 01 review / quote -----------------------------------------------------
@@ -211,7 +206,6 @@
     if (!ACC) { err(3, "Connect your wallet (top right)"); return; }
     const btn = $("#btnBuy"); btn.disabled = true;
     try {
-      await ensureChain();
       const f = QUOTE.purchaseIntentFields, td = QUOTE.eip712;
       if (f.licensee && f.licensee.toLowerCase() !== ACC.toLowerCase()) {
         // quote was taken before connecting / for another account — refresh it
