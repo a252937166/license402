@@ -64,6 +64,9 @@
   .sigil{width:34px;height:34px;flex:none}
   .brandmark b{font-weight:800;font-stretch:112%;letter-spacing:.02em;font-size:18px}
   .brandmark .sub{font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--fog-2);text-transform:uppercase;display:block;margin-top:1px}
+  .topnav{display:flex;gap:26px;margin-left:auto;margin-right:26px}
+  .topnav a{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--fog);padding:4px 0;border-bottom:1px solid transparent;transition:color .15s,border-color .15s}
+  .topnav a:hover{color:#fff;border-bottom-color:var(--proof)}
   .seal-badge{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--fog);border:1px solid var(--line-strong);border-radius:100px;padding:7px 14px 7px 12px;text-transform:uppercase}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--cleared);box-shadow:0 0 0 3px rgba(46,167,116,.18);animation:pulse 2.6s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
@@ -175,8 +178,10 @@
   .split{font-family:var(--mono);font-size:10px;color:var(--fog-2);margin-top:6px;letter-spacing:.04em}
 
   /* ---- passport ---- */
-  #passport{display:none}
-  #passport.show{display:block}
+  .pp-empty{border:1px dashed var(--line-strong);border-radius:var(--radius);background:var(--raised);padding:52px 30px;text-align:center;display:flex;flex-direction:column;align-items:center}
+  .pp-empty-seal{width:64px;height:64px;opacity:.5;margin-bottom:18px}
+  .pp-empty-t{font-family:var(--sans);font-weight:700;font-size:19px}
+  .pp-empty-s{color:var(--fog);font-size:14px;margin-top:6px;max-width:44ch}
   .passport{display:grid;grid-template-columns:1fr 1.15fr;gap:0;background:var(--vellum);color:var(--vellum-ink);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);border:1px solid #000}
   .pp-art{position:relative;background:#0b0e14;min-height:420px}
   .pp-art img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
@@ -239,6 +244,40 @@
   @keyframes stamp{0%{transform:scale(2.4) rotate(-14deg);opacity:0}55%{opacity:1}70%{transform:scale(.92) rotate(-9deg)}100%{transform:scale(1) rotate(-9deg);opacity:1}}
   .stamp-anim{animation:stamp .5s cubic-bezier(.2,.9,.3,1) both}
 
+  /* ---- proof drawer (progressive disclosure) ---- */
+  .proof-drawer{margin-top:26px;border:1px solid var(--line);border-radius:var(--radius);background:var(--ink-2);overflow:hidden}
+  .proof-drawer summary{cursor:pointer;list-style:none;padding:15px 18px;font-family:var(--mono);font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px}
+  .proof-drawer summary::-webkit-details-marker{display:none}
+  .proof-drawer summary::before{content:"▸";color:var(--proof);transition:transform .2s;display:inline-block}
+  .proof-drawer[open] summary::before{transform:rotate(90deg)}
+  .proof-drawer summary span{color:var(--fog-2);font-size:12px;letter-spacing:.02em}
+  .proof-body{padding:4px 18px 20px}
+  .proof-empty{color:var(--fog-2);font-family:var(--mono);font-size:12px;padding:8px 0}
+  .proof-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .proof-col h4{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fog-2);margin:12px 0 8px;border-bottom:1px solid var(--line);padding-bottom:5px}
+  .proof-kv{display:flex;justify-content:space-between;gap:14px;padding:4px 0;font-family:var(--mono);font-size:11px;align-items:baseline}
+  .proof-kv .k{color:var(--fog)} .proof-kv .v{color:#c6ccd8;word-break:break-all;text-align:right;max-width:62%}
+  .proof-kv .v.ok{color:var(--cleared)} .proof-kv .v.no{color:var(--denied)}
+  .proof-checks{margin-top:6px}
+  .proof-check{display:flex;gap:9px;align-items:center;font-family:var(--mono);font-size:11px;padding:3px 0;color:#c6ccd8}
+  .proof-check .b{width:6px;height:6px;border-radius:50%;flex:none}
+  .proof-check .b.p{background:var(--cleared)} .proof-check .b.f{background:var(--denied)}
+  .proof-raw{margin-top:14px}
+  .proof-raw a{font-family:var(--mono);font-size:11px;color:var(--proof);cursor:pointer;border-bottom:1px solid transparent}
+  .proof-raw a:hover{border-bottom-color:var(--proof)}
+  @media (max-width:940px){.proof-grid{grid-template-columns:1fr}}
+
+  /* ---- for agents ---- */
+  .agents-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .code-card{border:1px solid var(--line);border-radius:var(--radius);background:#0c0f16;overflow:hidden}
+  .code-card .ch{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--fog-2);letter-spacing:.06em}
+  .code-card .cp{font-family:var(--mono);font-size:12px;line-height:1.7;padding:14px;overflow-x:auto;white-space:pre;color:#cbd2df;margin:0}
+  .code-card .cp .t{color:var(--proof)} .code-card .cp .s{color:#8b93a6} .code-card .cp .g{color:var(--cleared)} .code-card .cp .r{color:var(--denied)}
+  .copy-btn{font-family:var(--mono);font-size:11px;color:var(--proof);background:none;border:1px solid var(--line-strong);border-radius:2px;padding:3px 9px;cursor:pointer}
+  .copy-btn:hover{border-color:var(--proof)}
+  .agents-note{font-family:var(--mono);font-size:12px;color:var(--fog);margin-top:16px;line-height:1.7}
+  @media (max-width:940px){.agents-grid{grid-template-columns:1fr}}
+
   /* ---- ledger ---- */
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
   .stat{border:1px solid var(--line);border-radius:var(--radius);background:var(--raised);padding:18px}
@@ -251,6 +290,10 @@
   .pill{font-size:10px;letter-spacing:.06em;padding:3px 8px;border-radius:100px;text-transform:uppercase}
   .pill.ok{color:var(--cleared);background:rgba(46,167,116,.1)} .pill.pend{color:var(--duty);background:rgba(201,138,43,.1)}
   .banner{display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--duty-soft);background:rgba(201,138,43,.06);border-radius:var(--radius);font-family:var(--mono);font-size:12px;color:var(--duty);margin-bottom:22px;letter-spacing:.02em}
+  .ledger-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+  .ledger-tabs .lt{font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:9px 16px;background:none;border:0;border-bottom:2px solid transparent;color:var(--fog-2);cursor:pointer;margin-bottom:-1px}
+  .ledger-tabs .lt.on{color:#fff;border-bottom-color:var(--proof)}
+  .ledger-tabs .lt:hover{color:var(--fog)}
 
   footer{padding:44px 0 60px}
   .foot-grid{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:flex-start}
@@ -270,6 +313,7 @@
     .stats{grid-template-columns:1fr 1fr}
     .sec-head{flex-direction:column;gap:8px}
     .sec-head p{text-align:left;margin-left:0}
+    .topnav{display:none}
   }
   @media (prefers-reduced-motion:reduce){
     *{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto}
@@ -291,11 +335,17 @@
         </svg>
         <div>
           <b>LICENSE402</b>
-          <span class="sub">Rights Clearance Bureau</span>
+          <span class="sub">Proof Studio</span>
         </div>
       </div>
+      <nav class="topnav">
+        <a href="#lens">Verify</a>
+        <a href="#agents">For agents</a>
+        <a href="#ledger">Receipts</a>
+        <a href="https://github.com/a252937166/license402" target="_blank" rel="noopener">GitHub ↗</a>
+      </nav>
       <div class="seal-badge">
-        <span class="dot"></span> Live · X Layer · 196
+        <span class="dot"></span> X Layer · 196
         <span class="mode-pill" id="modePill">DEV</span>
       </div>
     </div>
@@ -303,15 +353,15 @@
     <div class="hero-grid">
       <div>
         <div class="eyebrow" style="margin-bottom:18px">Agent-native content licensing</div>
-        <h1 class="title">Clear the<br>rights.<br><span class="l2">Then use it.</span></h1>
-        <p class="lede">An agent can download an image. That doesn't mean it may <b>use</b> it. LICENSE402 acquires content with signed, machine-checkable usage terms — and proves the payment behind them.</p>
+        <h1 class="title">A file is<br>not<br><span class="l2">permission.</span></h1>
+        <p class="lede">An agent can download an image. Using it is a different question. LICENSE402 acquires content with a signed, machine-checkable usage scope — and lets every downstream agent verify what it may do.</p>
         <div class="verbs"><span><b>Acquire</b> the asset</span><span><b>Verify</b> the scope</span><span><b>Audit</b> the payment</span></div>
         <div class="cta-row">
           <a class="btn btn-primary" href="#console" id="ctaClear">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
-            Clear a license — free demo
+            Try a signed sample
           </a>
-          <a class="btn btn-ghost" href="#lens">Test a permission</a>
+          <a class="btn btn-ghost" href="#lens">Check a use case</a>
         </div>
       </div>
       <div class="specimen">
@@ -321,7 +371,7 @@
           <img id="heroArt" alt="Original artwork available to license" />
           <div class="specimen-caption">
             <div class="cap-l"><b id="heroTitle">—</b><span id="heroCreator">first-party signed offer</span></div>
-            <div class="cap-r">Commercial license<b>0.10 USDT0</b></div>
+            <div class="cap-r">Commercial license<b>0.10 USDT</b></div>
           </div>
         </div>
         <div class="hero-demo">
@@ -389,7 +439,7 @@
         </div>
         <button class="btn btn-primary" id="clearBtn" style="width:100%;justify-content:center;margin-top:18px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-          Clear this license
+          Acquire signed sample · no funds
         </button>
       </div>
     </div>
@@ -402,9 +452,17 @@
     <div class="sec-head">
       <span class="sec-num">02</span>
       <h2>License passport</h2>
-      <p>The credential a buyer receives. Verifiable offline — signatures, hashes, and the payment record travel with it.</p>
+      <p>The credential a buyer receives. Scope and signatures verify offline; settlement and current status are checked on X Layer.</p>
     </div>
-    <div class="passport">
+    <div class="pp-empty" id="ppEmpty">
+      <div class="pp-empty-seal">
+        <svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" stroke="var(--line-strong)" stroke-width="1.4"/><circle cx="50" cy="50" r="34" stroke="var(--line)" stroke-width="1"/><path d="M35 50l10 10 20-20" stroke="var(--fog-2)" stroke-width="2" fill="none"/></svg>
+      </div>
+      <div class="pp-empty-t">No license issued yet</div>
+      <div class="pp-empty-s">Acquire the signed sample above — the passport, stamp, and proof chain appear here.</div>
+      <button class="btn btn-ghost" id="ppEmptyBtn" style="margin-top:18px">Acquire signed sample</button>
+    </div>
+    <div class="passport" id="ppCard" style="display:none">
       <div class="pp-art">
         <img id="ppArt" alt="Licensed artwork" />
         <div class="pp-stampwrap" id="ppStamp"></div>
@@ -480,13 +538,18 @@
       </div>
 
       <div class="verdict">
-        <div class="idle" id="verdictIdle">Clear a license first, then send the asset into a scenario. The stamp lands live.</div>
+        <div class="idle" id="verdictIdle">Acquire the signed sample, then send the asset into a scenario. The stamp lands live.</div>
         <div class="stampwrap" id="lensStamp"></div>
         <div class="verdict-word" id="verdictWord">—</div>
         <div class="verdict-reason" id="verdictReason"></div>
         <div class="verdict-duty" id="verdictDuty"></div>
       </div>
     </div>
+
+    <details class="proof-drawer" id="proofDrawer">
+      <summary>Inspect the proof <span>— every verdict is a deterministic call; here is what it ran on</span></summary>
+      <div class="proof-body" id="proofBody"><div class="proof-empty">Run a scope check above to populate the evidence.</div></div>
+    </details>
   </div>
 </section>
 
@@ -498,12 +561,51 @@
       <h2>Public receipts</h2>
       <p>Every settled figure has a transaction. Settled shows only after a creator payout is paid — otherwise payable / pending.</p>
     </div>
-    <div class="banner" id="devBanner" style="display:none">DEV MODE — settlements below are simulated for the demo and are not real payments.</div>
+    <div class="ledger-tabs">
+      <button class="lt on" data-tab="production">Production</button>
+      <button class="lt" data-tab="demo">Demo</button>
+    </div>
+    <div class="banner" id="demoBanner" style="display:none">Demo receipts — settlements are simulated, no funds moved. Production orders appear once the ASP is live and paid on X Layer.</div>
     <div class="stats" id="stats"></div>
     <table class="ledger-table">
       <thead><tr><th>Order</th><th>Status</th><th>Buyer payment</th><th>Creator payout</th><th>Economics</th></tr></thead>
-      <tbody id="ledgerBody"><tr><td colspan="5" style="color:var(--fog-2)">No orders yet — clear one above.</td></tr></tbody>
+      <tbody id="ledgerBody"></tbody>
     </table>
+  </div>
+</section>
+
+<!-- 5 · FOR AGENTS -->
+<section id="agents">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>For agents</h2>
+      <p>LICENSE402 is an ASP, not a website. Scope checks are a free, deterministic API any agent can call before it publishes, trains, or reuses an asset.</p>
+    </div>
+    <div class="agents-grid">
+      <div class="code-card">
+        <div class="ch"><span>POST /v1/check-license-scope</span><button class="copy-btn" id="copyCurl">Copy request</button></div>
+<pre class="cp" id="curlBlock"><span class="s"># does this license permit model training?</span>
+curl -s https://license402.axiqo.xyz/v1/check-license-scope \
+  -H <span class="t">"content-type: application/json"</span> \
+  -d <span class="t">'{"license": &lt;credential&gt;, "action": "model_training",
+       "licensee": "0x…"}'</span></pre>
+      </div>
+      <div class="code-card">
+        <div class="ch"><span>200 · deterministic verdict</span><span style="color:var(--denied)">NOT PERMITTED</span></div>
+<pre class="cp">{
+  <span class="t">"decision"</span>: <span class="r">"NOT_PERMITTED"</span>,
+  <span class="t">"reasonCodes"</span>: [<span class="r">"MODEL_TRAINING_PROHIBITED"</span>],
+  <span class="t">"currentStatus"</span>: <span class="g">"ACTIVE"</span>,
+  <span class="t">"checks"</span>: [ <span class="s">/* per-term evidence */</span> ]
+}</pre>
+      </div>
+    </div>
+    <div class="agents-note">
+      A downstream agent can enforce this locally before acting:<br>
+      <span style="color:var(--proof)">npx @license402/guard check</span> asset.license402.json <span style="color:var(--proof)">--action</span> model_training  <span class="s" style="color:var(--fog-2)"># → blocked</span><br>
+      <span class="s" style="color:var(--fog-2)">// the credential carries a portable scope policy; the Guard verifies signatures + scope offline. (npm package on the roadmap.)</span>
+    </div>
   </div>
 </section>
 
@@ -512,7 +614,7 @@
     <div>
       <div class="brandmark" style="margin-bottom:14px">
         <svg class="sigil" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="47" stroke="var(--proof)" stroke-width="1.4"/><circle cx="50" cy="50" r="6" fill="var(--proof)"/></svg>
-        <div><b>LICENSE402</b><span class="sub">Rights Clearance Bureau</span></div>
+        <div><b>LICENSE402</b><span class="sub">Proof Studio</span></div>
       </div>
       <p class="foot-note">LICENSE402 records signed rights declarations, payments, and machine-checkable scope — it does not adjudicate copyright ownership or infringement, and it is not DRM. First-party signed catalog. Pilot terms. Combines signed creator offers, payment-bound purchase intent, x402 settlement, a portable executable scope policy, and auditable credentials in one agent-native transaction on OKX.AI.</p>
     </div>
@@ -603,8 +705,7 @@
   async function boot(){
     try{ CFG=await api("/config.json");
       const pill=$("#modePill"); pill.textContent=CFG.paymentMode==="live"?"LIVE":"PUBLIC DEMO"; pill.dataset.mode=CFG.paymentMode;
-      if(CFG.paymentMode!=="live"){$("#devBanner").style.display="flex";}
-      $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>settlement asset USDT0`;
+      $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>settlement asset USDT`;
     }catch(e){}
     try{ const cat=await api("/v1/catalog");
       const first=(cat.offers||[]).find(o=>o.commercialUse)||cat.offers[0];
@@ -626,20 +727,42 @@
       <div class="reject match"><span class="t">Offer · eligible match</span><span class="why">cleared</span></div>`;
   }
 
-  async function refreshLedger(){
-    try{ const L=await api("/v1/ledger");
-      $("#stats").innerHTML=[["Licenses issued",L.activeLicenses],["Distinct buyers",L.distinctBuyers],["Creators paid",L.creatorPayoutsPaid],["Scope checks",window._checks||0]]
-        .map(([l,n])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
-      const rows=(L.orders||[]).filter(o=>["LICENSE_ACTIVE","CREATOR_PAYOUT_PENDING","CREATOR_PAID","PAYOUT_RETRYING"].includes(o.status));
-      if(rows.length){ $("#ledgerBody").innerHTML=rows.map(o=>{
-        const paid=o.status==="CREATOR_PAID";
-        return `<tr><td>${short(o.order_id)}</td><td><span class="pill ${paid?"ok":"pend"}">${o.status.replace(/_/g," ").toLowerCase()}</span></td>
-          <td>${o.buyer_settle_tx?short(o.buyer_settle_tx):"—"}</td>
-          <td><span class="pill ${paid?"ok":"pend"}">${paid?"paid 0.07":"payable 0.07"}</span></td>
-          <td>${paid?"rev 0.10 · fee 0.03":"pending"}</td></tr>`;}).join("");
-      }
-    }catch(e){}
+  // Tab state: in this deployment every order is a labeled demo (PAYMENT_MODE=off),
+  // so Production is honestly empty until the ASP is live and paid on X Layer.
+  let ledgerTab="production", lastLedger=null;
+  function renderLedger(){
+    const L=lastLedger||{orders:[],activeLicenses:0,distinctBuyers:0,creatorPayoutsPaid:0};
+    const isLive=CFG&&CFG.paymentMode==="live";
+    const demoRows=(L.orders||[]).filter(o=>["LICENSE_ACTIVE","CREATOR_PAYOUT_PENDING","CREATOR_PAID","PAYOUT_RETRYING"].includes(o.status));
+    // Production = real settlements only (in live mode). In demo deployment: none.
+    const prodRows=isLive?demoRows:[];
+    const rows=ledgerTab==="production"?prodRows:demoRows;
+    $("#demoBanner").style.display=ledgerTab==="demo"?"flex":"none";
+    const stat=(l,n)=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
+    if(ledgerTab==="production" && !isLive){
+      $("#stats").innerHTML=[stat("Production licenses",0),stat("Distinct buyers",0),stat("Creators paid",0),stat("Real revenue","0.00")].join("");
+    }else{
+      $("#stats").innerHTML=[stat("Licenses issued",L.activeLicenses),stat("Distinct buyers",L.distinctBuyers),stat("Creators paid",L.creatorPayoutsPaid),stat("Scope checks",window._checks||0)].join("");
+    }
+    if(!rows.length){
+      const msg=ledgerTab==="production"?"No production orders yet — the ASP is under review; live orders settle on X Layer.":"No demo orders yet — acquire a signed sample above.";
+      $("#ledgerBody").innerHTML=`<tr><td colspan="5" style="color:var(--fog-2)">${msg}</td></tr>`;return;
+    }
+    $("#ledgerBody").innerHTML=rows.map(o=>{
+      const paid=o.status==="CREATOR_PAID";
+      return `<tr><td>${short(o.order_id)}</td><td><span class="pill ${paid?"ok":"pend"}">${o.status.replace(/_/g," ").toLowerCase()}</span></td>
+        <td>${o.buyer_settle_tx?short(o.buyer_settle_tx):"—"}</td>
+        <td><span class="pill ${paid?"ok":"pend"}">${paid?"paid 0.07":"payable 0.07"}</span></td>
+        <td>${paid?"rev 0.10 · fee 0.03":"pending"}</td></tr>`;}).join("");
   }
+  async function refreshLedger(){
+    try{ lastLedger=await api("/v1/ledger"); }catch(e){}
+    renderLedger();
+  }
+  $$(".ledger-tabs .lt").forEach(b=>b.addEventListener("click",()=>{
+    $$(".ledger-tabs .lt").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    ledgerTab=b.dataset.tab; renderLedger();
+  }));
 
   // ---- the clearance flow (wallet-free demo) ----
   const railOrder=["offer","quote","intent","pay","cred","payout"];
@@ -665,11 +788,12 @@
       const rej=(res.quote&&res.quote.rejectedCandidates)||[];
       if(rej.length){$("#rejects").innerHTML=rej.map(r=>`<div class="reject"><span class="t">Offer · ${r.title.replace(/\\(demo reject\\)/i,'').trim()}</span><span class="why">${(r.reasonCodes[0]||'').replace(/_/g,' ').toLowerCase()}</span></div>`).join("")+`<div class="reject match"><span class="t">Offer · ${res.quote.asset.title}</span><span class="why">cleared</span></div>`;}
       renderPassport();
-      toast("License cleared — passport issued");
-      $("#passport").classList.add("show");
+      toast("Signed sample issued — passport ready");
+      $("#ppEmpty").style.display="none";
+      $("#ppCard").style.display="grid";
       $("#verdictIdle").textContent="Send the licensed asset into a scenario. The stamp lands live.";
       $$(".scn").forEach(b=>b.disabled=false);
-      setTimeout(()=>$("#passport").scrollIntoView({behavior:"smooth"}),400);
+      setTimeout(()=>$("#ppCard").scrollIntoView({behavior:"smooth",block:"center"}),400);
       refreshLedger();
     }catch(e){ toast("Network error"); }
     btn.disabled=false; clearing=false;
@@ -692,6 +816,7 @@
   }
 
   $("#clearBtn").addEventListener("click",clearLicense);
+  $("#ppEmptyBtn").addEventListener("click",()=>{ $("#console").scrollIntoView({behavior:"smooth"}); if(!CRED) setTimeout(clearLicense,600); });
   $("#ctaClear").addEventListener("click",()=>{ if(!CRED) setTimeout(clearLicense,500); });
 
   // ---- permission lens ----
@@ -706,16 +831,44 @@
     const r=$("#verdictReason"); r.className="verdict-reason show"; r.textContent=(reasons||[]).join(" · ");
     const d=$("#verdictDuty"); if(duties&&duties.length){d.className="verdict-duty show";d.textContent="DUTY · "+duties.map(x=>x.text||x.type).join("; ");}else{d.className="verdict-duty";}
   }
+  function renderProof(cred,use,res){
+    const kv=(k,v,cls)=>`<div class="proof-kv"><span class="k">${k}</span><span class="v ${cls||''}">${v}</span></div>`;
+    const digests=[
+      kv("template",cred.templateId),
+      kv("asset sha-256",short(cred.assetSha256)),
+      kv("offer digest",short(cred.offerDigest)),
+      kv("purchase intent",short(cred.purchaseIntentDigest)),
+      kv("policy hash",short(cred.policyAstHash)),
+      kv("legal text hash",short(cred.legalTextHash)),
+      kv("licensee",short(cred.licenseeWallet)),
+      kv("issuer",short(cred.issuer)),
+      kv("issuer sig",short(cred.issuerSignature))
+    ].join("");
+    const checks=(res.checks||[]).map(c=>`<div class="proof-check"><span class="b ${c.status==='PASS'?'p':'f'}"></span>${c.label} <span style="margin-left:auto;color:var(--fog-2)">${c.status}</span></div>`).join("")||'<div class="proof-empty">no checks</div>';
+    const verdict=kv("decision",res.decision,res.decision==="PERMITTED"||res.decision==="PERMITTED_WITH_DUTIES"?"ok":"no");
+    const reasons=(res.reasonCodes||[]).map(r=>`<div class="proof-kv"><span class="k">reason</span><span class="v">${r}</span></div>`).join("");
+    $("#proofBody").innerHTML=`<div class="proof-grid">
+      <div class="proof-col"><h4>Credential · signed evidence</h4>${digests}
+        <div class="proof-raw"><a id="dlProof">↓ raw credential JSON</a></div></div>
+      <div class="proof-col"><h4>Scope evaluation · action="${use.action}"${use.channel?' channel="'+use.channel+'"':''}</h4>${verdict}${reasons}
+        <div class="proof-checks">${checks}</div></div>
+    </div>`;
+    const dl=$("#dlProof"); if(dl) dl.addEventListener("click",()=>{const b=new Blob([JSON.stringify(cred,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=cred.licenseId+".license402.json";a.click();URL.revokeObjectURL(u);});
+  }
+  const cb=$("#copyCurl"); if(cb) cb.addEventListener("click",()=>{navigator.clipboard.writeText($("#curlBlock").textContent.trim()).then(()=>toast("Request copied")).catch(()=>{});});
+
   async function runScope(action,channel){
-    if(!CRED){toast("Clear a license first");return;}
-    let cred=CRED;
-    if($("#tamperSwitch").classList.contains("on")){ cred=JSON.parse(JSON.stringify(CRED)); cred.policy.modelTraining=true; }
-    const body={license:cred,action,channel,licensee:LICENSEE};
+    const base=CRED||HERO_CRED;             // works on load using the preloaded signed sample
+    if(!base){toast("Sample loading…");return;}
+    let cred=base;
+    if($("#tamperSwitch").classList.contains("on")){ cred=JSON.parse(JSON.stringify(base)); cred.policy.modelTraining=true; }
+    const body={license:cred,action,channel,licensee:base.licenseeWallet};
     try{ const res=await api("/v1/check-license-scope",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
-      paintVerdict(res.decision,res.reasonCodes,res.duties); checks++; window._checks=checks; refreshLedger();
+      paintVerdict(res.decision,res.reasonCodes,res.duties); checks++; window._checks=checks;
+      renderProof(base,{action,channel},res); refreshLedger();
     }catch(e){toast("Scope check failed");}
   }
-  $$(".scn").forEach(b=>{ b.disabled=true; b.addEventListener("click",()=>runScope(b.dataset.action,b.dataset.channel)); });
+  $$(".scn").forEach(b=>{ b.addEventListener("click",()=>runScope(b.dataset.action,b.dataset.channel)); });
   const ts=$("#tamperSwitch");
   const toggleTamper=()=>{ts.classList.toggle("on");ts.setAttribute("aria-checked",ts.classList.contains("on"));};
   ts.addEventListener("click",toggleTamper);

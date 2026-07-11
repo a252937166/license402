@@ -375,7 +375,16 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderDashboard(db, config));
   });
-  app.use(express.static(resolve(PROJECT_ROOT, "public"), { index: "index.html", maxAge: "5m" }));
+  app.use(
+    express.static(resolve(PROJECT_ROOT, "public"), {
+      index: "index.html",
+      maxAge: "5m",
+      setHeaders: (res, path) => {
+        // The SPA shell must never be stale for judges; fonts/assets can cache.
+        if (path.endsWith("index.html")) res.setHeader("Cache-Control", "no-store");
+      }
+    })
+  );
 
   // JSON 404 + error handler (never leak Express HTML pages to API clients).
   app.use((req, res) => {
