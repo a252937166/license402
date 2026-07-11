@@ -395,7 +395,7 @@
         <div class="cta-note" id="ctaNote">Free sample — no wallet, no funds moved. Live purchase settles on X Layer once the ASP is approved.</div>
       </div>
       <div class="specimen">
-        <div class="specimen-label"><span>Live license sample</span><span class="sample-note">signed sample · no funds moved</span></div>
+        <div class="specimen-label"><span>Interactive signed sample</span><span class="sample-note">no funds moved</span></div>
         <div class="specimen-frame">
           <span class="specimen-tag">Preview · license not purchased</span>
           <img id="heroArt" alt="Original artwork available to license" fetchpriority="high" decoding="async" />
@@ -639,9 +639,9 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
       </div>
     </div>
     <div class="agents-note">
-      A downstream agent can enforce this locally before acting:<br>
-      <span style="color:var(--proof)">npx @license402/guard check</span> asset.license402.json <span style="color:var(--proof)">--action</span> model_training  <span class="s" style="color:var(--fog-2)"># → blocked</span><br>
-      <span class="s" style="color:var(--fog-2)">// the credential carries a portable scope policy; the Guard verifies signatures + scope offline. (npm package on the roadmap.)</span>
+      Runnable right now — download the sample credential above, then:<br>
+      <span style="color:var(--proof)">curl -s https://license402.axiqo.xyz/v1/check-license-scope -H</span> "content-type: application/json" <span style="color:var(--proof)">-d</span> '{"license": &lt;paste credential&gt;, "action": "model_training", "licensee": "&lt;its licenseeWallet&gt;"}'  <span class="s" style="color:var(--fog-2)"># → NOT_PERMITTED</span><br>
+      <span class="s" style="color:var(--fog-2)">// the credential carries a portable scope policy; any agent can gate on effectiveDecision before it publishes, trains, or resells.</span>
     </div>
   </div>
 </section>
@@ -655,7 +655,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
       </div>
       <p class="foot-note">LICENSE402 records signed rights declarations, payments, and machine-checkable scope — it does not adjudicate copyright ownership or infringement, and it is not DRM. First-party signed catalog. Pilot terms. Combines signed creator offers, payment-bound purchase intent, x402 settlement, a portable executable scope policy, and auditable credentials in one agent-native transaction on OKX.AI.</p>
     </div>
-    <div class="foot-meta" id="footMeta"></div>
+    <div class="foot-meta"><div id="footMeta"></div><div id="footBuild" style="margin-top:10px;opacity:.7"></div></div>
   </div>
 </footer>
 
@@ -676,7 +676,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   const short=a=>!a?"—":a.slice(0,6)+"…"+a.slice(-4);
   const toast=(m)=>{const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2600)};
 
-  let CRED=null, ASSET=null, CFG=null, ORIGIN=location.origin, LICENSEE=null;
+  let CRED=null, ASSET=null, CFG=null, ORIGIN=location.origin, LICENSEE=null, SAMPLE=null;
 
   // ---- guilloché generator (hypotrochoid rosette) -> SVG path ----
   function rosette(cx,cy,R,r,d,turns){
@@ -736,7 +736,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     if(!HERO_CRED){return;}
     heroChecking=true;
     try{ const res=await api("/v1/check-license-scope",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({license:HERO_CRED,action,channel,licensee:HERO_CRED.licenseeWallet})});
-      paintHeroVerdict(res.decision,res.reasonCodes,res.duties);
+      paintHeroVerdict(res.effectiveDecision??res.decision,res.reasonCodes,res.duties);
     }catch(e){ $("#heroVerdict").innerHTML='<span class="hd-spin">scope check unavailable</span>'; }
     heroChecking=false;
   }
@@ -748,19 +748,19 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   // ---- load config + catalog + sample + ledger ----
   async function boot(){
     try{ CFG=await api("/config.json");
-      const pill=$("#modePill"); pill.textContent=CFG.paymentMode==="live"?"LIVE":"PUBLIC DEMO"; pill.dataset.mode=CFG.paymentMode;
-      $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>settlement asset USDT`;
+      const pill=$("#modePill"); pill.textContent=CFG.paymentMode==="live"?"LIVE · X LAYER":"PUBLIC DEMO"; pill.dataset.mode=CFG.paymentMode;
+      $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>settlement asset USDT (USD₮0 · ${short("0x779Ded0c9e1022225f8E0630b35a9b54bE713736")})`;
     }catch(e){}
+    try{ const v=await api("/version.json"); if(v&&v.commit) $("#footBuild").textContent="build "+String(v.commit).slice(0,7); }catch(e){}
     try{ const cat=await api("/v1/catalog");
       const first=(cat.offers||[]).find(o=>o.commercialUse)||cat.offers[0];
       if(first){ $("#heroArt").src=first.previewUrl; $("#consoleArt").src=first.previewUrl;
         $("#heroTitle").textContent=first.title; $("#heroCreator").textContent="by "+(first.creator||"Genesis Studio"); }
     }catch(e){}
-    // Preload a signed sample so the hero scope demo works immediately (no wallet, no purchase).
-    // The sample's asset is the brief-matched one — use it for the hero AND console so the
-    // whole page shows ONE exact asset (same assetId / sha256 / offer).
-    try{ const s=await api("/v1/demo/acquire",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
-      if(s.ok){ HERO_CRED=s.credential;
+    // Preload the READ-ONLY signed sample (no wallet, no purchase, zero ledger
+    // writes — works identically in live mode). One exact asset across the page.
+    try{ const s=await api("/v1/samples/default");
+      if(s.ok){ HERO_CRED=s.credential; SAMPLE=s;
         if(s.asset){ $("#heroArt").src=s.asset.previewUrl; $("#consoleArt").src=s.asset.previewUrl;
           $("#heroTitle").textContent=s.asset.title; }
         heroCheck("commercial_social_post","x"); }
@@ -776,20 +776,21 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
       <div class="reject match"><span class="t">Offer · eligible match</span><span class="why">cleared</span></div>`;
   }
 
-  // Tab state: in this deployment every order is a labeled demo (PAYMENT_MODE=off),
-  // so Production is honestly empty until the ASP is live and paid on X Layer.
+  // Rows split by the ORDER's environment column (stamped at creation) — flipping
+  // the deployment to live can never re-label historical simulated orders.
   let ledgerTab="production", lastLedger=null;
   function renderLedger(){
-    const L=lastLedger||{orders:[],activeLicenses:0,distinctBuyers:0,creatorPayoutsPaid:0};
-    const isLive=CFG&&CFG.paymentMode==="live";
-    const demoRows=(L.orders||[]).filter(o=>["LICENSE_ACTIVE","CREATOR_PAYOUT_PENDING","CREATOR_PAID","PAYOUT_RETRYING"].includes(o.status));
-    // Production = real settlements only (in live mode). In demo deployment: none.
-    const prodRows=isLive?demoRows:[];
+    const L=lastLedger||{orders:[],activeLicenses:0,distinctBuyers:0,creatorPayoutsPaid:0,production:{licenses:0,distinctBuyers:0,creatorsPaid:0}};
+    const settledStates=["LICENSE_ACTIVE","CREATOR_PAYOUT_PENDING","CREATOR_PAID","PAYOUT_RETRYING"];
+    const settled=(L.orders||[]).filter(o=>settledStates.includes(o.status));
+    const prodRows=settled.filter(o=>o.environment==="production");
+    const demoRows=settled.filter(o=>o.environment!=="production");
     const rows=ledgerTab==="production"?prodRows:demoRows;
     $("#demoBanner").style.display=ledgerTab==="demo"?"flex":"none";
     const stat=(l,n)=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
-    if(ledgerTab==="production" && !isLive){
-      $("#stats").innerHTML=[stat("Production licenses",0),stat("Distinct buyers",0),stat("Creators paid",0),stat("Real revenue","0.00")].join("");
+    if(ledgerTab==="production"){
+      const P=L.production||{licenses:0,distinctBuyers:0,creatorsPaid:0};
+      $("#stats").innerHTML=[stat("Production licenses",P.licenses),stat("Distinct buyers",P.distinctBuyers),stat("Creators paid",P.creatorsPaid),stat("Real revenue",(P.licenses*0.10).toFixed(2))].join("");
     }else{
       $("#stats").innerHTML=[stat("Licenses issued",L.activeLicenses),stat("Distinct buyers",L.distinctBuyers),stat("Creators paid",L.creatorPayoutsPaid),stat("Scope checks",window._checks||0)].join("");
     }
@@ -799,8 +800,13 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     }
     $("#ledgerBody").innerHTML=rows.map(o=>{
       const paid=o.status==="CREATOR_PAID";
+      const tx=o.buyer_settle_tx
+        ? (o.environment==="production"
+            ? `<a href="https://www.oklink.com/x-layer/tx/${o.buyer_settle_tx}" target="_blank" rel="noopener" style="color:inherit">${short(o.buyer_settle_tx)} ↗</a>`
+            : short(o.buyer_settle_tx))
+        : "—";
       return `<tr><td>${short(o.order_id)}</td><td><span class="pill ${paid?"ok":"pend"}">${o.status.replace(/_/g," ").toLowerCase()}</span></td>
-        <td>${o.buyer_settle_tx?short(o.buyer_settle_tx):"—"}</td>
+        <td>${tx}</td>
         <td><span class="pill ${paid?"ok":"pend"}">${paid?"paid 0.07":"payable 0.07"}</span></td>
         <td>${paid?"rev 0.10 · fee 0.03":"pending"}</td></tr>`;}).join("");
   }
@@ -835,19 +841,20 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   async function clearLicense(){
     if(clearing) return; clearing=true;
     const btn=$("#clearBtn"); btn.disabled=true; const stage=$("#assetStage");
-    // animate the rail
-    for(let i=0;i<=6;i++){ setRail(i); await new Promise(r=>setTimeout(r,i<3?260:420)); }
     try{
-      const res=await api("/v1/demo/acquire",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({})});
-      if(!res.ok){ toast("Demo unavailable: "+(res.error||"error")); btn.disabled=false; clearing=false; return; }
-      CRED=res.credential; ASSET=res.asset; LICENSEE=CRED.licenseeWallet;
-      // watermark dissolves -> full asset
-      swapArt($("#consoleArt"),ASSET.displayUrl||ASSET.url); stage.classList.remove("locked"); stage.classList.add("cleared");
+      // Fetch the VERIFIED sample first; the rail then replays what actually
+      // happened — it never animates success ahead of the data.
+      const res=SAMPLE || await api("/v1/samples/default");
+      if(!res.ok){ toast("Sample unavailable: "+(res.error||"error")); btn.disabled=false; clearing=false; return; }
+      SAMPLE=res; CRED=res.credential; ASSET=res.asset; LICENSEE=CRED.licenseeWallet;
+      for(let i=0;i<=6;i++){ setRail(i); await new Promise(r=>setTimeout(r,i<3?240:380)); }
+      // watermark dissolves -> badged sample rendition (the clean deliverable ships only with a purchase)
+      swapArt($("#consoleArt"),ASSET.sampleUrl||ASSET.previewUrl); stage.classList.remove("locked"); stage.classList.add("cleared");
       // real rejected candidates
       const rej=(res.quote&&res.quote.rejectedCandidates)||[];
       if(rej.length){$("#rejects").innerHTML=rej.map(r=>`<div class="reject"><span class="t">Offer · ${r.title.replace(/\\(demo reject\\)/i,'').trim()}</span><span class="why">${(r.reasonCodes[0]||'').replace(/_/g,' ').toLowerCase()}</span></div>`).join("")+`<div class="reject match"><span class="t">Offer · ${res.quote.asset.title}</span><span class="why">cleared</span></div>`;}
       renderPassport();
-      toast("Signed sample issued — passport ready");
+      toast("Signed sample issued — scope receipt ready");
       $("#rail").classList.add("armed");
       $("#railHint").textContent="· click any step for evidence";
       $("#ppEmpty").style.display="none";
@@ -861,8 +868,10 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   }
 
   function renderPassport(){
-    const sample=!(CFG&&CFG.paymentMode==="live");
-    swapArt($("#ppArt"),ASSET.displayUrl||ASSET.url,ASSET.previewUrl);
+    // Sample-ness is a property of the CREDENTIAL, not the deployment mode —
+    // in live mode the free sample is still a sample.
+    const sample=String(CRED&&CRED.orderId||"").startsWith("sample-")||!(CFG&&CFG.paymentMode==="live");
+    swapArt($("#ppArt"),ASSET.sampleUrl||ASSET.displayUrl||ASSET.url,ASSET.previewUrl);
     $("#ppTitle").textContent=ASSET.title;
     $("#ppLicensor").textContent=short(CRED.licensorWallet);
     $("#ppLicensee").textContent=short(CRED.licenseeWallet);
@@ -905,29 +914,39 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     const r=$("#verdictReason"); r.className="verdict-reason show"; r.textContent=(reasons||[]).join(" · ");
     const d=$("#verdictDuty"); if(duties&&duties.length){d.className="verdict-duty show";d.textContent="DUTY · "+duties.map(x=>x.text||x.type).join("; ");}else{d.className="verdict-duty";}
   }
-  function renderProof(cred,use,res){
+  function renderProof(cred,use,res,tampered){
     const kv=(k,v,cls)=>`<div class="proof-kv"><span class="k">${k}</span><span class="v ${cls||''}">${v}</span></div>`;
+    // `cred` is EXACTLY the object that was sent to the engine — when the tamper
+    // switch is on, that is the tampered credential, and the drawer says so.
+    const tamperBlock=tampered?[
+      kv("⚠ tampered field","policy.modelTraining","no"),
+      kv("signed value","false"),
+      kv("sent value","true","no"),
+      kv("consequence","policy bytes no longer hash to the signed policyAstHash → INVALID_CREDENTIAL","no")
+    ].join(""):"";
     const digests=[
       kv("template",cred.templateId),
       kv("asset sha-256",short(cred.assetSha256)),
       kv("offer digest",short(cred.offerDigest)),
       kv("purchase intent",short(cred.purchaseIntentDigest)),
-      kv("policy hash",short(cred.policyAstHash)),
+      kv("policy hash",short(cred.policyAstHash)+(tampered?" (no longer matches)":"")),
       kv("legal text hash",short(cred.legalTextHash)),
       kv("licensee",short(cred.licenseeWallet)),
       kv("issuer",short(cred.issuer)),
       kv("issuer sig",short(cred.issuerSignature))
     ].join("");
     const checks=(res.checks||[]).map(c=>`<div class="proof-check"><span class="b ${c.status==='PASS'?'p':'f'}"></span>${c.label} <span style="margin-left:auto;color:var(--fog-2)">${c.status}</span></div>`).join("")||'<div class="proof-empty">no checks</div>';
-    const verdict=kv("decision",res.decision,res.decision==="PERMITTED"||res.decision==="PERMITTED_WITH_DUTIES"?"ok":"no");
+    const eff=res.effectiveDecision??res.decision;
+    const verdict=kv("effective decision",eff,eff==="PERMITTED"||eff==="PERMITTED_WITH_DUTIES"?"ok":"no")+
+      (res.currentStatus?kv("credential status",res.currentStatus):"");
     const reasons=(res.reasonCodes||[]).map(r=>`<div class="proof-kv"><span class="k">reason</span><span class="v">${r}</span></div>`).join("");
     $("#proofBody").innerHTML=`<div class="proof-grid">
-      <div class="proof-col"><h4>Credential · signed evidence</h4>${digests}
-        <div class="proof-raw"><a id="dlProof">↓ raw credential JSON</a></div></div>
+      <div class="proof-col"><h4>${tampered?"Credential · TAMPERED before sending":"Credential · signed evidence"}</h4>${tamperBlock}${digests}
+        <div class="proof-raw"><a id="dlProof">↓ ${tampered?"tampered credential JSON (as sent)":"raw credential JSON"}</a></div></div>
       <div class="proof-col"><h4>Scope evaluation · action="${use.action}"${use.channel?' channel="'+use.channel+'"':''}</h4>${verdict}${reasons}
         <div class="proof-checks">${checks}</div></div>
     </div>`;
-    const dl=$("#dlProof"); if(dl) dl.addEventListener("click",()=>{const b=new Blob([JSON.stringify(cred,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=cred.licenseId+".license402.json";a.click();URL.revokeObjectURL(u);});
+    const dl=$("#dlProof"); if(dl) dl.addEventListener("click",()=>{const b=new Blob([JSON.stringify(cred,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=(tampered?"TAMPERED-":"")+cred.licenseId+".license402.json";a.click();URL.revokeObjectURL(u);});
   }
   const cb=$("#copyCurl"); if(cb) cb.addEventListener("click",()=>{navigator.clipboard.writeText($("#curlBlock").textContent.trim()).then(()=>toast("Request copied")).catch(()=>{});});
 
@@ -935,11 +954,12 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     const base=CRED||HERO_CRED;             // works on load using the preloaded signed sample
     if(!base){toast("Sample loading…");return;}
     let cred=base;
-    if($("#tamperSwitch").classList.contains("on")){ cred=JSON.parse(JSON.stringify(base)); cred.policy.modelTraining=true; }
+    const tampered=$("#tamperSwitch").classList.contains("on");
+    if(tampered){ cred=JSON.parse(JSON.stringify(base)); cred.policy.modelTraining=true; }
     const body={license:cred,action,channel,licensee:base.licenseeWallet};
     try{ const res=await api("/v1/check-license-scope",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
-      paintVerdict(res.decision,res.reasonCodes,res.duties); checks++; window._checks=checks;
-      renderProof(base,{action,channel},res); refreshLedger();
+      paintVerdict(res.effectiveDecision??res.decision,res.reasonCodes,res.duties); checks++; window._checks=checks;
+      renderProof(cred,{action,channel},res,tampered); refreshLedger();
     }catch(e){toast("Scope check failed");}
   }
   $$(".scn").forEach(b=>{ b.addEventListener("click",()=>runScope(b.dataset.action,b.dataset.channel)); });
@@ -949,12 +969,26 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   ts.addEventListener("keydown",e=>{if(e.key===" "||e.key==="Enter"){e.preventDefault();toggleTamper();}});
 
   // ---- passport actions ----
+  const isSampleCred=()=>!!(CRED&&String(CRED.orderId||"").startsWith("sample-"));
   function download(name,obj){ const b=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
-  $("#dlAsset").addEventListener("click",()=>{ if(ASSET) window.open(ASSET.url,"_blank"); });
+  $("#dlAsset").addEventListener("click",()=>{
+    if(!ASSET) return;
+    if(isSampleCred()||!ASSET.url){ toast("Sample — the sha256-bound deliverable ships with a live purchase"); return; }
+    window.open(ASSET.url,"_blank");
+  });
   $("#dlCred").addEventListener("click",()=>{ if(CRED) download(CRED.licenseId+".license402.json",CRED); });
-  $("#viewOrder").addEventListener("click",()=>{ if(CRED) window.open("/v1/orders/"+CRED.orderId,"_blank"); });
+  $("#viewOrder").addEventListener("click",()=>{
+    if(!CRED) return;
+    if(isSampleCred()){ toast("Sample — no payment record exists; nothing was written to the ledger"); return; }
+    window.open("/v1/orders/"+CRED.orderId,"_blank");
+  });
   $("#dlBundle").addEventListener("click",async()=>{
     if(!CRED)return;
+    if(isSampleCred()){
+      download("sample-envelope-"+CRED.licenseId+".json",{environment:"sample",note:SAMPLE&&SAMPLE.note,credential:CRED,quote:SAMPLE&&SAMPLE.quote});
+      toast("Sample envelope downloaded — signed credential, no payment records");
+      return;
+    }
     try{ const bundle=await api("/v1/orders/"+CRED.orderId+"/bundle");
       download("proof-bundle-"+CRED.orderId+".json",bundle); toast("Proof bundle downloaded — offer + intent + credential, all signed");
     }catch(e){ toast("Bundle unavailable"); }
@@ -974,12 +1008,12 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
 
   function railEvidence(k){
     if(!CRED){ toast("Acquire the signed sample first"); return; }
-    const c=CRED, isSample=(CFG&&CFG.paymentMode!=="live");
+    const c=CRED, isSample=isSampleCred()||(CFG&&CFG.paymentMode!=="live");
     const env=isSample?"sample · no funds moved":"production";
     if(k==="offer") openModal("Creator signed the offer","EIP-712 CreatorOffer",[["asset sha-256",c.assetSha256,true],["offer digest",c.offerDigest],["licensor wallet",c.licensorWallet],["legal text hash",c.legalTextHash],["policy hash",c.policyAstHash],["verify","recover EIP-712 signer == licensor (in proof bundle)"]]);
     else if(k==="quote") openModal("Exact asset & price locked","terms commitment",[["quote commitment",c.quoteCommitment||"(in bundle)"],["asset sha-256",c.assetSha256,true],["price","0.10 USDT"],["creator payout","0.07 USDT"],["platform fee","0.03 USDT"],["drift guard","mismatch → 409 before the 402 challenge"]]);
     else if(k==="intent") openModal("Buyer accepted the terms","EIP-712 PurchaseIntent",[["purchase intent digest",c.purchaseIntentDigest],["licensee",c.licenseeWallet],["binds","asset + offer + policy + legal text + price"],["rule","payer == buyer == licensee"],["verify","recover EIP-712 signer == buyer (in proof bundle)"]]);
-    else if(k==="pay") openModal(isSample?"Payment step · simulated":"Payment settled","402 · X Layer ("+env+")",[["network","eip155:196 · X Layer"],["payment auth digest",c.paymentAuthorizationDigest||"(in order)"],["buyer payment id",c.buyerPaymentId],["settlement","only status===success activates the license"],["environment",env]]);
+    else if(k==="pay") openModal(isSample?"Payment step · simulated":"Payment settled","402 · X Layer ("+env+")",[["network","eip155:196 · X Layer"],["settlement token","USDT (USD₮0) · 0x779d…3736"],["payment auth digest",c.paymentAuthorizationDigest||"(in order)"],["buyer payment id",c.buyerPaymentId],["settlement","only status===success activates the license"],["environment",env]]);
     else if(k==="cred") openModal("License issued","issuer-signed credential",[["license id",c.licenseId,true],["issuer",c.issuer],["issuer signature",short(c.issuerSignature)],["evidence root",c.evidenceRoot||"—"],["receipt hash",c.receiptHash||"—"],["download","use “Download proof bundle” for the full envelope"]]);
     else if(k==="payout") openModal(isSample?"Creator payout · simulated":"Creator paid","creator net price",[["payout wallet",c.licensorWallet],["amount","0.07 USDT"],["order status","see “View payment record”"],["rule","payout is a liability once the buyer settles; retried, never dropped"],["environment",env]]);
   }

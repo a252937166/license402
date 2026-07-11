@@ -116,7 +116,7 @@ async function acquire(port: number, buyerKey: string, buyer: string): Promise<{
     legalTextHash: f.legalTextHash,
     totalPrice: "0.10",
     currency: "USDT" as const,
-    expiresAt: FIXED_NOW + 900,
+    expiresAt: f.expiresAt,
     nonce: sha256Hex(`nonce-${buyer}`)
   };
   const signature = signTypedData("PurchaseIntent", purchaseIntentToTypedMessage(intentUnsigned), buyerKey);

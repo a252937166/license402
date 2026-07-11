@@ -22,7 +22,8 @@ const testConfig = {
   issuerAddress: privateKeyToAddress(ISSUER_KEY),
   servicePrivateKey: SERVICE_KEY,
   serviceAddress: privateKeyToAddress(SERVICE_KEY),
-  payToAddress: privateKeyToAddress(SERVICE_KEY)
+  payToAddress: privateKeyToAddress(SERVICE_KEY),
+  demoBuyerPrivateKey: BUYER_KEY
 };
 
 // Minimal HTTP driver over node:http (NOT fetch) so an ambient HTTP_PROXY in
@@ -109,7 +110,7 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
       legalTextHash: f.legalTextHash,
       totalPrice: "0.10",
       currency: "USDT" as const,
-      expiresAt: FIXED_NOW + 900,
+      expiresAt: f.expiresAt,
       nonce: sha256Hex("buyer-nonce-e2e")
     };
     const signature = signTypedData("PurchaseIntent", purchaseIntentToTypedMessage(intentUnsigned), BUYER_KEY);
@@ -189,7 +190,7 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
       legalTextHash: f.legalTextHash,
       totalPrice: "0.10",
       currency: "USDT" as const,
-      expiresAt: FIXED_NOW + 900,
+      expiresAt: f.expiresAt,
       nonce: sha256Hex("buyer-nonce-idem")
     };
     const intent = PurchaseIntentSchema.parse({ ...unsigned, signature: signTypedData("PurchaseIntent", purchaseIntentToTypedMessage(unsigned), BUYER_KEY) });
@@ -237,7 +238,7 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
       legalTextHash: f.legalTextHash,
       totalPrice: "0.10",
       currency: "USDT" as const,
-      expiresAt: FIXED_NOW + 900,
+      expiresAt: f.expiresAt,
       nonce: sha256Hex("wrong-signer")
     };
     // Signed by the issuer key, not the buyer.
@@ -250,6 +251,42 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
     );
     expect(res.status).toBe(400);
     expect(res.json.error).toBe("INTENT_SIGNATURE_INVALID");
+  });
+
+  it("signed sample is read-only: real signatures, zero ledger writes, SAMPLE status in scope checks", async () => {
+    const before = await get(base, "/v1/ledger");
+    const s1 = await get(base, "/v1/samples/default");
+    const s2 = await get(base, "/v1/samples/default");
+    expect(s1.status).toBe(200);
+    expect(s1.json.environment).toBe("sample");
+    expect(s1.json.credential.orderId.startsWith("sample-")).toBe(true);
+    // Cached & deterministic; sample art is the badged rendition, not the deliverable.
+    expect(s2.json.credential.licenseId).toBe(s1.json.credential.licenseId);
+    expect(s1.json.asset.sampleUrl).toContain("/v1/samples/art/");
+    // Zero writes: the ledger is unchanged by sampling.
+    const after = await get(base, "/v1/ledger");
+    expect(after.json.orders.length).toBe(before.json.orders.length);
+
+    // Scope check recognizes the signed sample: PERMITTED scope + SAMPLE status.
+    const ok = await post(base, "/v1/check-license-scope", {
+      license: s1.json.credential,
+      action: "commercial_social_post",
+      channel: "x",
+      licensee: s1.json.credential.licenseeWallet
+    });
+    expect(ok.json.currentStatus).toBe("SAMPLE");
+    expect(ok.json.effectiveDecision).toBe("PERMITTED");
+
+    // A forged credential the issuer never saw is INDETERMINATE, never permitted.
+    const forged = { ...s1.json.credential, orderId: "ord-never-issued" };
+    const bad = await post(base, "/v1/check-license-scope", {
+      license: forged,
+      action: "commercial_social_post",
+      channel: "x",
+      licensee: s1.json.credential.licenseeWallet
+    });
+    expect(["INDETERMINATE", "INVALID_CREDENTIAL", "NOT_PERMITTED"]).toContain(bad.json.effectiveDecision);
+    expect(bad.json.effectiveDecision).not.toBe("PERMITTED");
   });
 
   it("serves watermarked previews but gates full assets + display renditions behind a signed URL", async () => {

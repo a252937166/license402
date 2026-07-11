@@ -17,8 +17,9 @@ import { useSpecHash } from "./license/commitments.js";
 import { checkLicenseScope } from "./license/scopeCheck.js";
 import { formatMicroUsdt, CREATOR_PAYOUT_MICRO, PLATFORM_FEE_MICRO, SALE_PRICE_MICRO } from "./license/money.js";
 import { UseSpecSchema } from "./license/types.js";
-import { onSettlementFailure, onSettlementSuccess, prepareDelivery } from "./orders/prepare.js";
+import { onSettlementFailure, onSettlementSuccess, prepareDelivery, SETTLED_STATES } from "./orders/prepare.js";
 import { runDemoAcquire } from "./orders/demo.js";
+import { buildSampleEnvelope } from "./orders/sample.js";
 import { DevPaymentAdapter } from "./payment/adapter.js";
 import type { PaymentAdapter } from "./payment/adapter.js";
 import { LivePaymentAdapter } from "./payment/live.js";
@@ -48,6 +49,23 @@ function signedDisplayUrl(config: AppConfig, assetId: string, nowSeconds: number
   const exp = nowSeconds + SIGNED_URL_TTL;
   const sig = createHmac("sha256", config.servicePrivateKey).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
   return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}/display?exp=${exp}&sig=${sig}`;
+}
+
+/**
+ * Bearer claim-ticket for delayed delivery (settlement returned pending/timeout).
+ * Only the buyer receives it (in the 202 body); it lets them collect the
+ * credential + asset once the reconciler activates the order. 24h validity.
+ */
+function signedDeliveryUrl(config: AppConfig, orderId: string, nowSeconds: number): string {
+  const exp = nowSeconds + 24 * 3600;
+  const sig = createHmac("sha256", config.servicePrivateKey).update(`delivery.${orderId}.${exp}`).digest("hex").slice(0, 32);
+  return `${config.publicOrigin}/v1/orders/${encodeURIComponent(orderId)}/delivery?exp=${exp}&sig=${sig}`;
+}
+
+function verifyDeliverySig(config: AppConfig, orderId: string, exp: number, sig: string, nowSeconds: number): boolean {
+  if (!Number.isFinite(exp) || exp < nowSeconds) return false;
+  const expected = createHmac("sha256", config.servicePrivateKey).update(`delivery.${orderId}.${exp}`).digest("hex").slice(0, 32);
+  return expected === sig;
 }
 
 function verifyAssetSig(config: AppConfig, assetId: string, exp: number, sig: string, nowSeconds: number): boolean {
@@ -170,7 +188,10 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         policyAstHash: quote.selected.policyAstHash,
         legalTextHash: legalTextHash(),
         totalPrice: quote.selected.price,
-        currency: "USDT"
+        currency: "USDT",
+        // The buyer's signed intent must carry EXACTLY this expiry — it is part
+        // of the quote's committed terms and is verified verbatim at acquire.
+        expiresAt: quote.selected.quoteExpiresAt
       }
     });
   });
@@ -199,7 +220,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         nowSeconds: now(),
         verifiedPayer: verified.verifiedPayer,
         buyerPaymentId: verified.buyerPaymentId,
-        paymentAuthorizationDigest: verified.paymentAuthorizationDigest
+        paymentAuthorizationDigest: verified.paymentAuthorizationDigest,
+        environment: payment.mode === "live" ? "production" : "sample"
       }
     );
 
@@ -208,6 +230,36 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         error: prepared.error.code,
         ...("detail" in prepared.error ? { detail: prepared.error.detail } : {})
       });
+      return;
+    }
+
+    // Idempotent replay: this exact payment already settled this order — return
+    // the delivery again WITHOUT re-settling (a spent EIP-3009 nonce would fail
+    // and must never void the license it already bought).
+    const settledOrder = repo.getOrder(prepared.delivery.orderId);
+    if (settledOrder && SETTLED_STATES.has(settledOrder.status) && settledOrder.paymentAuthorizationDigest === verified.paymentAuthorizationDigest) {
+      res.status(200).json({
+        orderId: prepared.delivery.orderId,
+        license: prepared.delivery.credential,
+        asset: {
+          assetId: prepared.delivery.assetId,
+          url: signedAssetUrl(config, prepared.delivery.assetId, now()),
+          displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
+          sha256: prepared.delivery.credential.assetSha256,
+          mimeType: "image/png"
+        },
+        settlement: { status: "SETTLED", buyerTx: settledOrder.buyerSettleTx },
+        statusUrl: prepared.delivery.credential.statusUrl
+      });
+      return;
+    }
+
+    // Exactly one payment authorization may settle an order. A concurrent
+    // request with a different authorization for the same quote stops HERE —
+    // before the facilitator ever sees it.
+    const claimed = repo.claimForSettlement(prepared.delivery.orderId, verified.paymentAuthorizationDigest, now());
+    if (!claimed) {
+      res.status(409).json({ error: "PAYMENT_ALREADY_IN_FLIGHT", orderId: prepared.delivery.orderId });
       return;
     }
 
@@ -235,12 +287,22 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     if (outcome.status === "pending") {
       // Persist the broadcast tx so the reconciler can poll it to a terminal state.
       repo.markSettlementPending(prepared.delivery.orderId, outcome.tx, "SETTLEMENT_PENDING", null, now());
-      res.status(202).json({ orderId: prepared.delivery.orderId, settlement: { status: "PENDING" }, statusUrl: prepared.delivery.credential.statusUrl });
+      res.status(202).json({
+        orderId: prepared.delivery.orderId,
+        settlement: { status: "PENDING" },
+        statusUrl: prepared.delivery.credential.statusUrl,
+        deliveryUrl: signedDeliveryUrl(config, prepared.delivery.orderId, now())
+      });
       return;
     }
     if (outcome.status === "timeout") {
       repo.markSettlementPending(prepared.delivery.orderId, outcome.tx, "SETTLEMENT_TIMEOUT", outcome.detail, now());
-      res.status(202).json({ orderId: prepared.delivery.orderId, settlement: { status: "TIMEOUT" }, statusUrl: prepared.delivery.credential.statusUrl });
+      res.status(202).json({
+        orderId: prepared.delivery.orderId,
+        settlement: { status: "TIMEOUT" },
+        statusUrl: prepared.delivery.credential.statusUrl,
+        deliveryUrl: signedDeliveryUrl(config, prepared.delivery.orderId, now())
+      });
       return;
     }
     onSettlementFailure(repo, prepared.delivery.orderId, outcome.detail, { nowSeconds: now() });
@@ -257,20 +319,37 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       nowSeconds: now()
     });
 
-    let currentStatus = result.currentStatus;
+    // Online status is STRICT: this service is the issuer, so it must know every
+    // credential it issued. ACTIVE/REVOKED come from the ledger; a signed sample
+    // (never a purchase, never in the ledger) is labeled SAMPLE and may pass;
+    // anything else is unknown to the issuer and can never be effectively permitted.
+    const credOrderId = typeof (req.body?.license as { orderId?: unknown })?.orderId === "string" ? String((req.body.license as { orderId: string }).orderId) : "";
+    let currentStatus = "UNKNOWN_TO_ISSUER";
     if (result.licenseId) {
       const orderId = repo.getOrderIdByLicenseId(result.licenseId);
       const licenseStatus = orderId ? repo.getLicenseStatus(orderId) : undefined;
       if (licenseStatus === "ACTIVE") currentStatus = "ACTIVE";
       else if (licenseStatus === "VOID_SETTLEMENT_FAILED") currentStatus = "REVOKED";
+      else if (licenseStatus) currentStatus = licenseStatus;
+      else if (credOrderId.startsWith("sample-")) currentStatus = "SAMPLE";
+    } else if (credOrderId.startsWith("sample-")) {
+      currentStatus = "SAMPLE";
     }
+    if (result.decision === "INVALID_CREDENTIAL") currentStatus = result.currentStatus ?? currentStatus;
 
     // Merge scope + status into one effective decision so a downstream agent
     // reading a single field can't act on a PERMITTED scope over a REVOKED
-    // credential. Anything but a clean scope over a live/offline credential fails closed.
+    // credential. Unknown-to-issuer fails closed as INDETERMINATE.
     const scopeOk = result.decision === "PERMITTED" || result.decision === "PERMITTED_WITH_DUTIES";
-    const statusOk = currentStatus === "ACTIVE" || currentStatus === "UNKNOWN_OFFLINE";
-    const effectiveDecision = scopeOk && statusOk ? result.decision : result.decision === "INVALID_CREDENTIAL" ? "INVALID_CREDENTIAL" : "NOT_PERMITTED";
+    const statusOk = currentStatus === "ACTIVE" || currentStatus === "SAMPLE";
+    const effectiveDecision =
+      scopeOk && statusOk
+        ? result.decision
+        : result.decision === "INVALID_CREDENTIAL"
+          ? "INVALID_CREDENTIAL"
+          : scopeOk && currentStatus === "UNKNOWN_TO_ISSUER"
+            ? "INDETERMINATE"
+            : "NOT_PERMITTED";
 
     res.status(200).json({
       decision: result.decision,
@@ -283,6 +362,40 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       duties: result.duties,
       checks: result.checks,
       licenseId: result.licenseId
+    });
+  });
+
+  // --- GET /v1/orders/:orderId/delivery (bearer claim after delayed settle) --
+  // Idempotent: once the reconciler activates the order, the buyer collects the
+  // credential and fresh signed asset URLs with the ticket from the 202 response.
+  app.get("/v1/orders/:orderId/delivery", (req: Request, res: Response) => {
+    const orderId = String(req.params.orderId);
+    if (!verifyDeliverySig(config, orderId, Number(req.query.exp), String(req.query.sig ?? ""), now())) {
+      res.status(403).json({ error: "INVALID_OR_EXPIRED_TICKET" });
+      return;
+    }
+    const order = repo.getOrder(orderId);
+    if (!order) return void res.status(404).json({ error: "ORDER_NOT_FOUND" });
+    const activeStates = ["LICENSE_ACTIVE", "CREATOR_PAYOUT_PENDING", "PAYOUT_RETRYING", "PAYOUT_FAILED", "CREATOR_PAID"];
+    if (!activeStates.includes(order.status)) {
+      res.status(409).json({ error: "NOT_SETTLED_YET", status: order.status, statusUrl: `${config.publicOrigin}/v1/orders/${orderId}` });
+      return;
+    }
+    const credential = repo.getLicenseByOrder(orderId);
+    if (!credential) return void res.status(404).json({ error: "LICENSE_NOT_FOUND" });
+    const offer = repo.listActiveOffers().find((o) => o.assetSha256 === credential.assetSha256);
+    const assetId = offer?.assetId ?? "";
+    res.status(200).json({
+      orderId,
+      license: credential,
+      asset: {
+        assetId,
+        url: signedAssetUrl(config, assetId, now()),
+        displayUrl: signedDisplayUrl(config, assetId, now()),
+        sha256: credential.assetSha256,
+        mimeType: "image/png"
+      },
+      settlement: { status: "SETTLED", buyerTx: order.buyerSettleTx }
     });
   });
 
@@ -403,6 +516,30 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.send(readFileSync(path));
   });
 
+  // --- signed sample (free, READ-ONLY — the public no-wallet experience) -----
+  // Fully signed end-to-end but never a purchase: built in memory, writes
+  // nothing (no order, no license row, no payout), and serves the badged
+  // sample rendition instead of the licensed deliverable. Works identically
+  // in dev and live mode, so flipping PAYMENT_MODE never breaks the sample.
+  app.get("/v1/samples/default", (_req: Request, res: Response) => {
+    try {
+      const envelope = buildSampleEnvelope(config, catalogOffers(), now());
+      res.setHeader("Cache-Control", "public, max-age=300");
+      res.json({ ok: true, ...envelope });
+    } catch (e) {
+      res.status(503).json({ ok: false, error: e instanceof Error ? e.message : "SAMPLE_UNAVAILABLE" });
+    }
+  });
+
+  app.get("/v1/samples/art/:slug", (req: Request, res: Response) => {
+    const slug = String(req.params.slug).replace(/[^a-z0-9-]/gi, "");
+    const path = resolve(PROJECT_ROOT, `catalog/sample/${slug}.sample.webp`);
+    if (!existsSync(path)) return void res.status(404).json({ error: "NOT_FOUND" });
+    res.setHeader("Content-Type", "image/webp");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(readFileSync(path));
+  });
+
   // --- wallet-free judge demo (DEV MODE ONLY) --------------------------------
   app.post("/v1/demo/acquire", async (req: Request, res: Response) => {
     if (!config.demoBuyerPrivateKey) {
@@ -450,6 +587,17 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   });
   app.get("/config.json", (_req, res) => {
     res.json({ paymentMode: config.paymentMode, network: config.network, issuer: config.issuerAddress, payTo: config.payToAddress, price: config.priceUsd });
+  });
+  // Version transparency: judges and crawlers can confirm the running build
+  // matches GitHub main. BUILD_INFO.json is written at deploy time (gitignored).
+  app.get("/version.json", (_req, res) => {
+    let build: Record<string, unknown> = { commit: "dev", builtAt: null };
+    try {
+      build = JSON.parse(readFileSync(resolve(PROJECT_ROOT, "BUILD_INFO.json"), "utf8")) as Record<string, unknown>;
+    } catch {
+      // local dev — no build stamp
+    }
+    res.json({ ...build, paymentMode: config.paymentMode, apiVersion: "1", credentialVersion: "1", x402Version: 2 });
   });
   // Reconcile settlements the facilitator left pending/timeout, then drain payouts.
   // Idempotent and side-effect-safe (never moves new buyer funds); also runs on a
@@ -519,9 +667,31 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
 }
 
 function ledgerJson(db: AppDatabase): unknown {
-  const orders = db.prepare(`SELECT order_id, status, buyer_settle_tx, created_at FROM orders ORDER BY created_at DESC LIMIT 100`).all();
+  const orders = db
+    .prepare(`SELECT order_id, status, buyer_settle_tx, environment, created_at FROM orders ORDER BY created_at DESC LIMIT 100`)
+    .all();
   const paid = db.prepare(`SELECT COUNT(*) AS n FROM creator_payouts WHERE state = 'PAID'`).get() as { n: number };
   const active = db.prepare(`SELECT COUNT(*) AS n FROM licenses WHERE status = 'ACTIVE'`).get() as { n: number };
   const buyers = db.prepare(`SELECT COUNT(DISTINCT licensee_wallet) AS n FROM orders WHERE status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','CREATOR_PAID')`).get() as { n: number };
-  return { activeLicenses: active.n, creatorPayoutsPaid: paid.n, distinctBuyers: buyers.n, orders };
+  // Production figures count ONLY environment='production' rows — flipping the
+  // deployment to live can never re-label historical simulated orders.
+  const prodSettled = db
+    .prepare(
+      `SELECT COUNT(*) AS n, COUNT(DISTINCT licensee_wallet) AS buyers FROM orders
+         WHERE environment = 'production' AND status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','CREATOR_PAID')`
+    )
+    .get() as { n: number; buyers: number };
+  const prodPaid = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM creator_payouts p JOIN orders o ON o.order_id = p.order_id
+         WHERE p.state = 'PAID' AND o.environment = 'production'`
+    )
+    .get() as { n: number };
+  return {
+    activeLicenses: active.n,
+    creatorPayoutsPaid: paid.n,
+    distinctBuyers: buyers.n,
+    production: { licenses: prodSettled.n, distinctBuyers: prodSettled.buyers, creatorsPaid: prodPaid.n },
+    orders
+  };
 }

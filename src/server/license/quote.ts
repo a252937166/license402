@@ -128,16 +128,20 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
   const offerDigest = offerDigestHex(unsigned);
   const astHash = policyAstHash(offer.policy);
   const specHash = useSpecHash(use);
-  const quoteExpiresAt = opts.nowSeconds + ttl;
   const ttlBucket = Math.floor(opts.nowSeconds / ttl);
+  // Deterministic within the TTL bucket: re-quoting the same request returns the
+  // IDENTICAL quote (same id, same expiry, same commitment) instead of drifting
+  // the stored quote out from under a buyer who is mid-payment. Expiry is the
+  // bucket end + one full TTL, so a quote is always valid for at least one TTL.
+  const quoteExpiresAt = (ttlBucket + 2) * ttl;
   const quoteId = deriveQuoteId(offerDigest, licenseeWallet.toLowerCase(), specHash, ttlBucket);
   const idempotencyKey = quoteId;
 
   // Honor the creator's SIGNED net price; the platform fee is the remainder of
-  // the fixed sale price. The eligibility gate already rejected offers whose
-  // net price exceeds the buyer budget; a net price above the sale price is
-  // impossible for a first-party catalog but we clamp defensively.
-  const creatorPayoutMicro = Math.min(parseUsdtToMicro(offer.creatorNetPrice), SALE_PRICE_MICRO);
+  // the fixed sale price. An offer whose signed net price exceeds the sale
+  // price was REJECTED by the eligibility gate (CREATOR_PRICE_EXCEEDS_SALE_PRICE)
+  // — a signed price is never silently altered.
+  const creatorPayoutMicro = parseUsdtToMicro(offer.creatorNetPrice);
   const platformFeeMicro = SALE_PRICE_MICRO - creatorPayoutMicro;
 
   const commitment = quoteCommitment({

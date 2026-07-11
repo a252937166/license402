@@ -108,6 +108,14 @@ export function evaluateOfferEligibility(
     "BUDGET_EXCEEDED",
     `price=${ctx.salePriceMicro}µ budget=${parseUsdtToMicro(use.maxBudget)}µ`
   );
+  // A creator-signed net price above the sale price can never be honored — the
+  // signed offer must be REJECTED, not silently clamped down.
+  add(
+    "creator-net-price-within-sale-price",
+    parseUsdtToMicro(offer.creatorNetPrice) <= ctx.salePriceMicro,
+    "CREATOR_PRICE_EXCEEDS_SALE_PRICE",
+    `creatorNet=${parseUsdtToMicro(offer.creatorNetPrice)}µ sale=${ctx.salePriceMicro}µ`
+  );
 
   const reasons = gates.filter((g) => g.status === "FAIL").map((g) => g.reason as ReasonCode);
   const offerDigest = offerDigestHex(offer);

@@ -53,12 +53,18 @@ export interface OrderRow {
   status: OrderStatus;
   buyerSettleTx: string | null;
   settleStatusDetail: string | null;
+  environment: "sample" | "production";
   createdAt: number;
   updatedAt: number;
 }
 
 export class Repo {
   constructor(private readonly db: AppDatabase) {}
+
+  /** Run fn atomically (BEGIN/COMMIT, ROLLBACK on throw). */
+  atomically<T>(fn: () => T): T {
+    return this.db.transaction(fn)();
+  }
 
   // --- assets & offers (catalog) -------------------------------------------
 
@@ -152,17 +158,17 @@ export class Repo {
   // --- quotes ---------------------------------------------------------------
 
   insertQuote(row: QuoteRow, nowSeconds: number): void {
-    // Idempotent: re-quoting the same (commitment, licensee, idempotencyKey) within
-    // the TTL bucket refreshes expiry rather than erroring — a quote is a lock, not an event.
+    // Quotes are IMMUTABLE once written. The quote engine derives identical
+    // ids/expiries/commitments within a TTL bucket, so a re-quote is a no-op —
+    // never an update that could drift a stored quote out from under a buyer
+    // who is mid-payment against the earlier terms.
     this.db
       .prepare(
         `INSERT INTO quotes (quote_id, quote_commitment, offer_id, offer_digest, licensee_wallet, use_spec_json,
            use_spec_hash, price_micro, platform_fee_micro, creator_payout_micro, idempotency_key, expires_at, created_at)
          VALUES (@quoteId, @quoteCommitment, @offerId, @offerDigest, @licenseeWallet, @useSpecJson,
            @useSpecHash, @priceMicro, @platformFeeMicro, @creatorPayoutMicro, @idempotencyKey, @expiresAt, @createdAt)
-         ON CONFLICT(quote_id) DO UPDATE SET
-           quote_commitment=excluded.quote_commitment, expires_at=excluded.expires_at,
-           use_spec_json=excluded.use_spec_json, use_spec_hash=excluded.use_spec_hash`
+         ON CONFLICT(quote_id) DO NOTHING`
       )
       .run({
         quoteId: row.quoteId,
@@ -227,6 +233,7 @@ export class Repo {
       status: row.status as OrderStatus,
       buyerSettleTx: (row.buyer_settle_tx as string) ?? null,
       settleStatusDetail: (row.settle_status_detail as string) ?? null,
+      environment: ((row.environment as string) ?? "sample") as "sample" | "production",
       createdAt: row.created_at as number,
       updatedAt: row.updated_at as number
     };
@@ -262,6 +269,7 @@ export class Repo {
     purchaseIntent: PurchaseIntent;
     purchaseIntentDigest: string;
     status: OrderStatus;
+    environment: "sample" | "production";
     nowSeconds: number;
   }): OrderRow {
     const existing = this.getOrderByCommitment(input.quoteCommitment, input.licenseeWallet);
@@ -270,9 +278,9 @@ export class Repo {
       this.db
         .prepare(
           `INSERT INTO orders (order_id, quote_id, quote_commitment, licensee_wallet, purchase_intent_json,
-             purchase_intent_digest, status, created_at, updated_at)
+             purchase_intent_digest, status, environment, created_at, updated_at)
            VALUES (@orderId, @quoteId, @quoteCommitment, @licenseeWallet, @purchaseIntentJson,
-             @purchaseIntentDigest, @status, @now, @now)`
+             @purchaseIntentDigest, @status, @environment, @now, @now)`
         )
         .run({
           orderId: input.orderId,
@@ -282,6 +290,7 @@ export class Repo {
           purchaseIntentJson: JSON.stringify(input.purchaseIntent),
           purchaseIntentDigest: input.purchaseIntentDigest,
           status: input.status,
+          environment: input.environment,
           now: input.nowSeconds
         });
     } catch (error) {
@@ -306,6 +315,26 @@ export class Repo {
            payment_authorization_digest = ?, updated_at = ? WHERE order_id = ?`
       )
       .run(buyerPaymentId, buyerSettleTx, paymentAuthDigest, nowSeconds, orderId);
+  }
+
+  /**
+   * Atomically claim an order for settlement with ONE payment authorization.
+   * Exactly one authorization can hold the claim: a concurrent request carrying
+   * a DIFFERENT authorization for the same order gets false (409 upstream) and
+   * never reaches the facilitator. Retrying with the SAME authorization (e.g.
+   * after a crash mid-settle or a failed settlement) re-acquires the claim.
+   */
+  claimForSettlement(orderId: string, paymentAuthorizationDigest: string, nowSeconds: number): boolean {
+    const result = this.db
+      .prepare(
+        `UPDATE orders SET status = 'PAYMENT_CLAIMED', payment_authorization_digest = @digest, updated_at = @now
+           WHERE order_id = @orderId AND (
+             status IN ('PAYMENT_VERIFIED','DELIVERY_PREPARED')
+             OR (status IN ('PAYMENT_CLAIMED','SETTLEMENT_FAILED') AND payment_authorization_digest = @digest)
+           )`
+      )
+      .run({ orderId, digest: paymentAuthorizationDigest, now: nowSeconds });
+    return Number(result.changes) === 1;
   }
 
   /**

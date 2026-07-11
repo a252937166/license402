@@ -13,6 +13,7 @@ export type OrderStatus =
   | "QUOTED"
   | "PAYMENT_VERIFIED"
   | "DELIVERY_PREPARED"
+  | "PAYMENT_CLAIMED"
   | "SETTLEMENT_PENDING"
   | "SETTLEMENT_TIMEOUT"
   | "SETTLEMENT_UNKNOWN"
@@ -84,6 +85,7 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT NOT NULL,
   buyer_settle_tx TEXT,
   settle_status_detail TEXT,
+  environment TEXT NOT NULL DEFAULT 'sample',
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   UNIQUE(quote_commitment, licensee_wallet)
@@ -130,13 +132,27 @@ CREATE TABLE IF NOT EXISTS outbox_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_jobs(state, run_after);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_orders_intent_digest ON orders(purchase_intent_digest);
 `;
 
 export type AppDatabase = Database;
+
+/**
+ * In-place migrations for databases created before a column existed. Pre-existing
+ * rows are all simulated/dev settlements, so environment backfills to 'sample';
+ * live orders are written 'production' explicitly.
+ */
+function migrate(db: Database): void {
+  const cols = db.prepare(`PRAGMA table_info(orders)`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === "environment")) {
+    db.exec(`ALTER TABLE orders ADD COLUMN environment TEXT NOT NULL DEFAULT 'sample'`);
+  }
+}
 
 export function openDatabase(filePath: string): AppDatabase {
   if (filePath !== ":memory:") mkdirSync(dirname(filePath), { recursive: true });
   const db = openSqlite(filePath);
   db.exec(SCHEMA);
+  migrate(db);
   return db;
 }

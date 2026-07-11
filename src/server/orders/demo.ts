@@ -88,7 +88,7 @@ export async function runDemoAcquire(
     repo,
     config,
     { use: parsedUse.data, licenseeWallet: buyer, quoteCommitment: sel.quoteCommitment, idempotencyKey: sel.idempotencyKey, purchaseIntent: intent },
-    { nowSeconds, verifiedPayer: buyer, buyerPaymentId: paymentId, paymentAuthorizationDigest: sha256Hex(`demo-auth-${paymentId}`) }
+    { nowSeconds, verifiedPayer: buyer, buyerPaymentId: paymentId, paymentAuthorizationDigest: sha256Hex(`demo-auth-${paymentId}`), environment: "sample" }
   );
   if (!prepared.ok) return { ok: false, error: prepared.error.code };
 

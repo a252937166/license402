@@ -37,21 +37,35 @@ class NodeSqliteDatabase implements Database {
     this.db.exec(sql);
   }
 
-  /** better-sqlite3-style transaction wrapper: returns a callable that runs fn in BEGIN/COMMIT. */
+  private txDepth = 0;
+
+  /**
+   * better-sqlite3-style transaction wrapper: returns a callable that runs fn
+   * atomically. Nestable — the outermost level uses BEGIN/COMMIT, inner levels
+   * use savepoints, so composed repo methods that are individually transactional
+   * can also be wrapped in one larger transaction.
+   */
   transaction<T>(fn: () => T): () => T {
     return () => {
-      this.db.exec("BEGIN");
+      const depth = this.txDepth;
+      const begin = depth === 0 ? "BEGIN" : `SAVEPOINT sp_${depth}`;
+      const commit = depth === 0 ? "COMMIT" : `RELEASE sp_${depth}`;
+      const rollback = depth === 0 ? "ROLLBACK" : `ROLLBACK TO sp_${depth}; RELEASE sp_${depth}`;
+      this.db.exec(begin);
+      this.txDepth = depth + 1;
       try {
         const result = fn();
-        this.db.exec("COMMIT");
+        this.db.exec(commit);
         return result;
       } catch (error) {
         try {
-          this.db.exec("ROLLBACK");
+          this.db.exec(rollback);
         } catch {
           // ignore rollback failure; surface the original error
         }
         throw error;
+      } finally {
+        this.txDepth = depth;
       }
     };
   }

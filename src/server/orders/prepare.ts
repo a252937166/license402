@@ -2,6 +2,7 @@ import { canonicalHash, sha256Hex } from "../domain/index.js";
 import { normalizeAddress, recoverTypedDataSigner, purchaseIntentToTypedMessage } from "../license/eip712.js";
 import { issueCredential } from "../license/credential.js";
 import { policyAstHash, purchaseIntentDigestHex, quoteCommitment } from "../license/commitments.js";
+import { parseUsdtToMicro } from "../license/money.js";
 import { PurchaseIntentSchema, UseSpecSchema } from "../license/types.js";
 import type { LicenseCredential, PurchaseIntent } from "../license/types.js";
 import type { Repo } from "../store/repo.js";
@@ -40,7 +41,13 @@ export function prepareDelivery(
   repo: Repo,
   config: AppConfig,
   body: AcquireRequestBody,
-  ctx: { nowSeconds: number; verifiedPayer: string; buyerPaymentId: string; paymentAuthorizationDigest: string }
+  ctx: {
+    nowSeconds: number;
+    verifiedPayer: string;
+    buyerPaymentId: string;
+    paymentAuthorizationDigest: string;
+    environment: "sample" | "production";
+  }
 ): { ok: true; delivery: PreparedDelivery } | { ok: false; error: PrepareError } {
   const licensee = normalizeAddress(body.licenseeWallet);
 
@@ -82,14 +89,22 @@ export function prepareDelivery(
   const astHash = policyAstHash(offer.policy);
 
   // The intent must reference exactly this quote/offer/policy/legal-text/price.
+  // Every buyer-visible field is checked verbatim — a signed intent showing a
+  // different price, expiry, or quote id than the stored quote is rejected even
+  // though the commitment already binds most of them (defense in depth against
+  // "the buyer signed a document that says something else").
   const intentMismatch =
     intent.quoteCommitment !== body.quoteCommitment ||
+    intent.quoteId !== quote.quoteId ||
     normalizeAddress(intent.buyer) !== licensee ||
     normalizeAddress(intent.licensee) !== licensee ||
     intent.assetSha256 !== offer.assetSha256 ||
     intent.offerDigest !== quote.offerDigest ||
     intent.policyAstHash !== astHash ||
-    intent.legalTextHash !== offer.legalTextHash;
+    intent.legalTextHash !== offer.legalTextHash ||
+    parseUsdtToMicro(intent.totalPrice) !== quote.priceMicro ||
+    intent.currency !== "USDT" ||
+    intent.expiresAt !== quote.expiresAt;
   if (intentMismatch) return { ok: false, error: { code: "INTENT_INVALID", http: 400, detail: "binding" } };
 
   const { signature, ...unsignedIntent } = intent;
@@ -114,6 +129,7 @@ export function prepareDelivery(
     purchaseIntent: intent,
     purchaseIntentDigest: intentDigest,
     status: "PAYMENT_VERIFIED",
+    environment: ctx.environment,
     nowSeconds: ctx.nowSeconds
   });
 
@@ -149,7 +165,7 @@ function credentialAssetId(repo: Repo, orderId: string): string {
  * After-settle transition (spec v4 §5): only status === "success" activates the
  * license and enqueues the creator payout. Callers pass the SDK settle result.
  */
-const SETTLED_STATES = new Set([
+export const SETTLED_STATES = new Set([
   "BUYER_SETTLED",
   "LICENSE_ACTIVE",
   "CREATOR_PAYOUT_PENDING",
@@ -164,24 +180,29 @@ export function onSettlementSuccess(
   buyerSettleTx: string | null,
   ctx: { nowSeconds: number }
 ): void {
-  const order = repo.getOrder(orderId);
-  if (!order) return;
-  // Idempotent: never re-settle an order that already passed settlement, or a
-  // replay/re-run would reset a paid order back to CREATOR_PAYOUT_PENDING.
-  if (SETTLED_STATES.has(order.status)) return;
-  const credential = repo.getLicenseByOrder(orderId);
-  if (!credential) return;
+  // Single transaction: buyer-settled, license activation, and the payout
+  // obligation commit together. A crash can no longer leave "buyer settled but
+  // license inactive" or "license active but no payout owed".
+  repo.atomically(() => {
+    const order = repo.getOrder(orderId);
+    if (!order) return;
+    // Idempotent: never re-settle an order that already passed settlement, or a
+    // replay/re-run would reset a paid order back to CREATOR_PAYOUT_PENDING.
+    if (SETTLED_STATES.has(order.status)) return;
+    const credential = repo.getLicenseByOrder(orderId);
+    if (!credential) return;
 
-  repo.markBuyerSettled(orderId, credential.buyerPaymentId, buyerSettleTx, credential.paymentAuthorizationDigest, ctx.nowSeconds);
-  repo.updateOrderStatus(orderId, "LICENSE_ACTIVE", ctx.nowSeconds);
-  repo.setLicenseStatus(orderId, "ACTIVE");
+    repo.markBuyerSettled(orderId, credential.buyerPaymentId, buyerSettleTx, credential.paymentAuthorizationDigest, ctx.nowSeconds);
+    repo.updateOrderStatus(orderId, "LICENSE_ACTIVE", ctx.nowSeconds);
+    repo.setLicenseStatus(orderId, "ACTIVE");
 
-  const offer = repo.getOffer(orderIdToOfferId(repo, orderId));
-  const quote = repo.getQuoteById(order.quoteId);
-  const payoutWallet = offer?.payoutWallet ?? credential.licensorWallet;
-  const payoutMicro = quote?.creatorPayoutMicro ?? 70_000;
-  repo.enqueuePayout(orderId, payoutWallet, payoutMicro, ctx.nowSeconds);
-  repo.updateOrderStatus(orderId, "CREATOR_PAYOUT_PENDING", ctx.nowSeconds);
+    const offer = repo.getOffer(orderIdToOfferId(repo, orderId));
+    const quote = repo.getQuoteById(order.quoteId);
+    const payoutWallet = offer?.payoutWallet ?? credential.licensorWallet;
+    const payoutMicro = quote?.creatorPayoutMicro ?? 70_000;
+    repo.enqueuePayout(orderId, payoutWallet, payoutMicro, ctx.nowSeconds);
+    repo.updateOrderStatus(orderId, "CREATOR_PAYOUT_PENDING", ctx.nowSeconds);
+  });
 }
 
 function orderIdToOfferId(repo: Repo, orderId: string): string {
@@ -194,6 +215,9 @@ function orderIdToOfferId(repo: Repo, orderId: string): string {
 export function onSettlementFailure(repo: Repo, orderId: string, detail: string, ctx: { nowSeconds: number }): void {
   const order = repo.getOrder(orderId);
   if (!order) return;
+  // Never void an order that already settled — a replayed authorization whose
+  // second settle fails (nonce spent) must not revoke the license it bought.
+  if (SETTLED_STATES.has(order.status)) return;
   // Do NOT delete: mark failed; a reconciler may later confirm a late success.
   repo.updateOrderStatus(orderId, "SETTLEMENT_FAILED", ctx.nowSeconds, detail);
   repo.setLicenseStatus(orderId, "VOID_SETTLEMENT_FAILED");
