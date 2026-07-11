@@ -222,6 +222,7 @@
   .pp-title{font-weight:800;font-stretch:88%;text-transform:uppercase;font-size:23px;margin:4px 0 2px;letter-spacing:.01em}
   .pp-status{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--cleared);text-transform:uppercase;margin-top:2px}
   .pp-status .d{width:6px;height:6px;border-radius:50%;background:var(--cleared)}
+  .pp-status.sample{color:var(--duty)} .pp-status.sample .d{background:var(--duty)}
   .pp-sec{margin-top:20px}
   .pp-sec .h{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--paper-fog);border-bottom:1px solid var(--vellum-line);padding-bottom:5px;margin-bottom:9px}
   .pp-row{display:flex;justify-content:space-between;gap:14px;font-size:13px;padding:3px 0}
@@ -458,9 +459,9 @@
           <div class="step" data-k="offer"><span class="node"></span><div><div class="lbl">Creator signed the offer</div><div class="sub">EIP-712 · offer digest</div></div></div>
           <div class="step" data-k="quote"><span class="node"></span><div><div class="lbl">Exact asset &amp; price locked</div><div class="sub">terms commitment</div></div></div>
           <div class="step" data-k="intent"><span class="node"></span><div><div class="lbl">Buyer accepted the terms</div><div class="sub">EIP-712 purchase intent</div></div></div>
-          <div class="step" data-k="pay"><span class="node"></span><div><div class="lbl">Payment settled</div><div class="sub">402 · X Layer</div></div></div>
+          <div class="step" data-k="pay"><span class="node"></span><div><div class="lbl">Payment settled</div><div class="sub" id="subPay">402 · X Layer</div></div></div>
           <div class="step" data-k="cred"><span class="node"></span><div><div class="lbl">License issued</div><div class="sub">issuer signature</div></div></div>
-          <div class="step" data-k="payout"><span class="node"></span><div><div class="lbl">Creator paid</div><div class="sub">0.07 USDT</div></div></div>
+          <div class="step" data-k="payout"><span class="node"></span><div><div class="lbl">Creator paid</div><div class="sub" id="subPayout">0.07 USDT</div></div></div>
         </div>
         <div class="rail-price">
           <div><div class="p" id="priceBig">0.10</div><div class="split" id="splitLine">creator 0.07 · platform fee 0.03</div></div>
@@ -498,9 +499,9 @@
       </div>
       <div class="pp-body">
         <div class="pp-guil" id="ppGuil"></div>
-        <div class="pp-kicker">Credential · social-commercial-v1</div>
+        <div class="pp-kicker">LICENSE402 · Scope receipt · social-commercial-v1</div>
         <div class="pp-title" id="ppTitle">—</div>
-        <div class="pp-status"><span class="d"></span> <span id="ppStatus">License active</span></div>
+        <div class="pp-status" id="ppStatusWrap"><span class="d"></span> <span id="ppStatus">License active</span></div>
 
         <div class="pp-sec">
           <div class="h">Licensed scope</div>
@@ -512,13 +513,19 @@
           <div class="pp-row"><span class="k">Licensee</span><span class="v" id="ppLicensee">—</span></div>
           <div class="pp-row"><span class="k">Issuer</span><span class="v">LICENSE402</span></div>
         </div>
+        <div class="pp-sec">
+          <div class="h">Payment</div>
+          <div class="pp-row"><span class="k">Price</span><span class="v"><b>0.10 USDT</b></span></div>
+          <div class="pp-row"><span class="k">Creator payout</span><span class="v" id="ppPayAmt">0.07 USDT</span></div>
+          <div class="pp-row"><span class="k">Platform fee</span><span class="v">0.03 USDT</span></div>
+        </div>
         <div class="pp-sec pp-proof">
           <div class="h">Proof</div>
-          <div class="pp-row"><span class="k">Creator offer</span><span class="v">✓ verified</span></div>
-          <div class="pp-row"><span class="k">Buyer intent</span><span class="v">✓ verified</span></div>
+          <div class="pp-row"><span class="k">Creator offer</span><span class="v" id="ppOffer">✓ signed</span></div>
+          <div class="pp-row"><span class="k">Buyer intent</span><span class="v" id="ppIntent">✓ signed</span></div>
           <div class="pp-row"><span class="k">Asset hash</span><span class="v" id="ppAsset">✓ matched</span></div>
-          <div class="pp-row"><span class="k">Buyer settlement</span><span class="v" id="ppSettle">✓ confirmed</span></div>
-          <div class="pp-row"><span class="k">Creator payout</span><span class="v" id="ppPayout">✓ paid</span></div>
+          <div class="pp-row"><span class="k">Buyer settlement</span><span class="v" id="ppSettle">—</span></div>
+          <div class="pp-row"><span class="k">Creator payout</span><span class="v" id="ppPayout">—</span></div>
         </div>
         <div class="pp-actions">
           <button class="pp-btn" id="dlAsset">Download licensed asset</button>
@@ -697,7 +704,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
 
   // ---- circular seal / stamp ----
   function stampSVG(word,cls){
-    const ring="LICENSE402 · RIGHTS CLEARANCE · X LAYER · ";
+    const ring="LICENSE402 · SCOPE RECEIPT · X LAYER · ";
     const col=cls==="v-cleared"?"#2ea774":cls==="v-denied"?"#d6423a":cls==="v-duty"?"#c98a2b":"#8b94a6";
     return `<svg viewBox="0 0 200 200" width="100%" height="100%" class="stamp-anim">
       <defs><path id="ring" d="M100,100 m-74,0 a74,74 0 1,1 148,0 a74,74 0 1,1 -148,0"/></defs>
@@ -844,19 +851,32 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   }
 
   function renderPassport(){
+    const sample=!(CFG&&CFG.paymentMode==="live");
     $("#ppArt").src=ASSET.url;
     $("#ppTitle").textContent=ASSET.title;
     $("#ppLicensor").textContent=short(CRED.licensorWallet);
     $("#ppLicensee").textContent=short(CRED.licenseeWallet);
     $("#ppAsset").textContent="✓ "+short(CRED.assetSha256);
     fillGrant();
-    $("#ppStamp").innerHTML=stampSVG("CLEARED","v-cleared");
-    // payout may still be settling; reflect from order
-    api("/v1/orders/"+CRED.orderId).then(o=>{
-      const paid=o.creatorPayout&&o.creatorPayout.state==="PAID";
-      $("#ppPayout").textContent=paid?"✓ paid":"• pending";
-      $("#ppSettle").textContent=o.buyerSettleTx?"✓ confirmed":"• pending";
-    }).catch(()=>{});
+    // Honest state: signatures (offer/quote/intent/credential) are real even in
+    // the sample; only settlement + payout are simulated when funds are off.
+    $("#ppStamp").innerHTML=stampSVG(sample?"SAMPLE":"CLEARED",sample?"v-duty":"v-cleared");
+    $("#ppStatusWrap").classList.toggle("sample",sample);
+    $("#ppStatus").textContent=sample?"Signed end-to-end · sample, no funds moved":"License active";
+    if(sample){
+      $("#ppSettle").textContent="simulated";
+      $("#ppPayout").textContent="simulated";
+      const sp=$("#subPay"), so=$("#subPayout");
+      if(sp) sp.textContent="simulated · no funds moved";
+      if(so) so.textContent="simulated · no funds moved";
+    }else{
+      // Live: payout may still be settling; reflect the real order state.
+      api("/v1/orders/"+CRED.orderId).then(o=>{
+        const paid=o.creatorPayout&&o.creatorPayout.state==="PAID";
+        $("#ppPayout").textContent=paid?"✓ paid":"• pending";
+        $("#ppSettle").textContent=o.buyerSettleTx?"✓ confirmed":"• pending";
+      }).catch(()=>{});
+    }
   }
 
   $("#clearBtn").addEventListener("click",clearLicense);
@@ -949,9 +969,9 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     if(k==="offer") openModal("Creator signed the offer","EIP-712 CreatorOffer",[["asset sha-256",c.assetSha256,true],["offer digest",c.offerDigest],["licensor wallet",c.licensorWallet],["legal text hash",c.legalTextHash],["policy hash",c.policyAstHash],["verify","recover EIP-712 signer == licensor (in proof bundle)"]]);
     else if(k==="quote") openModal("Exact asset & price locked","terms commitment",[["quote commitment",c.quoteCommitment||"(in bundle)"],["asset sha-256",c.assetSha256,true],["price","0.10 USDT"],["creator payout","0.07 USDT"],["platform fee","0.03 USDT"],["drift guard","mismatch → 409 before the 402 challenge"]]);
     else if(k==="intent") openModal("Buyer accepted the terms","EIP-712 PurchaseIntent",[["purchase intent digest",c.purchaseIntentDigest],["licensee",c.licenseeWallet],["binds","asset + offer + policy + legal text + price"],["rule","payer == buyer == licensee"],["verify","recover EIP-712 signer == buyer (in proof bundle)"]]);
-    else if(k==="pay") openModal("Payment settled","402 · X Layer ("+env+")",[["network","eip155:196 · X Layer"],["payment auth digest",c.paymentAuthorizationDigest||"(in order)"],["buyer payment id",c.buyerPaymentId],["settlement","only status===success activates the license"],["environment",env]]);
+    else if(k==="pay") openModal(isSample?"Payment step · simulated":"Payment settled","402 · X Layer ("+env+")",[["network","eip155:196 · X Layer"],["payment auth digest",c.paymentAuthorizationDigest||"(in order)"],["buyer payment id",c.buyerPaymentId],["settlement","only status===success activates the license"],["environment",env]]);
     else if(k==="cred") openModal("License issued","issuer-signed credential",[["license id",c.licenseId,true],["issuer",c.issuer],["issuer signature",short(c.issuerSignature)],["evidence root",c.evidenceRoot||"—"],["receipt hash",c.receiptHash||"—"],["download","use “Download proof bundle” for the full envelope"]]);
-    else if(k==="payout") openModal("Creator paid","creator net price",[["payout wallet",c.licensorWallet],["amount","0.07 USDT"],["order status","see “View payment record”"],["rule","payout is a liability once the buyer settles; retried, never dropped"],["environment",env]]);
+    else if(k==="payout") openModal(isSample?"Creator payout · simulated":"Creator paid","creator net price",[["payout wallet",c.licensorWallet],["amount","0.07 USDT"],["order status","see “View payment record”"],["rule","payout is a liability once the buyer settles; retried, never dropped"],["environment",env]]);
   }
   $$('#rail .step').forEach(s=>s.addEventListener("click",()=>railEvidence(s.dataset.k)));
 
