@@ -192,11 +192,12 @@
           <div class="addrbox"><code id="selfAddr">—</code><button class="btn ghost" id="copyAddr">Copy address</button><button class="btn ghost" id="recheckBal">Re-check balance</button></div>
         </div>
         <div id="fundTestnet" style="display:none">
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn" id="btnFaucet">Claim 10 test USDT — free</button>
-            <button class="btn ghost" id="skipFaucet">I already have test USDT →</button>
+          <span class="hint">Get free test USDT from the <b>official X Layer testnet faucet</b> — select token <b>USDT</b>, paste your address, 10 per claim, zero real cost. Then come back and continue.</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <a class="btn" href="https://web3.okx.com/xlayer/faucet" target="_blank" rel="noopener" id="officialFaucet">Open the official faucet ↗</a>
+            <button class="btn ghost" id="skipFaucet">I have test USDT — check balance →</button>
           </div>
-          <span class="hint">test-value tokens on X Layer testnet (1952) · claim as often as you like (60s cooldown) · zero real cost</span>
+          <span class="hint">note: the faucet sends the official x402 test token (0x9e29…4fb0c); your wallet's asset list may not show it, but this page reads the chain directly.</span>
         </div>
         <div class="err" id="err2"></div>
       </section>

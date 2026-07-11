@@ -23,7 +23,7 @@ INVALID_CREDENTIAL / INDETERMINATE` (+ `PERMITTED_TESTNET_ONLY` for test credent
    creator-offer + buyer-intent + issuer credential (nothing written, no funds moved).
    Click the hero buttons: publish → permitted, train → not permitted, tamper → invalid.
 2. **Zero cost, full loop:** `/buy` → select **Testnet** → connect OKX Wallet/MetaMask →
-   claim free test USDT → two signatures → REAL x402 settlement + REAL creator payout on
+   grab free test USDT from the official X Layer faucet → two signatures → REAL x402 settlement + REAL creator payout on
    X Layer testnet, with OKLink links.
 3. **Real money:** `/buy` → **Mainnet** → fund your wallet with 0.10 USDT (X Layer) →
    the identical flow settles a production license. (There is deliberately **no mainnet

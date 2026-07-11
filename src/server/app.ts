@@ -847,63 +847,6 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
   });
 
-  // --- faucet (TESTNET ONLY — free test-value onboarding) ---------------------
-  // There is NO mainnet faucet: the real-money experience is self-funded (bring
-  // your own 0.10 USDT on X Layer). The testnet rail hands out test USDT freely
-  // so anyone can run the full loop at zero cost. One claim per address ever.
-  // 10 test USDT per claim, adapting DOWN to what the pool can afford so a low
-  // pool degrades gracefully instead of failing. Purchases replenish the pool
-  // (0.10 in, 0.07 payout → net +0.03/order), so it self-sustains.
-  const FAUCET_TARGET_MICRO = 10_000_000;
-  const FAUCET_MIN_MICRO = 200_000; // always enough for two purchases
-  const FAUCET_GLOBAL_CAP = Number(process.env.FAUCET_CAP ?? 5000);
-  app.post("/v1/faucet", async (req: Request, res: Response) => {
-    if (config.paymentMode !== "live" || !chainTest || !config.testnet) {
-      res.status(503).json({
-        error: "FAUCET_DISABLED",
-        detail: "the faucet serves TESTNET funds only; on mainnet, fund your wallet yourself (0.10 USDT on X Layer)"
-      });
-      return;
-    }
-    const address = String(req.body?.address ?? "");
-    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
-      res.status(400).json({ error: "INVALID_ADDRESS" });
-      return;
-    }
-    if (repo.faucetClaimCount("testnet") >= FAUCET_GLOBAL_CAP) {
-      res.status(429).json({ error: "FAUCET_EXHAUSTED" });
-      return;
-    }
-    // Test-value tokens — no per-address limit, just a 60s cooldown per address
-    // and a pool check so a drained service wallet fails loudly, not silently.
-    const prior = repo.getFaucetClaim(address, "testnet");
-    if (prior && now() - Number(prior.created_at ?? 0) < 60) {
-      res.status(429).json({ error: "COOLDOWN", detail: "wait a minute between claims" });
-      return;
-    }
-    let amountMicro = FAUCET_TARGET_MICRO;
-    try {
-      const pool = Number(await chainTest.usdtBalance(chainTest.address));
-      amountMicro = Math.min(FAUCET_TARGET_MICRO, Math.max(0, pool - 100_000));
-      if (amountMicro < FAUCET_MIN_MICRO) {
-        res.status(503).json({ error: "FAUCET_POOL_LOW", detail: "the test-token pool is being refilled — try again shortly" });
-        return;
-      }
-    } catch {
-      res.status(502).json({ error: "CHAIN_UNAVAILABLE" });
-      return;
-    }
-    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
-    repo.upsertFaucetClaim(address, ip, amountMicro, "testnet", now());
-    try {
-      const tx = await chainTest.transferUsdt(address, amountMicro);
-      repo.recordFaucetTx(address, "testnet", tx);
-      res.status(200).json({ ok: true, network: "testnet", tx, amount: (amountMicro / 1e6).toFixed(2), explorer: `${config.testnet.explorerTx}${tx}` });
-    } catch (e) {
-      res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
-    }
-  });
-
   // --- wallet-free judge demo (DEV MODE ONLY) --------------------------------
   app.post("/v1/demo/acquire", async (req: Request, res: Response) => {
     if (!config.demoBuyerPrivateKey) {
@@ -966,7 +909,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       rails: {
         mainnet: { network: main.network, chainId: main.chainId, asset: main.asset, explorerTx: main.explorerTx, faucet: false },
         ...(config.testnet
-          ? { testnet: { network: config.testnet.network, chainId: config.testnet.chainId, asset: config.testnet.asset, explorerTx: config.testnet.explorerTx, faucet: true } }
+          ? { testnet: { network: config.testnet.network, chainId: config.testnet.chainId, asset: config.testnet.asset, explorerTx: config.testnet.explorerTx, faucet: false, officialFaucet: "https://web3.okx.com/xlayer/faucet" } }
           : {})
       }
     });
