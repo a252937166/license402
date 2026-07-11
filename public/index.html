@@ -93,6 +93,13 @@
   .specimen-frame{position:relative;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:var(--raised);aspect-ratio:1/1;box-shadow:var(--shadow)}
   .specimen-frame img{width:100%;height:100%;object-fit:cover;display:block}
   .specimen-tag{position:absolute;top:12px;left:12px;z-index:3;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;background:rgba(10,13,19,.72);backdrop-filter:blur(6px);border:1px solid var(--line-strong);padding:5px 9px;border-radius:2px;color:var(--fog)}
+  .specimen-label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--fog-2);margin-bottom:10px}
+  .specimen-caption{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:26px 14px 12px;background:linear-gradient(180deg,transparent,rgba(8,10,15,.86) 62%)}
+  .specimen-caption .cap-l{display:flex;flex-direction:column;gap:1px}
+  .specimen-caption .cap-l b{font-family:var(--sans);font-weight:700;font-size:16px;letter-spacing:.01em}
+  .specimen-caption .cap-l span{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--fog)}
+  .specimen-caption .cap-r{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--fog);text-align:right;display:flex;flex-direction:column;gap:2px}
+  .specimen-caption .cap-r b{color:var(--proof);font-size:14px;letter-spacing:0}
   .scope-strip{margin-top:14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--raised);overflow:hidden}
   .scope-strip .row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--line)}
   .scope-strip .row:last-child{border-bottom:0}
@@ -290,9 +297,14 @@
         </div>
       </div>
       <div class="specimen">
+        <div class="specimen-label">Catalog asset · what an agent licenses</div>
         <div class="specimen-frame">
           <span class="specimen-tag">Preview only · not yet licensed</span>
-          <img id="heroArt" alt="Licensed artwork specimen" />
+          <img id="heroArt" alt="Original artwork available to license" />
+          <div class="specimen-caption">
+            <div class="cap-l"><b id="heroTitle">—</b><span id="heroCreator">original artwork</span></div>
+            <div class="cap-r">Commercial license<b>0.10 USDT</b></div>
+          </div>
         </div>
         <div class="scope-strip" id="heroScope"></div>
       </div>
@@ -544,7 +556,8 @@
     }catch(e){}
     try{ const cat=await api("/v1/catalog");
       const first=(cat.offers||[]).find(o=>o.commercialUse)||cat.offers[0];
-      if(first){ $("#heroArt").src=first.previewUrl; $("#consoleArt").src=first.previewUrl; }
+      if(first){ $("#heroArt").src=first.previewUrl; $("#consoleArt").src=first.previewUrl;
+        $("#heroTitle").textContent=first.title; $("#heroCreator").textContent="by "+(first.creator||"Genesis Studio"); }
     }catch(e){}
     renderRejectsPlaceholder();
     refreshLedger();

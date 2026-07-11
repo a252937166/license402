@@ -55,15 +55,17 @@ interface SeedSpec {
   nonCommercial?: boolean;
 }
 
+// First-party original generative artworks — abstract pieces are a real
+// licensing category (marketing backgrounds, cover art). Titles match the art.
 const SPECS: SeedSpec[] = [
-  { slug: "cyber-dragon", title: "Cyberpunk Dragon", seed: 7, tags: ["cyberpunk", "dragon", "neon"] },
-  { slug: "neon-city", title: "Neon Skyline", seed: 13, tags: ["city", "neon", "night"], attribution: true },
-  { slug: "synth-portal", title: "Synthwave Portal", seed: 21, tags: ["synthwave", "portal", "abstract"] },
-  { slug: "aurora-koi", title: "Aurora Koi", seed: 34, tags: ["koi", "aurora", "calm"] },
-  { slug: "glitch-mask", title: "Glitch Mask", seed: 55, tags: ["glitch", "mask", "portrait"] },
+  { slug: "cyber-dragon", title: "Ember Nebula", seed: 7, tags: ["abstract", "nebula", "magenta"] },
+  { slug: "neon-city", title: "Cyan Tempest", seed: 13, tags: ["abstract", "storm", "cyan"], attribution: true },
+  { slug: "synth-portal", title: "Violet Signal", seed: 21, tags: ["abstract", "synthwave", "violet"] },
+  { slug: "aurora-koi", title: "Aurora Veil", seed: 34, tags: ["abstract", "aurora", "teal"] },
+  { slug: "glitch-mask", title: "Cobalt Drift", seed: 55, tags: ["abstract", "cobalt", "flow"] },
   // Honest demo rejects (first-party art; their reason codes are shown in the console):
-  { slug: "expired-relic", title: "Bronze Relic", seed: 89, tags: ["demo", "expired"], expired: true },
-  { slug: "editorial-only", title: "Editorial Study", seed: 144, tags: ["demo", "noncommercial"], nonCommercial: true }
+  { slug: "expired-relic", title: "Bronze Relic", seed: 89, tags: ["abstract", "bronze"], expired: true },
+  { slug: "editorial-only", title: "Editorial Study", seed: 144, tags: ["abstract", "monochrome"], nonCommercial: true }
 ];
 
 const catalog: unknown[] = [];

@@ -42,12 +42,12 @@
     },
     "assetFile": "catalog/assets/cyber-dragon.png",
     "previewFile": "catalog/previews/cyber-dragon.preview.png",
-    "title": "Cyberpunk Dragon",
+    "title": "Ember Nebula",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "cyberpunk",
-      "dragon",
-      "neon"
+      "abstract",
+      "nebula",
+      "magenta"
     ]
   },
   {
@@ -93,12 +93,12 @@
     },
     "assetFile": "catalog/assets/neon-city.png",
     "previewFile": "catalog/previews/neon-city.preview.png",
-    "title": "Neon Skyline",
+    "title": "Cyan Tempest",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "city",
-      "neon",
-      "night"
+      "abstract",
+      "storm",
+      "cyan"
     ]
   },
   {
@@ -144,12 +144,12 @@
     },
     "assetFile": "catalog/assets/synth-portal.png",
     "previewFile": "catalog/previews/synth-portal.preview.png",
-    "title": "Synthwave Portal",
+    "title": "Violet Signal",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
+      "abstract",
       "synthwave",
-      "portal",
-      "abstract"
+      "violet"
     ]
   },
   {
@@ -195,12 +195,12 @@
     },
     "assetFile": "catalog/assets/aurora-koi.png",
     "previewFile": "catalog/previews/aurora-koi.preview.png",
-    "title": "Aurora Koi",
+    "title": "Aurora Veil",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "koi",
+      "abstract",
       "aurora",
-      "calm"
+      "teal"
     ]
   },
   {
@@ -246,12 +246,12 @@
     },
     "assetFile": "catalog/assets/glitch-mask.png",
     "previewFile": "catalog/previews/glitch-mask.preview.png",
-    "title": "Glitch Mask",
+    "title": "Cobalt Drift",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "glitch",
-      "mask",
-      "portrait"
+      "abstract",
+      "cobalt",
+      "flow"
     ]
   },
   {
@@ -300,8 +300,8 @@
     "title": "Bronze Relic",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "demo",
-      "expired"
+      "abstract",
+      "bronze"
     ]
   },
   {
@@ -350,8 +350,8 @@
     "title": "Editorial Study",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "demo",
-      "noncommercial"
+      "abstract",
+      "monochrome"
     ]
   }
 ]
