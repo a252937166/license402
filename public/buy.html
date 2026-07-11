@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Buy live — LICENSE402</title>
+<meta name="description" content="Buy a real content license with your wallet on X Layer: 0.10 USDT via x402, signed scope credential included." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%2339aec0' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%2339aec0'/%3E%3C/svg%3E" />
+<style>
+  @font-face{font-family:"Archivo";src:url("/fonts/archivo.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}
+  @font-face{font-family:"JetBrains Mono";src:url("/fonts/jetbrains-mono.woff2") format("woff2");font-weight:100 800;font-display:swap}
+  :root{
+    --ink:#0a0d13;--ink-2:#0f131b;--raised:#151a24;--raised-2:#1b212d;--line:#242c3a;--line-strong:#33405a;
+    --vellum:#e9e7dc;--vellum-2:#f3f1e9;--vellum-ink:#171a1f;--vellum-line:#c4c0ac;
+    --fog:#8b94a6;--fog-2:#5d6675;--cleared:#2ea774;--cleared-soft:#193a30;--denied:#d6423a;--denied-soft:#3a1e1e;
+    --duty:#c98a2b;--duty-soft:#3a2f18;--proof:#39aec0;--proof-soft:#123037;--text:#e8eaef;--radius:3px;
+    --shadow:0 24px 60px -20px rgba(0,0,0,.7);
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--sans:"Archivo","Helvetica Neue",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--proof);color:#04121a}
+  .mono{font-family:var(--mono);font-variant-ligatures:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  header.bar{position:sticky;top:0;z-index:40;background:rgba(10,13,19,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .bar-in{display:flex;align-items:center;gap:18px;height:58px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.06em}
+  .brand .sigil{width:22px;height:22px}
+  .brand .sub{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.34em;color:var(--fog-2);font-weight:400}
+  nav{margin-left:auto;display:flex;gap:22px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--fog)}
+  nav a:hover{color:var(--text)}
+  nav a.on{color:var(--proof)}
+  .netpill{font-family:var(--mono);font-size:10px;letter-spacing:.12em;padding:5px 10px;border:1px solid var(--line-strong);border-radius:999px;color:var(--fog)}
+  .netpill b{color:var(--duty)} .netpill.live b{color:var(--cleared)}
+
+  .head{padding:44px 0 10px}
+  .head .kick{font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--proof)}
+  .head h1{font-size:clamp(28px,4.6vw,44px);font-weight:850;letter-spacing:-.01em;margin:10px 0 8px}
+  .head p{color:var(--fog);max-width:640px}
+  .banner{margin:18px 0 0;padding:12px 16px;border:1px solid var(--duty);background:var(--duty-soft);border-radius:var(--radius);font-family:var(--mono);font-size:12.5px;color:var(--text);display:none}
+  .banner a{color:var(--duty);text-decoration:underline}
+
+  .grid{display:grid;grid-template-columns:300px 1fr;gap:26px;padding:28px 0 80px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+  .railbox{background:var(--raised);border:1px solid var(--line);border-radius:var(--radius);padding:20px;position:sticky;top:76px}
+  .railbox h3{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:var(--fog);margin-bottom:14px}
+  .step{display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);opacity:.45;transition:opacity .3s}
+  .step:last-child{border-bottom:0}
+  .step .node{width:22px;height:22px;border-radius:50%;border:1.6px solid var(--line-strong);display:grid;place-items:center;font-family:var(--mono);font-size:10px;color:var(--fog);flex:none;margin-top:2px}
+  .step .lbl{font-weight:700;font-size:14px}
+  .step .sub{font-family:var(--mono);font-size:10.5px;color:var(--fog-2);letter-spacing:.04em}
+  .step.on{opacity:1}
+  .step.on .node{border-color:var(--proof);color:var(--proof);box-shadow:0 0 0 4px var(--proof-soft)}
+  .step.done{opacity:1}
+  .step.done .node{border-color:var(--cleared);background:var(--cleared-soft);color:var(--cleared)}
+  .envcard{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--fog);line-height:2}
+  .envcard b{color:var(--text);font-weight:600}
+
+  .panel{background:var(--raised);border:1px solid var(--line);border-radius:var(--radius);padding:26px;margin-bottom:18px}
+  .panel h2{font-size:19px;font-weight:800;display:flex;align-items:center;gap:10px}
+  .panel h2 .idx{font-family:var(--mono);font-size:11px;color:var(--proof);letter-spacing:.2em}
+  .panel .note{color:var(--fog);font-size:14px;margin:8px 0 16px}
+  .panel.locked{opacity:.45;pointer-events:none}
+  .btn{display:inline-flex;align-items:center;gap:10px;padding:12px 22px;border-radius:var(--radius);border:1px solid var(--proof);background:var(--proof);color:#04121a;font-weight:800;font-size:14.5px;cursor:pointer;font-family:var(--sans)}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.ghost{background:transparent;color:var(--text);border-color:var(--line-strong)}
+  .btn.ghost:hover{border-color:var(--proof);color:var(--proof)}
+  .kv{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+  .kv .k{color:var(--fog-2);font-family:var(--mono);font-size:11.5px;letter-spacing:.06em}
+  .kv .v{font-family:var(--mono);font-size:12px;text-align:right;word-break:break-all}
+  .kv .v.ok{color:var(--cleared)}
+  .err{margin-top:12px;padding:10px 14px;border:1px solid var(--denied);background:var(--denied-soft);border-radius:var(--radius);font-family:var(--mono);font-size:12px;display:none}
+  .hint{font-family:var(--mono);font-size:11.5px;color:var(--fog-2);margin-top:10px}
+  .hint a{color:var(--proof)}
+
+  .assetcard{display:grid;grid-template-columns:220px 1fr;gap:18px;margin-top:14px;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:var(--ink-2)}
+  .assetcard img{width:100%;height:100%;object-fit:cover;min-height:150px}
+  .assetcard .in{padding:14px 16px}
+  .assetcard .t{font-weight:800;font-size:17px}
+  .assetcard .c{font-family:var(--mono);font-size:11px;color:var(--fog);margin-bottom:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:4px 9px;border:1px solid var(--line-strong);border-radius:999px;color:var(--text)}
+  .chip.no{color:var(--denied);border-color:var(--denied);text-decoration:line-through}
+  .price{font-family:var(--mono);font-size:13px;color:var(--text);margin-top:6px}
+  .price b{font-size:16px}
+
+  /* live receipt (vellum) */
+  .receipt{display:none;background:var(--vellum);color:var(--vellum-ink);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid #000;overflow:hidden}
+  .receipt .band{background:#14261e;color:#d9e8df;font-family:var(--mono);font-size:10.5px;letter-spacing:.3em;text-align:center;padding:8px}
+  .receipt .body{padding:26px 30px 30px}
+  .receipt h3{font-size:24px;font-weight:850;letter-spacing:-.01em}
+  .receipt .status{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--cleared);text-transform:uppercase;margin:4px 0 14px}
+  .receipt .status .d{width:6px;height:6px;border-radius:50%;background:var(--cleared)}
+  .receipt .sec{border-top:1px solid var(--vellum-line);padding:10px 0}
+  .receipt .sec .h{font-family:var(--mono);font-size:10px;letter-spacing:.26em;color:#6b6a5c;margin-bottom:6px}
+  .receipt .row{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:13px}
+  .receipt .row .k{color:#6b6a5c;font-family:var(--mono);font-size:11px}
+  .receipt .row .v{font-family:var(--mono);font-size:11.5px;text-align:right;word-break:break-all}
+  .receipt .row .v a{color:#175e46;text-decoration:underline}
+  .receipt .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .rbtn{padding:10px 16px;border-radius:var(--radius);border:1px solid var(--vellum-ink);background:var(--vellum-ink);color:var(--vellum);font-weight:700;font-size:13px;cursor:pointer;font-family:var(--sans)}
+  .rbtn.sec{background:transparent;color:var(--vellum-ink)}
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--raised-2);border:1px solid var(--line-strong);color:var(--text);padding:11px 20px;border-radius:var(--radius);font-family:var(--mono);font-size:12.5px;opacity:0;pointer-events:none;transition:.3s;z-index:80}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  footer{border-top:1px solid var(--line);padding:26px 0;color:var(--fog-2);font-family:var(--mono);font-size:11px}
+</style>
+</head>
+<body>
+
+<header class="bar"><div class="wrap bar-in">
+  <a class="brand" href="/"><svg class="sigil" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" stroke="var(--proof)" stroke-width="6"/><circle cx="50" cy="50" r="12" fill="var(--proof)"/></svg><span>LICENSE402<span class="sub">PROOF STUDIO</span></span></a>
+  <nav>
+    <a href="/market">Market</a>
+    <a href="/buy" class="on">Buy live</a>
+    <a href="/verify">Verify</a>
+    <a href="/#ledger">Receipts</a>
+    <a href="https://github.com/a252937166/license402" target="_blank" rel="noopener">GitHub ↗</a>
+  </nav>
+  <span class="netpill" id="netPill">X LAYER · 196 · <b id="modeTxt">…</b></span>
+</div></header>
+
+<div class="wrap">
+  <div class="head">
+    <div class="kick">LIVE PURCHASE · X402 · X LAYER</div>
+    <h1>Buy a real license with your wallet.</h1>
+    <p>Two signatures, zero gas: sign the exact terms (EIP-712 PurchaseIntent), then authorize 0.10 USDT (EIP-3009). The facilitator settles on X Layer and the license activates only on confirmed settlement.</p>
+    <div class="banner" id="offBanner">Live purchase is not enabled on this deployment yet (PAYMENT_MODE=off). Try the free <a href="/#console">signed sample</a> — every signature and verdict there is real; only settlement is simulated.</div>
+  </div>
+
+  <div class="grid">
+    <aside class="railbox">
+      <h3>PURCHASE RAIL</h3>
+      <div class="step" data-s="1"><span class="node">01</span><div><div class="lbl">Connect wallet</div><div class="sub">OKX Wallet / MetaMask · X Layer</div></div></div>
+      <div class="step" data-s="2"><span class="node">02</span><div><div class="lbl">Fund 0.10 USDT</div><div class="sub" id="subFund">judge grant available</div></div></div>
+      <div class="step" data-s="3"><span class="node">03</span><div><div class="lbl">Lock exact terms</div><div class="sub">one asset · one price · one scope</div></div></div>
+      <div class="step" data-s="4"><span class="node">04</span><div><div class="lbl">Sign & settle</div><div class="sub">EIP-712 intent + EIP-3009 payment</div></div></div>
+      <div class="step" data-s="5"><span class="node">05</span><div><div class="lbl">License active</div><div class="sub">credential + on-chain receipt</div></div></div>
+      <div class="envcard" id="envCard">network <b>eip155:196 · X Layer</b><br>price <b>0.10 USDT</b><br>token <b>USDT (USD₮0) · 0x779d…3736</b><br>split <b>creator 0.07 · platform 0.03</b></div>
+    </aside>
+
+    <main>
+      <!-- 01 CONNECT -->
+      <section class="panel" id="p1">
+        <h2><span class="idx">01</span> Connect wallet</h2>
+        <p class="note">Works with OKX Wallet or MetaMask. We'll add/switch to X Layer (chain 196) for you. Connecting proves nothing and moves nothing.</p>
+        <button class="btn" id="btnConnect">Connect wallet</button>
+        <div class="kv" id="kvAccount" style="display:none"><span class="k">account</span><span class="v ok" id="accountTxt"></span></div>
+        <div class="err" id="err1"></div>
+        <div class="hint">No extension? Install <a href="https://web3.okx.com/download" target="_blank" rel="noopener">OKX Wallet ↗</a> — or explore the wallet-free <a href="/#console">signed sample</a>.</div>
+      </section>
+
+      <!-- 02 FUND -->
+      <section class="panel locked" id="p2">
+        <h2><span class="idx">02</span> Fund the purchase</h2>
+        <p class="note">The price is 0.10 USDT on X Layer. Payment is gasless for you (EIP-3009 — the facilitator broadcasts), so USDT is all you need.</p>
+        <div class="kv"><span class="k">your USDT balance</span><span class="v" id="balTxt">—</span></div>
+        <button class="btn" id="btnFaucet" style="margin-top:14px">Claim 0.15 USDT judge grant</button>
+        <span class="hint" id="faucetHint">one grant per wallet · funded by the LICENSE402 service wallet</span>
+        <div class="err" id="err2"></div>
+      </section>
+
+      <!-- 03 QUOTE -->
+      <section class="panel locked" id="p3">
+        <h2><span class="idx">03</span> Lock the exact terms</h2>
+        <p class="note">State the use; the deterministic engine picks the one eligible offer and pins asset + price + scope into a commitment. Payment can only settle against exactly these terms.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input id="brief" class="mono" style="flex:1;min-width:260px;background:var(--ink-2);border:1px solid var(--line-strong);border-radius:var(--radius);color:var(--text);padding:11px 14px;font-size:13px" value="cyberpunk dragon hero image for a commercial X campaign" />
+          <button class="btn" id="btnQuote">Get the quote</button>
+        </div>
+        <div id="quoteBox"></div>
+        <div class="err" id="err3"></div>
+      </section>
+
+      <!-- 04 SIGN & PAY -->
+      <section class="panel locked" id="p4">
+        <h2><span class="idx">04</span> Sign the terms, authorize the payment</h2>
+        <p class="note">Signature 1 — the PurchaseIntent binding asset, policy, legal text and price. Signature 2 — the 0.10 USDT transfer authorization. Your wallet shows exactly what you sign.</p>
+        <div class="kv"><span class="k">1 · purchase intent (EIP-712)</span><span class="v" id="sigIntentTxt">—</span></div>
+        <div class="kv"><span class="k">2 · payment authorization (EIP-3009)</span><span class="v" id="sigPayTxt">—</span></div>
+        <button class="btn" id="btnBuy" style="margin-top:14px">Sign & pay 0.10 USDT</button>
+        <div class="err" id="err4"></div>
+      </section>
+
+      <!-- 05 RECEIPT -->
+      <section class="receipt" id="receipt">
+        <div class="band">LICENSE402 · LIVE LICENSE · SETTLED ON X LAYER</div>
+        <div class="body">
+          <h3 id="rTitle">—</h3>
+          <div class="status"><span class="d"></span> LICENSE ACTIVE · PRODUCTION</div>
+          <div class="sec"><div class="h">SETTLEMENT</div>
+            <div class="row"><span class="k">buyer tx</span><span class="v" id="rTx">—</span></div>
+            <div class="row"><span class="k">payment-response</span><span class="v" id="rPResp">—</span></div>
+            <div class="row"><span class="k">order</span><span class="v" id="rOrder">—</span></div>
+          </div>
+          <div class="sec"><div class="h">PARTIES & PAYMENT</div>
+            <div class="row"><span class="k">licensee (you)</span><span class="v" id="rLicensee">—</span></div>
+            <div class="row"><span class="k">price</span><span class="v"><b>0.10 USDT</b></span></div>
+            <div class="row"><span class="k">creator payout</span><span class="v" id="rPayout">0.07 USDT · queued</span></div>
+          </div>
+          <div class="sec"><div class="h">WHAT YOUR LICENSE PERMITS</div>
+            <div class="row"><span class="k">commercial X post</span><span class="v" id="rChkPost">…</span></div>
+            <div class="row"><span class="k">model training</span><span class="v" id="rChkTrain">…</span></div>
+          </div>
+          <div class="acts">
+            <button class="rbtn" id="rDlAsset">Download licensed asset</button>
+            <button class="rbtn" id="rDlBundle">Download proof bundle</button>
+            <button class="rbtn sec" id="rDlCred">Download credential</button>
+            <button class="rbtn sec" id="rOrderLink">View payment record</button>
+          </div>
+        </div>
+      </section>
+      <div class="hint" id="pendingBox" style="display:none"></div>
+    </main>
+  </div>
+</div>
+
+<footer><div class="wrap">LICENSE402 · agent-native content licensing · <span id="footBuild"></span></div></footer>
+<div class="toast" id="toast"></div>
+
+<script src="/js/x402-pay.js"></script>
+<script>
+(()=>{ "use strict";
+  const $=s=>document.querySelector(s);
+  const short=v=>!v?"—":(String(v).length>18?String(v).slice(0,10)+"…"+String(v).slice(-6):String(v));
+  const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),3600);};
+  const err=(n,m)=>{const e=$("#err"+n); if(!m){e.style.display="none";return;} e.textContent=m; e.style.display="block";};
+  const USE=b=>({brief:b,channel:"x",commercial:true,durationDays:14,territory:"worldwide",transformations:["crop","overlay_text"],maxBudget:"0.10"});
+  const USDT="0x779Ded0c9e1022225f8E0630b35a9b54bE713736";
+
+  let eth=null, ACC=null, CFG=null, QUOTE=null, INTENT=null, RESULT=null;
+
+  const rail=n=>{document.querySelectorAll(".step").forEach(s=>{const k=Number(s.dataset.s);s.classList.toggle("done",k<n);s.classList.toggle("on",k===n);});};
+  const unlock=id=>{$(id).classList.remove("locked");$(id).scrollIntoView({behavior:"smooth",block:"center"});};
+
+  async function api(p,opt){const r=await fetch(p,opt);const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(e){}return {status:r.status,json:j,headers:r.headers};}
+
+  async function boot(){
+    try{ CFG=(await api("/config.json")).json;
+      const live=CFG.paymentMode==="live";
+      $("#modeTxt").textContent=live?"LIVE":"OFF";
+      if(live) $("#netPill").classList.add("live");
+      if(!live){ $("#offBanner").style.display="block"; }
+    }catch(e){}
+    try{ const v=(await api("/version.json")).json; if(v&&v.commit) $("#footBuild").textContent="build "+String(v.commit).slice(0,7);}catch(e){}
+    rail(1);
+  }
+
+  // ---- 01 connect ----
+  $("#btnConnect").addEventListener("click",async()=>{
+    err(1,"");
+    eth=window.okxwallet?.provider||window.okxwallet||window.ethereum;
+    if(!eth){ err(1,"No wallet extension detected. Install OKX Wallet or MetaMask, then reload."); return; }
+    try{
+      const accs=await eth.request({method:"eth_requestAccounts"});
+      ACC=accs[0];
+      // ensure X Layer
+      try{ await eth.request({method:"wallet_switchEthereumChain",params:[{chainId:"0xc4"}]}); }
+      catch(sw){
+        if(sw&&(sw.code===4902||String(sw.message||"").includes("Unrecognized"))){
+          await eth.request({method:"wallet_addEthereumChain",params:[{chainId:"0xc4",chainName:"X Layer",nativeCurrency:{name:"OKB",symbol:"OKB",decimals:18},rpcUrls:["https://rpc.xlayer.tech"],blockExplorerUrls:["https://www.oklink.com/x-layer"]}]});
+        } else if(sw&&sw.code!==4001){ /* some wallets auto-handle */ } else if(sw&&sw.code===4001){ throw sw; }
+      }
+      $("#accountTxt").textContent=ACC;
+      $("#kvAccount").style.display="flex";
+      $("#btnConnect").textContent="Connected";
+      $("#btnConnect").disabled=true;
+      rail(2); unlock("#p2"); refreshBalance();
+    }catch(e){ err(1, e&&e.message?e.message:"Connection rejected"); }
+  });
+
+  // ---- 02 fund ----
+  async function refreshBalance(){
+    if(!eth||!ACC) return 0n;
+    try{
+      const data="0x70a08231"+ACC.replace(/^0x/,"").padStart(64,"0");
+      const hex=await eth.request({method:"eth_call",params:[{to:USDT,data},"latest"]});
+      const bal=BigInt(hex);
+      $("#balTxt").textContent=(Number(bal)/1e6).toFixed(2)+" USDT";
+      if(bal>=100000n){ $("#balTxt").classList.add("ok"); $("#subFund").textContent="funded ✓"; rail(3); unlock("#p3"); }
+      return bal;
+    }catch(e){ $("#balTxt").textContent="(balance check failed)"; return 0n; }
+  }
+  $("#btnFaucet").addEventListener("click",async()=>{
+    err(2,""); $("#btnFaucet").disabled=true; $("#btnFaucet").textContent="Sending grant…";
+    try{
+      const r=await api("/v1/faucet",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({address:ACC})});
+      if(r.json&&r.json.ok){
+        toast(r.json.alreadyClaimed?"Grant already claimed by this wallet":"0.15 USDT sent — confirming…");
+        // poll balance up to ~30s
+        for(let i=0;i<10;i++){ const b=await refreshBalance(); if(b>=100000n) break; await new Promise(r2=>setTimeout(r2,3000)); }
+      } else { err(2,(r.json&&(r.json.detail||r.json.error))||"Faucet unavailable"); }
+    }catch(e){ err(2,"Faucet request failed"); }
+    $("#btnFaucet").disabled=false; $("#btnFaucet").textContent="Claim 0.15 USDT judge grant";
+  });
+
+  // ---- 03 quote ----
+  $("#btnQuote").addEventListener("click",async()=>{
+    err(3,""); $("#btnQuote").disabled=true;
+    try{
+      const r=await api("/v1/quote",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({use:USE($("#brief").value),licenseeWallet:ACC})});
+      if(!(r.json&&r.json.serviceable)){ err(3,"Not serviceable: "+((r.json&&r.json.reasons||[]).join(", ")||"no eligible offer")); $("#btnQuote").disabled=false; return; }
+      QUOTE=r.json;
+      const a=QUOTE.asset, g=QUOTE.effectiveGrant||{};
+      $("#quoteBox").innerHTML=`
+        <div class="assetcard">
+          <img src="${a.previewUrl}" alt="${a.title}" />
+          <div class="in">
+            <div class="t">${a.title}</div>
+            <div class="c">by ${a.creator||"Genesis Studio"} · ${short(a.assetSha256)}</div>
+            <div class="chips">
+              <span class="chip">Commercial X post</span><span class="chip">Crop</span><span class="chip">Add text</span>
+              <span class="chip">Worldwide</span><span class="chip">14 days</span>
+              <span class="chip no">Model training</span><span class="chip no">Resale</span>
+            </div>
+            <div class="price"><b>0.10 USDT</b> · creator 0.07 · platform 0.03 · quote expires ${new Date(QUOTE.purchaseIntentFields.expiresAt*1000).toLocaleTimeString()}</div>
+          </div>
+        </div>`;
+      rail(4); unlock("#p4");
+    }catch(e){ err(3,"Quote failed"); }
+    $("#btnQuote").disabled=false;
+  });
+
+  // ---- 04 sign & pay ----
+  function randNonce(){ const b=new Uint8Array(32); crypto.getRandomValues(b); return "0x"+[...b].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+  $("#btnBuy").addEventListener("click",async()=>{
+    err(4,""); if(!QUOTE){ err(4,"Get the quote first"); return; }
+    const btn=$("#btnBuy"); btn.disabled=true;
+    try{
+      const f=QUOTE.purchaseIntentFields, td=QUOTE.eip712;
+      const nonce=randNonce();
+      // message for the wallet: micro-USDT price as decimal string (uint256)
+      const message={quoteId:f.quoteId,quoteCommitment:f.quoteCommitment,buyer:ACC,licensee:ACC,assetSha256:f.assetSha256,offerDigest:f.offerDigest,policyAstHash:f.policyAstHash,legalTextHash:f.legalTextHash,totalPriceMicro:"100000",currency:"USDT",expiresAt:f.expiresAt,nonce};
+      btn.textContent="Signature 1/2 — terms…";
+      const sig=await eth.request({method:"eth_signTypedData_v4",params:[ACC,JSON.stringify({domain:td.domain,types:td.types,primaryType:"PurchaseIntent",message})]});
+      $("#sigIntentTxt").textContent=short(sig)+" ✓"; $("#sigIntentTxt").classList.add("ok");
+      INTENT={quoteId:f.quoteId,quoteCommitment:f.quoteCommitment,buyer:ACC.toLowerCase(),licensee:ACC.toLowerCase(),assetSha256:f.assetSha256,offerDigest:f.offerDigest,policyAstHash:f.policyAstHash,legalTextHash:f.legalTextHash,totalPrice:f.totalPrice,currency:"USDT",expiresAt:f.expiresAt,nonce,signature:sig};
+
+      const body=JSON.stringify({use:USE($("#brief").value),licenseeWallet:ACC,quoteCommitment:QUOTE.quoteCommitment,idempotencyKey:QUOTE.idempotencyKey,purchaseIntent:INTENT});
+      const hdr={"content-type":"application/json"};
+      btn.textContent="Requesting 402 challenge…";
+      let r=await api("/v1/acquire/social-commercial",{method:"POST",headers:hdr,body});
+      if(r.status===402){
+        btn.textContent="Signature 2/2 — payment…";
+        const payHeaders=await L402PAY.buildPaymentHeaders(r.json,eth,ACC);
+        $("#sigPayTxt").textContent="authorized ✓"; $("#sigPayTxt").classList.add("ok");
+        btn.textContent="Settling on X Layer…";
+        r=await api("/v1/acquire/social-commercial",{method:"POST",headers:{...hdr,...payHeaders},body});
+      }
+      if(r.status===200){ onDelivered(r); }
+      else if(r.status===202){ onPending(r); }
+      else { err(4,(r.json&&(r.json.detail||r.json.error))||("HTTP "+r.status)); btn.textContent="Sign & pay 0.10 USDT"; btn.disabled=false; return; }
+    }catch(e){ err(4,e&&e.message?String(e.message).slice(0,200):"Purchase failed"); btn.textContent="Sign & pay 0.10 USDT"; btn.disabled=false; }
+  });
+
+  function onDelivered(r){
+    RESULT=r.json;
+    rail(6);
+    const pResp=r.headers.get("payment-response");
+    const dec=pResp?L402PAY.decodePaymentResponse(pResp):null;
+    $("#rTitle").textContent=(QUOTE&&QUOTE.asset&&QUOTE.asset.title)||"Licensed asset";
+    const tx=RESULT.settlement&&RESULT.settlement.buyerTx;
+    $("#rTx").innerHTML=tx?`<a href="https://www.oklink.com/x-layer/tx/${tx}" target="_blank" rel="noopener">${short(tx)} ↗ OKLink</a>`:"—";
+    $("#rPResp").textContent=dec?`status ${dec.status} · network ${dec.network}`:(pResp?"present":"—");
+    $("#rOrder").textContent=RESULT.orderId;
+    $("#rLicensee").textContent=short(ACC);
+    $("#receipt").style.display="block";
+    $("#receipt").scrollIntoView({behavior:"smooth",block:"center"});
+    toast("License active — settled on X Layer");
+    liveChecks();
+    pollPayout();
+  }
+  function onPending(r){
+    const j=r.json||{};
+    $("#pendingBox").style.display="block";
+    $("#pendingBox").innerHTML=`Settlement is <b>${(j.settlement&&j.settlement.status)||"PENDING"}</b> — the reconciler confirms it on-chain. This page polls your claim ticket automatically.`;
+    const ticket=j.deliveryUrl;
+    let tries=0;
+    const iv=setInterval(async()=>{
+      tries++;
+      try{ const d=await api(ticket.replace(location.origin,""));
+        if(d.status===200){ clearInterval(iv); $("#pendingBox").style.display="none"; onDelivered(d); return; }
+      }catch(e){}
+      if(tries>40){ clearInterval(iv); $("#pendingBox").innerHTML="Still pending — keep the order link: <a href='"+j.statusUrl+"'>"+j.statusUrl+"</a>"; }
+    },4000);
+  }
+  async function liveChecks(){
+    if(!RESULT||!RESULT.license) return;
+    const chk=async(action)=>{const r=await api("/v1/check-license-scope",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({license:RESULT.license,action,channel:"x",licensee:ACC})});return (r.json&&(r.json.effectiveDecision||r.json.decision))||"—";};
+    $("#rChkPost").textContent=await chk("commercial_social_post");
+    $("#rChkPost").classList.add("ok");
+    $("#rChkTrain").textContent=await chk("model_training");
+  }
+  async function pollPayout(){
+    for(let i=0;i<15;i++){
+      try{ const o=await api("/v1/orders/"+RESULT.orderId);
+        const p=o.json&&o.json.creatorPayout;
+        if(p&&p.state==="PAID"){ $("#rPayout").innerHTML=`0.07 USDT · <a href="https://www.oklink.com/x-layer/tx/${p.confirmedTx}" target="_blank" rel="noopener">paid ↗</a>`; return; }
+      }catch(e){}
+      await new Promise(r=>setTimeout(r,4000));
+    }
+  }
+  const dl=(name,obj)=>{const b=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);};
+  $("#rDlAsset").addEventListener("click",()=>{ if(RESULT&&RESULT.asset&&RESULT.asset.url) window.open(RESULT.asset.url,"_blank"); });
+  $("#rDlCred").addEventListener("click",()=>{ if(RESULT&&RESULT.license) dl(RESULT.license.licenseId+".license402.json",RESULT.license); });
+  $("#rDlBundle").addEventListener("click",async()=>{ if(!RESULT)return; try{ const b=await api("/v1/orders/"+RESULT.orderId+"/bundle"); dl("proof-bundle-"+RESULT.orderId+".json",b.json); }catch(e){ toast("Bundle unavailable"); } });
+  $("#rOrderLink").addEventListener("click",()=>{ if(RESULT) window.open("/v1/orders/"+RESULT.orderId,"_blank"); });
+
+  boot();
+})();
+</script>
+</body>
+</html>

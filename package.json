@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "build:web": "esbuild src/web/x402-pay.ts --bundle --format=iife --global-name=L402PAY --outfile=public/js/x402-pay.js --minify --target=es2022 --alias:crypto=./src/web/crypto-shim.ts"
   },
   "dependencies": {
     "@noble/curves": "^2.2.0",
@@ -20,7 +21,8 @@
     "@okxweb3/x402-evm": "^0.2.1",
     "@okxweb3/x402-express": "^0.1.1",
     "express": "^5.1.0",
-    "zod": "^4.0.17"
+    "zod": "^4.0.17",
+    "viem": "^2.55.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
@@ -28,7 +30,6 @@
     "tsup": "^8.5.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
-    "viem": "^2.55.0",
     "vitest": "^3.2.4"
   },
   "engines": {

@@ -432,9 +432,12 @@ export class Repo {
 
   claimPayoutJobs(nowSeconds: number, leaseSeconds: number, limit: number): string[] {
     const claim = this.db.transaction(() => {
+      // PENDING jobs, plus LEASED jobs whose lease expired (worker crashed while
+      // holding them) — expired leases return to work automatically.
       const rows = this.db
         .prepare(
-          `SELECT ref_id FROM outbox_jobs WHERE kind = 'creator_payout' AND state = 'PENDING' AND run_after <= ?
+          `SELECT ref_id FROM outbox_jobs WHERE kind = 'creator_payout' AND run_after <= ?
+             AND state IN ('PENDING','LEASED')
            ORDER BY job_id LIMIT ?`
         )
         .all(nowSeconds, limit) as { ref_id: string }[];
@@ -448,13 +451,56 @@ export class Repo {
     return claim();
   }
 
+  /**
+   * Persist the send INTENT (reserved chain nonce) BEFORE broadcasting. After a
+   * crash mid-send, the worker finds state=SENDING with a nonce and retries with
+   * the SAME nonce — the chain accepts at most one transaction per nonce, so a
+   * double-spend is structurally impossible.
+   */
+  recordPayoutIntent(orderId: string, chainNonce: number, nowSeconds: number): void {
+    this.db
+      .prepare(
+        `UPDATE creator_payouts SET state = 'SENDING', chain_nonce = ?, intent_persisted_at = ?,
+           attempts = attempts + 1, updated_at = ? WHERE order_id = ? AND payout_type = 'creator_net'`
+      )
+      .run(chainNonce, nowSeconds, nowSeconds, orderId);
+  }
+
   recordPayoutBroadcast(orderId: string, chainNonce: number, broadcastTx: string, nowSeconds: number): void {
     this.db
       .prepare(
         `UPDATE creator_payouts SET state = 'BROADCAST', chain_nonce = ?, broadcast_tx = ?, intent_persisted_at = COALESCE(intent_persisted_at, ?),
-           attempts = attempts + 1, updated_at = ? WHERE order_id = ? AND payout_type = 'creator_net'`
+           updated_at = ? WHERE order_id = ? AND payout_type = 'creator_net'`
       )
       .run(chainNonce, broadcastTx, nowSeconds, nowSeconds, orderId);
+  }
+
+  // --- faucet (judge onboarding, live mode) ---------------------------------
+
+  faucetClaimCount(): number {
+    return (this.db.prepare(`SELECT COUNT(*) AS n FROM faucet_claims`).get() as { n: number }).n;
+  }
+
+  getFaucetClaim(address: string): Record<string, unknown> | undefined {
+    return this.db.prepare(`SELECT * FROM faucet_claims WHERE address = ?`).get(address.toLowerCase()) as
+      | Record<string, unknown>
+      | undefined;
+  }
+
+  /** Atomically reserve a claim (one per address, ever). Returns false if already claimed. */
+  reserveFaucetClaim(address: string, ip: string, amountMicro: number, nowSeconds: number): boolean {
+    const result = this.db
+      .prepare(`INSERT INTO faucet_claims (address, ip, amount_micro, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(address) DO NOTHING`)
+      .run(address.toLowerCase(), ip, amountMicro, nowSeconds);
+    return Number(result.changes) === 1;
+  }
+
+  recordFaucetTx(address: string, tx: string): void {
+    this.db.prepare(`UPDATE faucet_claims SET tx = ? WHERE address = ?`).run(tx, address.toLowerCase());
+  }
+
+  releaseFaucetClaim(address: string): void {
+    this.db.prepare(`DELETE FROM faucet_claims WHERE address = ? AND tx IS NULL`).run(address.toLowerCase());
   }
 
   markPayoutPaid(orderId: string, confirmedTx: string, nowSeconds: number): void {

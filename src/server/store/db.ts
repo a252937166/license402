@@ -117,6 +117,14 @@ CREATE TABLE IF NOT EXISTS creator_payouts (
   PRIMARY KEY (order_id, payout_type)
 );
 
+CREATE TABLE IF NOT EXISTS faucet_claims (
+  address TEXT PRIMARY KEY,
+  ip TEXT,
+  tx TEXT,
+  amount_micro INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS outbox_jobs (
   job_id INTEGER PRIMARY KEY AUTOINCREMENT,
   kind TEXT NOT NULL,

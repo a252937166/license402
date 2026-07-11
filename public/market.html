@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Market — LICENSE402</title>
+<meta name="description" content="First-party signed catalog: every offer is an EIP-712 CreatorOffer binding asset bytes, policy, legal text and creator price." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%2339aec0' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%2339aec0'/%3E%3C/svg%3E" />
+<style>
+  @font-face{font-family:"Archivo";src:url("/fonts/archivo.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}
+  @font-face{font-family:"JetBrains Mono";src:url("/fonts/jetbrains-mono.woff2") format("woff2");font-weight:100 800;font-display:swap}
+  :root{--ink:#0a0d13;--ink-2:#0f131b;--raised:#151a24;--line:#242c3a;--line-strong:#33405a;--fog:#8b94a6;--fog-2:#5d6675;
+    --cleared:#2ea774;--denied:#d6423a;--duty:#c98a2b;--proof:#39aec0;--proof-soft:#123037;--text:#e8eaef;--radius:3px;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;--sans:"Archivo","Helvetica Neue",system-ui,sans-serif}
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:var(--mono)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  header.bar{position:sticky;top:0;z-index:40;background:rgba(10,13,19,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .bar-in{display:flex;align-items:center;gap:18px;height:58px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.06em}
+  .brand .sigil{width:22px;height:22px}
+  .brand .sub{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.34em;color:var(--fog-2);font-weight:400}
+  nav{margin-left:auto;display:flex;gap:22px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--fog)}
+  nav a:hover{color:var(--text)} nav a.on{color:var(--proof)}
+  .head{padding:44px 0 8px}
+  .head .kick{font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--proof)}
+  .head h1{font-size:clamp(28px,4.6vw,44px);font-weight:850;margin:10px 0 8px}
+  .head p{color:var(--fog);max-width:680px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;padding:30px 0 80px}
+  .card{background:var(--raised);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:border-color .2s}
+  .card:hover{border-color:var(--line-strong)}
+  .card .imgwrap{position:relative;aspect-ratio:16/9;background:var(--ink-2)}
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+  .badge{position:absolute;top:10px;left:10px;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;padding:4px 9px;border-radius:999px;background:rgba(10,13,19,.85);border:1px solid var(--line-strong)}
+  .badge.ok{color:var(--cleared);border-color:var(--cleared)}
+  .badge.no{color:var(--denied);border-color:var(--denied)}
+  .card .in{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .card .t{font-weight:800;font-size:17px}
+  .card .c{font-family:var(--mono);font-size:10.5px;color:var(--fog-2)}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;padding:3px 8px;border:1px solid var(--line-strong);border-radius:999px;color:var(--fog)}
+  .chip.no{color:var(--denied);border-color:var(--denied)}
+  .row{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:10px}
+  .price{font-family:var(--mono);font-size:13px}
+  .price b{font-size:15px;color:var(--text)}
+  .go{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--proof)}
+  .why{font-family:var(--mono);font-size:10.5px;color:var(--denied);letter-spacing:.04em}
+  footer{border-top:1px solid var(--line);padding:26px 0;color:var(--fog-2);font-family:var(--mono);font-size:11px}
+</style>
+</head>
+<body>
+<header class="bar"><div class="wrap bar-in">
+  <a class="brand" href="/"><svg class="sigil" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" stroke="var(--proof)" stroke-width="6"/><circle cx="50" cy="50" r="12" fill="var(--proof)"/></svg><span>LICENSE402<span class="sub">PROOF STUDIO</span></span></a>
+  <nav>
+    <a href="/market" class="on">Market</a>
+    <a href="/buy">Buy live</a>
+    <a href="/verify">Verify</a>
+    <a href="/#ledger">Receipts</a>
+    <a href="https://github.com/a252937166/license402" target="_blank" rel="noopener">GitHub ↗</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <div class="head">
+    <div class="kick">FIRST-PARTY SIGNED CATALOG</div>
+    <h1>Every offer is a signature, not a listing.</h1>
+    <p>Each card is an EIP-712 CreatorOffer binding the exact asset bytes (sha-256), a machine-checkable policy, the legal text hash and the creator's net price. Two offers are deliberately ineligible — the engine rejects them with reason codes, and so does this page.</p>
+  </div>
+  <div class="grid" id="grid"><div class="mono" style="color:var(--fog-2)">loading catalog…</div></div>
+</div>
+<footer><div class="wrap">LICENSE402 · the price of every license is 0.10 USDT · creator keeps their signed net price</div></footer>
+
+<script>
+(async()=>{
+  const grid=document.getElementById("grid");
+  try{
+    const cat=await (await fetch("/v1/catalog")).json();
+    const offers=cat.offers||[];
+    grid.innerHTML=offers.map(o=>{
+      const eligible=o.commercialUse!==false && !o.expired;
+      const badge=o.commercialUse===false?'<span class="badge no">NON-COMMERCIAL</span>':(o.expired?'<span class="badge no">OFFER EXPIRED</span>':'<span class="badge ok">SIGNED OFFER</span>');
+      const chips=o.commercialUse===false
+        ?'<span class="chip no">Commercial use</span><span class="chip">Editorial only</span>'
+        :'<span class="chip">Commercial social</span><span class="chip">Crop · text</span><span class="chip">Worldwide</span><span class="chip no">Training</span><span class="chip no">Resale</span>';
+      const cta=eligible
+        ?'<span class="price"><b>0.10</b> USDT</span><a class="go" href="/buy">BUY LIVE →</a>'
+        :`<span class="why">${o.commercialUse===false?"COMMERCIAL_USE_PROHIBITED":"OFFER_EXPIRED"}</span><a class="go" href="/#console">SEE THE REJECT →</a>`;
+      return `<div class="card">
+        <div class="imgwrap"><img loading="lazy" decoding="async" src="${o.previewUrl}" alt="${o.title}">${badge}</div>
+        <div class="in">
+          <div class="t">${o.title}</div>
+          <div class="c">by ${o.creator||"Genesis Studio"} · ${o.assetId}</div>
+          <div class="chips">${chips}</div>
+          <div class="row">${cta}</div>
+        </div>
+      </div>`;
+    }).join("");
+  }catch(e){ grid.innerHTML='<div class="mono" style="color:var(--fog-2)">catalog unavailable</div>'; }
+})();
+</script>
+</body>
+</html>

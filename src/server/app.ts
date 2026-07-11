@@ -15,6 +15,8 @@ import { buildQuote } from "./license/quote.js";
 import type { CatalogOffer } from "./license/quote.js";
 import { useSpecHash } from "./license/commitments.js";
 import { checkLicenseScope } from "./license/scopeCheck.js";
+import { EIP712_TYPES } from "./license/eip712.js";
+import { EIP712_DOMAIN } from "./license/vocab.js";
 import { formatMicroUsdt, CREATOR_PAYOUT_MICRO, PLATFORM_FEE_MICRO, SALE_PRICE_MICRO } from "./license/money.js";
 import { UseSpecSchema } from "./license/types.js";
 import { onSettlementFailure, onSettlementSuccess, prepareDelivery, SETTLED_STATES } from "./orders/prepare.js";
@@ -24,7 +26,9 @@ import { DevPaymentAdapter } from "./payment/adapter.js";
 import type { PaymentAdapter } from "./payment/adapter.js";
 import { LivePaymentAdapter } from "./payment/live.js";
 import { reconcileSettlements } from "./payment/reconcile.js";
-import { runPayoutWorker } from "./payout/worker.js";
+import { runPayoutWorker, LivePayoutSender } from "./payout/worker.js";
+import type { PayoutSender } from "./payout/worker.js";
+import { XLayerService } from "./chain.js";
 import { renderDashboard } from "./dashboard.js";
 
 export interface CreateAppOptions {
@@ -85,6 +89,13 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   console.log(`[LICENSE402] catalog loaded: ${seed.loaded} offers`);
 
   const payment: PaymentAdapter = options.payment ?? (config.paymentMode === "live" ? new LivePaymentAdapter(config) : new DevPaymentAdapter());
+  // Live mode gains real on-chain capability: creator payouts + the judge faucet.
+  let chain: XLayerService | undefined;
+  let payoutSender: PayoutSender | undefined;
+  if (config.paymentMode === "live" && !options.payment) {
+    chain = new XLayerService(config);
+    payoutSender = new LivePayoutSender(chain);
+  }
 
   const app = express();
   app.disable("x-powered-by");
@@ -192,6 +203,17 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         // The buyer's signed intent must carry EXACTLY this expiry — it is part
         // of the quote's committed terms and is verified verbatim at acquire.
         expiresAt: quote.selected.quoteExpiresAt
+      },
+      // Ready-to-sign EIP-712 definition for wallets (eth_signTypedData_v4):
+      // fill message from purchaseIntentFields + a fresh 32-byte nonce, with
+      // totalPriceMicro as the decimal string of price × 10^6.
+      eip712: {
+        domain: EIP712_DOMAIN,
+        primaryType: "PurchaseIntent",
+        types: {
+          EIP712Domain: EIP712_TYPES.EIP712Domain,
+          PurchaseIntent: EIP712_TYPES.PurchaseIntent
+        }
       }
     });
   });
@@ -266,7 +288,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     const outcome = await payment.settle(verified);
     if (outcome.status === "success") {
       onSettlementSuccess(repo, prepared.delivery.orderId, outcome.tx, { nowSeconds: now() });
-      await runPayoutWorker(repo, config, now).catch((e) => console.warn("[payout] inline:", e));
+      await runPayoutWorker(repo, config, now, payoutSender).catch((e) => console.warn("[payout] inline:", e));
       // Standard x402 v2 receipt: the settle response, base64-encoded.
       if (outcome.responseHeader) res.setHeader("PAYMENT-RESPONSE", outcome.responseHeader);
       res.status(200).json({
@@ -540,6 +562,57 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.send(readFileSync(path));
   });
 
+  // --- judge faucet (LIVE MODE) -----------------------------------------------
+  // Sends 0.15 USDT of onboarding funds so a judge can make one real purchase.
+  // Hard limits: one claim per address ever, global cap, and never to a wallet
+  // that already holds the purchase price. Gas is paid by the service wallet.
+  const FAUCET_AMOUNT_MICRO = 150_000;
+  const FAUCET_GLOBAL_CAP = 60;
+  app.post("/v1/faucet", async (req: Request, res: Response) => {
+    if (config.paymentMode !== "live" || !chain) {
+      res.status(503).json({ error: "FAUCET_DISABLED", detail: "faucet runs only in live mode" });
+      return;
+    }
+    const address = String(req.body?.address ?? "");
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      res.status(400).json({ error: "INVALID_ADDRESS" });
+      return;
+    }
+    if (repo.faucetClaimCount() >= FAUCET_GLOBAL_CAP) {
+      res.status(429).json({ error: "FAUCET_EXHAUSTED" });
+      return;
+    }
+    const prior = repo.getFaucetClaim(address);
+    if (prior) {
+      res.status(200).json({ ok: true, alreadyClaimed: true, tx: prior.tx ?? null });
+      return;
+    }
+    try {
+      const balance = await chain.usdtBalance(address);
+      if (balance >= 100_000n) {
+        res.status(409).json({ error: "ALREADY_FUNDED", detail: "wallet already holds the 0.10 USDT purchase price" });
+        return;
+      }
+    } catch {
+      res.status(502).json({ error: "CHAIN_UNAVAILABLE" });
+      return;
+    }
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
+    if (!repo.reserveFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, now())) {
+      res.status(200).json({ ok: true, alreadyClaimed: true });
+      return;
+    }
+    try {
+      const nonce = await chain.nextNonce();
+      const tx = await chain.sendUsdt(address, FAUCET_AMOUNT_MICRO, nonce);
+      repo.recordFaucetTx(address, tx);
+      res.status(200).json({ ok: true, tx, amount: "0.15", explorer: `https://www.oklink.com/x-layer/tx/${tx}` });
+    } catch (e) {
+      repo.releaseFaucetClaim(address);
+      res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
+    }
+  });
+
   // --- wallet-free judge demo (DEV MODE ONLY) --------------------------------
   app.post("/v1/demo/acquire", async (req: Request, res: Response) => {
     if (!config.demoBuyerPrivateKey) {
@@ -581,7 +654,10 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         creator: c.creatorDisplay,
         previewUrl: `${config.publicOrigin}/v1/previews/${c.offer.assetId}`,
         commercialUse: c.offer.policy.commercialUse,
-        modelTraining: c.offer.policy.modelTraining
+        modelTraining: c.offer.policy.modelTraining,
+        expired: c.offer.validUntil < now(),
+        creatorNetPrice: c.offer.creatorNetPrice,
+        tags: c.tags ?? []
       }))
     });
   });
@@ -614,7 +690,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
     try {
       const settled = await reconcileSettlements(repo, payment, now);
-      const payouts = await runPayoutWorker(repo, config, now);
+      const payouts = await runPayoutWorker(repo, config, now, payoutSender);
       res.json({ ok: true, settled, payouts });
     } catch (e) {
       res.status(500).json({ ok: false, error: e instanceof Error ? e.message : "reconcile failed" });
@@ -624,13 +700,20 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderDashboard(db, config));
   });
+  // Pretty routes for the feature pages (each a self-contained HTML file).
+  for (const page of ["buy", "market", "verify"]) {
+    app.get(`/${page}`, (_req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      res.sendFile(resolve(PROJECT_ROOT, `public/${page}.html`));
+    });
+  }
   app.use(
     express.static(resolve(PROJECT_ROOT, "public"), {
       index: "index.html",
       maxAge: "5m",
       setHeaders: (res, path) => {
-        // The SPA shell must never be stale for judges; fonts/assets can cache.
-        if (path.endsWith("index.html")) res.setHeader("Cache-Control", "no-store");
+        // Page shells must never be stale for judges; fonts/assets can cache.
+        if (path.endsWith(".html")) res.setHeader("Cache-Control", "no-store");
       }
     })
   );
@@ -653,7 +736,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       running = true;
       try {
         await reconcileSettlements(repo, payment, now);
-        await runPayoutWorker(repo, config, now);
+        await runPayoutWorker(repo, config, now, payoutSender);
       } catch (e) {
         console.warn("[reconcile] interval error:", (e as Error).message);
       } finally {

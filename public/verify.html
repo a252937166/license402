@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verify — LICENSE402</title>
+<meta name="description" content="Paste any LICENSE402 credential and ask: may I use this, this way? Deterministic verdict with per-term evidence." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%2339aec0' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%2339aec0'/%3E%3C/svg%3E" />
+<style>
+  @font-face{font-family:"Archivo";src:url("/fonts/archivo.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}
+  @font-face{font-family:"JetBrains Mono";src:url("/fonts/jetbrains-mono.woff2") format("woff2");font-weight:100 800;font-display:swap}
+  :root{--ink:#0a0d13;--ink-2:#0f131b;--raised:#151a24;--line:#242c3a;--line-strong:#33405a;--fog:#8b94a6;--fog-2:#5d6675;
+    --cleared:#2ea774;--cleared-soft:#193a30;--denied:#d6423a;--denied-soft:#3a1e1e;--duty:#c98a2b;--duty-soft:#3a2f18;
+    --proof:#39aec0;--proof-soft:#123037;--text:#e8eaef;--radius:3px;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;--sans:"Archivo","Helvetica Neue",system-ui,sans-serif}
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:var(--mono)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  header.bar{position:sticky;top:0;z-index:40;background:rgba(10,13,19,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .bar-in{display:flex;align-items:center;gap:18px;height:58px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.06em}
+  .brand .sigil{width:22px;height:22px}
+  .brand .sub{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.34em;color:var(--fog-2);font-weight:400}
+  nav{margin-left:auto;display:flex;gap:22px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--fog)}
+  nav a:hover{color:var(--text)} nav a.on{color:var(--proof)}
+  .head{padding:44px 0 8px}
+  .head .kick{font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--proof)}
+  .head h1{font-size:clamp(28px,4.6vw,44px);font-weight:850;margin:10px 0 8px}
+  .head p{color:var(--fog);max-width:660px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:28px 0 80px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--raised);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+  .panel h2{font-size:16px;font-weight:800;margin-bottom:10px;display:flex;gap:10px;align-items:center}
+  .panel h2 .idx{font-family:var(--mono);font-size:11px;color:var(--proof);letter-spacing:.2em}
+  textarea{width:100%;min-height:260px;background:var(--ink-2);border:1px solid var(--line-strong);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:11.5px;padding:12px;resize:vertical}
+  .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+  .btn{padding:11px 18px;border-radius:var(--radius);border:1px solid var(--proof);background:var(--proof);color:#04121a;font-weight:800;font-size:13.5px;cursor:pointer;font-family:var(--sans)}
+  .btn.ghost{background:transparent;color:var(--text);border-color:var(--line-strong)}
+  .btn.ghost:hover{border-color:var(--proof);color:var(--proof)}
+  .sel{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+  .scn{font-family:var(--mono);font-size:11px;letter-spacing:.05em;padding:8px 12px;border:1px solid var(--line-strong);border-radius:999px;background:transparent;color:var(--text);cursor:pointer}
+  .scn.on{border-color:var(--proof);color:var(--proof);background:var(--proof-soft)}
+  .verdict{margin-top:6px;padding:22px;border:1px dashed var(--line-strong);border-radius:var(--radius);text-align:center;display:none}
+  .verdict .w{font-family:var(--mono);font-weight:800;font-size:26px;letter-spacing:.06em}
+  .verdict .w.ok{color:var(--cleared)} .verdict .w.no{color:var(--denied)} .verdict .w.hold{color:var(--duty)}
+  .verdict .r{font-family:var(--mono);font-size:11px;color:var(--fog);margin-top:8px;letter-spacing:.05em}
+  .checks{margin-top:14px;text-align:left}
+  .check{display:flex;gap:9px;align-items:center;font-family:var(--mono);font-size:11.5px;color:var(--fog);padding:5px 0;border-bottom:1px dashed var(--line)}
+  .check .b{width:8px;height:8px;border-radius:50%;flex:none}
+  .check .b.p{background:var(--cleared)} .check .b.f{background:var(--denied)}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+  .kv .k{color:var(--fog-2);font-family:var(--mono);font-size:11px}
+  .kv .v{font-family:var(--mono);font-size:11px;word-break:break-all;text-align:right}
+  footer{border-top:1px solid var(--line);padding:26px 0;color:var(--fog-2);font-family:var(--mono);font-size:11px}
+</style>
+</head>
+<body>
+<header class="bar"><div class="wrap bar-in">
+  <a class="brand" href="/"><svg class="sigil" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" stroke="var(--proof)" stroke-width="6"/><circle cx="50" cy="50" r="12" fill="var(--proof)"/></svg><span>LICENSE402<span class="sub">PROOF STUDIO</span></span></a>
+  <nav>
+    <a href="/market">Market</a>
+    <a href="/buy">Buy live</a>
+    <a href="/verify" class="on">Verify</a>
+    <a href="/#ledger">Receipts</a>
+    <a href="https://github.com/a252937166/license402" target="_blank" rel="noopener">GitHub ↗</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <div class="head">
+    <div class="kick">PERMISSION LENS · FOR ANY AGENT</div>
+    <h1>May I use this, this way?</h1>
+    <p>Paste any LICENSE402 credential — yours, a sample, or one you found attached to an asset — pick an action, and get the deterministic verdict with per-term evidence. This is the same free API any downstream agent calls before it publishes, trains, or resells.</p>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2><span class="idx">01</span> The credential</h2>
+      <textarea id="credBox" class="mono" placeholder='Paste a credential JSON — or click "Load the signed sample".'></textarea>
+      <div class="acts">
+        <button class="btn ghost" id="loadSample">Load the signed sample</button>
+        <button class="btn ghost" id="tamperBtn">Tamper one field</button>
+      </div>
+      <div class="kv" style="margin-top:12px"><span class="k">endpoint</span><span class="v">POST /v1/check-license-scope · free · no auth</span></div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="idx">02</span> The question</h2>
+      <div class="sel" id="scenarios">
+        <button class="scn on" data-a="commercial_social_post" data-c="x">Publish to X (commercial)</button>
+        <button class="scn" data-a="commercial_social_post" data-c="linkedin">Post to LinkedIn</button>
+        <button class="scn" data-a="model_training">Train an AI model</button>
+        <button class="scn" data-a="resale">Resell the file</button>
+      </div>
+      <button class="btn" id="askBtn" style="margin-top:8px">Run the check</button>
+      <div class="verdict" id="verdict">
+        <div class="w" id="vWord">—</div>
+        <div class="r" id="vReasons"></div>
+        <div class="r" id="vStatus"></div>
+        <div class="checks" id="vChecks"></div>
+      </div>
+    </section>
+  </div>
+</div>
+<footer><div class="wrap">LICENSE402 · verdicts are deterministic engine calls — the LLM has no authority over them</div></footer>
+
+<script>
+(()=>{ "use strict";
+  const $=s=>document.querySelector(s);
+  let ACTION="commercial_social_post", CHANNEL="x";
+  document.querySelectorAll(".scn").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll(".scn").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    ACTION=b.dataset.a; CHANNEL=b.dataset.c||undefined;
+  }));
+  $("#loadSample").addEventListener("click",async()=>{
+    try{ const s=await (await fetch("/v1/samples/default")).json();
+      if(s.ok){ $("#credBox").value=JSON.stringify(s.credential,null,2); }
+    }catch(e){}
+  });
+  $("#tamperBtn").addEventListener("click",()=>{
+    try{ const c=JSON.parse($("#credBox").value); c.policy.modelTraining=true; $("#credBox").value=JSON.stringify(c,null,2); }
+    catch(e){}
+  });
+  $("#askBtn").addEventListener("click",async()=>{
+    let cred; try{ cred=JSON.parse($("#credBox").value); }catch(e){ alert("Paste a valid credential JSON first"); return; }
+    const body={license:cred,action:ACTION,licensee:cred.licenseeWallet};
+    if(CHANNEL) body.channel=CHANNEL;
+    const r=await (await fetch("/v1/check-license-scope",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)})).json();
+    const eff=r.effectiveDecision||r.decision;
+    const v=$("#verdict"); v.style.display="block";
+    const w=$("#vWord");
+    w.textContent=eff.replace(/_/g," ");
+    w.className="w "+(eff==="PERMITTED"||eff==="PERMITTED_WITH_DUTIES"?"ok":(eff==="INDETERMINATE"?"hold":"no"));
+    $("#vReasons").textContent=(r.reasonCodes||[]).join(" · ")||"";
+    $("#vStatus").textContent="credential status: "+(r.currentStatus||"—");
+    $("#vChecks").innerHTML=(r.checks||[]).map(c=>`<div class="check"><span class="b ${c.status==='PASS'?'p':'f'}"></span>${c.label}<span style="margin-left:auto">${c.status}</span></div>`).join("");
+  });
+})();
+</script>
+</body>
+</html>
