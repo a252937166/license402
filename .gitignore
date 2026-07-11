@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-server/
+coverage/
+data/
+# secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# runtime
+*.log
+*.db
+*.db-wal
+*.db-shm
+.DS_Store

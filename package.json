@@ -1,0 +1,40 @@
+{
+  "name": "license402-asp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LICENSE402 - agent-native content licensing: signed creator offers, payment-bound purchase intent, x402 settlement, portable executable scope policy, auditable license credentials.",
+  "scripts": {
+    "dev": "tsx watch src/server/index.ts",
+    "build": "npm run typecheck && tsup src/server/index.ts --format esm --platform node --target node22 --out-dir dist-server --clean",
+    "start": "NODE_ENV=production node dist-server/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.2.0",
+    "@noble/hashes": "^2.2.0",
+    "@okxweb3/x402-core": "^0.1.0",
+    "@okxweb3/x402-evm": "^0.2.1",
+    "@okxweb3/x402-express": "^0.1.1",
+    "express": "^5.1.0",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "viem": "^2.55.0",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "esbuild": "0.28.1"
+  }
+}

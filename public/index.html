@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LICENSE402 — Rights Clearance Bureau</title>
+<meta name="description" content="An agent-native service to acquire content with signed, machine-checkable usage terms. Acquire the asset. Verify the scope. Audit the payment." />
+<style>
+  @font-face{font-family:"Archivo";src:url("/fonts/archivo.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}
+  @font-face{font-family:"JetBrains Mono";src:url("/fonts/jetbrains-mono.woff2") format("woff2");font-weight:100 800;font-display:swap}
+
+  :root{
+    --ink:#0a0d13;              /* deep blue-black console/desk */
+    --ink-2:#0f131b;
+    --raised:#151a24;           /* raised console panel */
+    --raised-2:#1b212d;
+    --line:#242c3a;             /* hairline on dark */
+    --line-strong:#33405a;
+    --vellum:#e9e7dc;           /* security paper (cool, not cream) */
+    --vellum-2:#f3f1e9;
+    --vellum-ink:#171a1f;       /* text on vellum */
+    --vellum-line:#c4c0ac;
+    --fog:#8b94a6;              /* muted text on dark */
+    --fog-2:#5d6675;
+    --paper-fog:#6b6a5c;
+    --cleared:#2ea774;          /* viridian ink — permitted */
+    --cleared-soft:#193a30;
+    --denied:#d6423a;           /* cinnabar stamp — denied */
+    --denied-soft:#3a1e1e;
+    --duty:#c98a2b;             /* amber — duty/pending */
+    --duty-soft:#3a2f18;
+    --proof:#39aec0;            /* teal — cryptographic proof (brand interactive) */
+    --proof-soft:#123037;
+    --text:#e8eaef;
+    --radius:3px;
+    --shadow:0 24px 60px -20px rgba(0,0,0,.7);
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"Archivo","Helvetica Neue",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--ink);color:var(--text);font-family:var(--sans);
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--proof);color:#04121a}
+  .mono{font-family:var(--mono);font-variant-ligatures:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--fog-2)}
+
+  /* ---- guilloché field ---- */
+  .guilloche{position:absolute;inset:0;pointer-events:none;opacity:.5;overflow:hidden}
+  .guilloche svg{position:absolute}
+
+  /* ---- masthead ---- */
+  header.mast{position:relative;border-bottom:1px solid var(--line);overflow:hidden;background:
+    radial-gradient(120% 100% at 85% -10%, rgba(57,174,192,.10), transparent 60%),
+    linear-gradient(180deg,#0c1017, var(--ink));}
+  .mast-inner{position:relative;z-index:2;padding:20px 0 68px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:8px 0 40px}
+  .brandmark{display:flex;align-items:center;gap:12px}
+  .sigil{width:34px;height:34px;flex:none}
+  .brandmark b{font-weight:800;font-stretch:112%;letter-spacing:.02em;font-size:18px}
+  .brandmark .sub{font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--fog-2);text-transform:uppercase;display:block;margin-top:1px}
+  .seal-badge{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--fog);border:1px solid var(--line-strong);border-radius:100px;padding:7px 14px 7px 12px;text-transform:uppercase}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--cleared);box-shadow:0 0 0 3px rgba(46,167,116,.18);animation:pulse 2.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .mode-pill{font-family:var(--mono);font-size:10px;letter-spacing:.16em;padding:3px 8px;border-radius:100px;text-transform:uppercase;border:1px solid var(--duty);color:var(--duty)}
+  .mode-pill[data-mode="live"]{border-color:var(--cleared);color:var(--cleared)}
+
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center}
+  h1.title{font-weight:800;font-stretch:75%;letter-spacing:-.01em;line-height:.94;font-size:clamp(44px,6.4vw,92px);text-transform:uppercase}
+  h1.title .l2{color:var(--proof)}
+  .lede{margin-top:22px;font-size:19px;line-height:1.5;color:#c9cedb;max-width:30ch}
+  .lede b{color:#fff;font-weight:600}
+  .verbs{display:flex;gap:0;margin-top:26px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--fog)}
+  .verbs span{padding-right:16px;margin-right:16px;border-right:1px solid var(--line-strong)}
+  .verbs span:last-child{border:0}
+  .verbs b{color:var(--proof);font-weight:500}
+  .cta-row{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
+  .btn{font-family:var(--mono);font-size:13px;letter-spacing:.04em;padding:14px 22px;border-radius:var(--radius);cursor:pointer;border:1px solid transparent;transition:transform .12s ease,background .18s,border-color .18s;display:inline-flex;align-items:center;gap:10px}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--proof);color:#04121a;font-weight:600}
+  .btn-primary:hover{background:#4cc3d4}
+  .btn-ghost{background:transparent;color:var(--text);border-color:var(--line-strong)}
+  .btn-ghost:hover{border-color:var(--proof);color:#fff}
+  .btn svg{width:15px;height:15px}
+
+  /* hero specimen: the licensed artwork under security paper */
+  .specimen{position:relative}
+  .specimen-frame{position:relative;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:var(--raised);aspect-ratio:1/1;box-shadow:var(--shadow)}
+  .specimen-frame img{width:100%;height:100%;object-fit:cover;display:block}
+  .specimen-tag{position:absolute;top:12px;left:12px;z-index:3;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;background:rgba(10,13,19,.72);backdrop-filter:blur(6px);border:1px solid var(--line-strong);padding:5px 9px;border-radius:2px;color:var(--fog)}
+  .scope-strip{margin-top:14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--raised);overflow:hidden}
+  .scope-strip .row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--line)}
+  .scope-strip .row:last-child{border-bottom:0}
+  .scope-strip .row .k{color:var(--fog)}
+  .mark{font-family:var(--mono);font-weight:700}
+  .mark.y{color:var(--cleared)} .mark.n{color:var(--denied)}
+
+  /* ---- section frame ---- */
+  section{position:relative;padding:76px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:30px}
+  .sec-num{font-family:var(--mono);font-size:12px;color:var(--proof);letter-spacing:.1em}
+  .sec-head h2{font-weight:800;font-stretch:85%;text-transform:uppercase;letter-spacing:.01em;font-size:clamp(24px,3vw,36px)}
+  .sec-head p{color:var(--fog);font-size:15px;margin-left:auto;max-width:44ch;text-align:right}
+
+  /* ---- clearance console ---- */
+  .console{display:grid;grid-template-columns:300px 1fr 300px;gap:0;border:1px solid var(--line-strong);border-radius:var(--radius);background:linear-gradient(180deg,var(--raised),var(--ink-2));box-shadow:var(--shadow);overflow:hidden}
+  .col{padding:22px 22px 26px}
+  .col+.col{border-left:1px solid var(--line)}
+  .col h3{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fog-2);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .col h3 .idx{color:var(--proof)}
+  .chip-set{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{font-family:var(--mono);font-size:12px;padding:6px 10px;border-radius:2px;border:1px solid var(--line-strong);color:#cdd3df;background:var(--ink)}
+  .chip.on{border-color:var(--proof);color:#fff;background:rgba(57,174,192,.1)}
+  .chip.no{border-color:var(--denied);color:#f0b4b0;background:rgba(214,66,58,.08)}
+  .field-note{font-family:var(--mono);font-size:11px;color:var(--fog-2);margin:16px 0 6px;letter-spacing:.04em}
+
+  .asset-stage{position:relative;aspect-ratio:16/12;border-radius:2px;overflow:hidden;border:1px solid var(--line);background:#0b0e14}
+  .asset-stage img{width:100%;height:100%;object-fit:cover;display:block;transition:filter .9s ease, transform 6s ease}
+  .asset-stage.locked img{filter:saturate(.5) brightness(.62) contrast(.92)}
+  .wm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;pointer-events:none;transition:opacity .8s ease}
+  .wm .big{font-family:var(--mono);font-weight:700;letter-spacing:.3em;font-size:13px;color:rgba(255,255,255,.82)}
+  .wm .sm{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:rgba(255,255,255,.5)}
+  .wm::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(-45deg,rgba(10,13,19,.0) 0 22px,rgba(10,13,19,.28) 22px 25px)}
+  .asset-stage.cleared .wm{opacity:0}
+  .rejects{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .reject{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:2px;background:var(--ink)}
+  .reject .t{font-size:13px;color:#c2c8d4}
+  .reject .why{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--denied);border:1px solid var(--denied-soft);background:rgba(214,66,58,.07);padding:3px 7px;border-radius:2px;text-transform:uppercase}
+  .reject.match .why{color:var(--cleared);border-color:var(--cleared-soft);background:rgba(46,167,116,.08)}
+
+  /* proof rail */
+  .rail{display:flex;flex-direction:column;gap:0}
+  .step{display:flex;align-items:flex-start;gap:12px;padding:11px 0;position:relative}
+  .step:not(:last-child)::after{content:"";position:absolute;left:8px;top:28px;bottom:-3px;width:1px;background:var(--line)}
+  .node{width:17px;height:17px;border-radius:50%;border:1.5px solid var(--line-strong);flex:none;margin-top:2px;position:relative;background:var(--ink);transition:all .3s}
+  .step.on .node{border-color:var(--proof);box-shadow:0 0 0 3px var(--proof-soft)}
+  .step.done .node{border-color:var(--cleared);background:var(--cleared)}
+  .step.done .node::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#06120d}
+  .step .lbl{font-family:var(--mono);font-size:12px;color:var(--fog);letter-spacing:.02em}
+  .step.on .lbl,.step.done .lbl{color:var(--text)}
+  .step .sub{font-size:11px;color:var(--fog-2);font-family:var(--mono)}
+  .rail-price{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between}
+  .rail-price .p{font-weight:800;font-size:26px;font-stretch:112%}
+  .rail-price .u{font-family:var(--mono);font-size:11px;color:var(--fog);letter-spacing:.1em}
+  .split{font-family:var(--mono);font-size:10px;color:var(--fog-2);margin-top:6px;letter-spacing:.04em}
+
+  /* ---- passport ---- */
+  #passport{display:none}
+  #passport.show{display:block}
+  .passport{display:grid;grid-template-columns:1fr 1.15fr;gap:0;background:var(--vellum);color:var(--vellum-ink);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);border:1px solid #000}
+  .pp-art{position:relative;background:#0b0e14;min-height:420px}
+  .pp-art img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .pp-stampwrap{position:absolute;right:18px;bottom:18px;z-index:3}
+  .pp-body{position:relative;padding:30px 32px 34px;background:
+    repeating-linear-gradient(90deg,transparent 0 38px,rgba(0,0,0,.015) 38px 39px),var(--vellum)}
+  .pp-body::before{content:"";position:absolute;inset:10px;border:1px solid var(--vellum-line);pointer-events:none;border-radius:2px}
+  .pp-guil{position:absolute;right:-40px;top:-40px;opacity:.11;pointer-events:none}
+  .pp-kicker{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--paper-fog)}
+  .pp-title{font-weight:800;font-stretch:88%;text-transform:uppercase;font-size:23px;margin:4px 0 2px;letter-spacing:.01em}
+  .pp-status{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--cleared);text-transform:uppercase;margin-top:2px}
+  .pp-status .d{width:6px;height:6px;border-radius:50%;background:var(--cleared)}
+  .pp-sec{margin-top:20px}
+  .pp-sec .h{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--paper-fog);border-bottom:1px solid var(--vellum-line);padding-bottom:5px;margin-bottom:9px}
+  .pp-row{display:flex;justify-content:space-between;gap:14px;font-size:13px;padding:3px 0}
+  .pp-row .k{color:#55524a}
+  .pp-row .v{font-family:var(--mono);font-size:12px;text-align:right;color:#1c1f24}
+  .pp-grant{display:flex;flex-wrap:wrap;gap:6px}
+  .g-tag{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:2px;border:1px solid #b7b3a0;background:rgba(0,0,0,.02)}
+  .g-tag.no{color:var(--denied);border-color:#d8b3ae;text-decoration:line-through;text-decoration-thickness:1px}
+  .pp-proof .pp-row .v{color:var(--cleared)}
+  .pp-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+  .pp-btn{font-family:var(--mono);font-size:12px;padding:9px 13px;border-radius:2px;border:1px solid #000;background:#171a1f;color:var(--vellum-2);cursor:pointer}
+  .pp-btn.sec{background:transparent;color:#171a1f;border-color:#b7b3a0}
+  .pp-disclaim{margin-top:18px;font-size:11px;line-height:1.5;color:#75725f;max-width:52ch}
+
+  /* ---- permission lens ---- */
+  .lens{display:grid;grid-template-columns:1fr 360px;gap:34px;align-items:start}
+  .lens-left h3{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--fog);margin-bottom:14px}
+  .scenarios{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .scn{position:relative;text-align:left;padding:18px 16px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--raised);cursor:pointer;transition:border-color .16s,transform .12s,background .16s;color:var(--text)}
+  .scn:hover{border-color:var(--proof);transform:translateY(-2px)}
+  .scn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .scn .ic{width:22px;height:22px;color:var(--fog);margin-bottom:12px}
+  .scn .nm{font-weight:600;font-size:15px}
+  .scn .ds{font-family:var(--mono);font-size:11px;color:var(--fog-2);margin-top:3px}
+  .scn .go{position:absolute;top:16px;right:16px;font-family:var(--mono);font-size:10px;color:var(--proof);opacity:0;transition:opacity .16s}
+  .scn:hover .go{opacity:1}
+  .tamper{margin-top:16px;display:flex;align-items:center;gap:12px;padding:13px 16px;border:1px dashed var(--line-strong);border-radius:var(--radius);background:rgba(214,66,58,.03)}
+  .tamper .tt{font-size:13px;color:#c9cedb}
+  .tamper .tt b{color:var(--denied);font-weight:600}
+  .switch{margin-left:auto;position:relative;width:44px;height:24px;border-radius:100px;background:var(--line-strong);cursor:pointer;transition:background .2s;flex:none}
+  .switch.on{background:var(--denied)}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+  .switch.on::after{transform:translateX(20px)}
+
+  /* verdict panel with stamp */
+  .verdict{position:sticky;top:20px;border:1px solid var(--line-strong);border-radius:var(--radius);background:linear-gradient(180deg,var(--raised),var(--ink-2));min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center;overflow:hidden}
+  .verdict .idle{color:var(--fog-2);font-family:var(--mono);font-size:12px;letter-spacing:.06em;max-width:24ch}
+  .stampwrap{position:relative;width:200px;height:200px;display:none}
+  .stampwrap.show{display:block}
+  .verdict-word{margin-top:18px;font-weight:800;font-stretch:100%;text-transform:uppercase;font-size:26px;letter-spacing:.02em;display:none}
+  .verdict-word.show{display:block}
+  .verdict-reason{margin-top:8px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--fog);display:none}
+  .verdict-reason.show{display:block}
+  .verdict-duty{margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--duty);border:1px solid var(--duty-soft);background:var(--duty-soft);padding:7px 11px;border-radius:2px;display:none}
+  .verdict-duty.show{display:inline-block}
+  .v-cleared{color:var(--cleared)} .v-denied{color:var(--denied)} .v-void{color:var(--fog)} .v-duty{color:var(--duty)}
+
+  @keyframes stamp{0%{transform:scale(2.4) rotate(-14deg);opacity:0}55%{opacity:1}70%{transform:scale(.92) rotate(-9deg)}100%{transform:scale(1) rotate(-9deg);opacity:1}}
+  .stamp-anim{animation:stamp .5s cubic-bezier(.2,.9,.3,1) both}
+
+  /* ---- ledger ---- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
+  .stat{border:1px solid var(--line);border-radius:var(--radius);background:var(--raised);padding:18px}
+  .stat .n{font-weight:800;font-size:28px;font-stretch:108%}
+  .stat .l{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fog-2);margin-top:5px}
+  .ledger-table{width:100%;border-collapse:collapse;font-size:13px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .ledger-table th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--fog-2);text-align:left;padding:11px 14px;background:var(--ink-2);border-bottom:1px solid var(--line);font-weight:500}
+  .ledger-table td{padding:11px 14px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:#c2c8d4}
+  .ledger-table tr:last-child td{border-bottom:0}
+  .pill{font-size:10px;letter-spacing:.06em;padding:3px 8px;border-radius:100px;text-transform:uppercase}
+  .pill.ok{color:var(--cleared);background:rgba(46,167,116,.1)} .pill.pend{color:var(--duty);background:rgba(201,138,43,.1)}
+  .banner{display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--duty-soft);background:rgba(201,138,43,.06);border-radius:var(--radius);font-family:var(--mono);font-size:12px;color:var(--duty);margin-bottom:22px;letter-spacing:.02em}
+
+  footer{padding:44px 0 60px}
+  .foot-grid{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  .foot-note{max-width:56ch;font-size:12px;line-height:1.6;color:var(--fog-2)}
+  .foot-meta{font-family:var(--mono);font-size:11px;color:var(--fog-2);text-align:right;line-height:1.9}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--raised-2);border:1px solid var(--line-strong);border-radius:var(--radius);padding:12px 18px;font-family:var(--mono);font-size:12px;box-shadow:var(--shadow);opacity:0;transition:all .25s;z-index:50;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:940px){
+    .hero-grid{grid-template-columns:1fr;gap:36px}
+    .console{grid-template-columns:1fr}
+    .col+.col{border-left:0;border-top:1px solid var(--line)}
+    .passport{grid-template-columns:1fr}
+    .lens{grid-template-columns:1fr}
+    .verdict{position:static}
+    .stats{grid-template-columns:1fr 1fr}
+    .sec-head{flex-direction:column;gap:8px}
+    .sec-head p{text-align:left;margin-left:0}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="guilloche" id="mastGuil"></div>
+  <div class="wrap mast-inner">
+    <div class="topbar">
+      <div class="brandmark">
+        <svg class="sigil" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+          <circle cx="50" cy="50" r="47" stroke="var(--proof)" stroke-width="1.4"/>
+          <circle cx="50" cy="50" r="38" stroke="var(--line-strong)" stroke-width="1"/>
+          <path id="sigilRose" stroke="var(--proof)" stroke-width="1" fill="none" opacity=".9"/>
+          <circle cx="50" cy="50" r="6" fill="var(--proof)"/>
+        </svg>
+        <div>
+          <b>LICENSE402</b>
+          <span class="sub">Rights Clearance Bureau</span>
+        </div>
+      </div>
+      <div class="seal-badge">
+        <span class="dot"></span> Live · X Layer · 196
+        <span class="mode-pill" id="modePill">DEV</span>
+      </div>
+    </div>
+
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow" style="margin-bottom:18px">Agent-native content licensing</div>
+        <h1 class="title">Clear the<br>rights.<br><span class="l2">Then use it.</span></h1>
+        <p class="lede">An agent can download an image. That doesn't mean it may <b>use</b> it. LICENSE402 acquires content with signed, machine-checkable usage terms — and proves the payment behind them.</p>
+        <div class="verbs"><span><b>Acquire</b> the asset</span><span><b>Verify</b> the scope</span><span><b>Audit</b> the payment</span></div>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#console" id="ctaClear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
+            Clear a license — free demo
+          </a>
+          <a class="btn btn-ghost" href="#lens">Test a permission</a>
+        </div>
+      </div>
+      <div class="specimen">
+        <div class="specimen-frame">
+          <span class="specimen-tag">Preview only · not yet licensed</span>
+          <img id="heroArt" alt="Licensed artwork specimen" />
+        </div>
+        <div class="scope-strip" id="heroScope"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- 1 · CLEARANCE CONSOLE -->
+<section id="console">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Clearance console</h2>
+      <p>One intent, one exact asset, one price — locked before payment. No wallet needed for the demo.</p>
+    </div>
+    <div class="console">
+      <div class="col">
+        <h3><span class="idx">01</span> Use intent</h3>
+        <div class="chip-set">
+          <span class="chip on">Commercial</span>
+          <span class="chip on">Post to X</span>
+          <span class="chip on">Worldwide</span>
+          <span class="chip on">14 days</span>
+          <span class="chip on">Crop</span>
+          <span class="chip on">Add text</span>
+          <span class="chip no">No model training</span>
+          <span class="chip no">No resale</span>
+        </div>
+        <div class="field-note">// buyer states the exact use;<br>// the engine — not an LLM — decides.</div>
+      </div>
+
+      <div class="col">
+        <h3><span class="idx">02</span> Matched asset</h3>
+        <div class="asset-stage locked" id="assetStage">
+          <img id="consoleArt" alt="Matched asset" />
+          <div class="wm"><span class="big">PAYMENT REQUIRED</span><span class="sm">402 · X LAYER</span></div>
+        </div>
+        <div class="rejects" id="rejects"></div>
+      </div>
+
+      <div class="col">
+        <h3><span class="idx">03</span> Proof rail</h3>
+        <div class="rail" id="rail">
+          <div class="step" data-k="offer"><span class="node"></span><div><div class="lbl">Signed creator offer</div><div class="sub">EIP-712</div></div></div>
+          <div class="step" data-k="quote"><span class="node"></span><div><div class="lbl">Exact quote locked</div><div class="sub">terms commitment</div></div></div>
+          <div class="step" data-k="intent"><span class="node"></span><div><div class="lbl">Buyer purchase intent</div><div class="sub">EIP-712 signature</div></div></div>
+          <div class="step" data-k="pay"><span class="node"></span><div><div class="lbl">402 payment</div><div class="sub">settled · X Layer</div></div></div>
+          <div class="step" data-k="cred"><span class="node"></span><div><div class="lbl">License credential</div><div class="sub">issuer signature</div></div></div>
+          <div class="step" data-k="payout"><span class="node"></span><div><div class="lbl">Creator paid</div><div class="sub">0.07 USDT</div></div></div>
+        </div>
+        <div class="rail-price">
+          <div><div class="p" id="priceBig">0.10</div><div class="split" id="splitLine">creator 0.07 · platform fee 0.03</div></div>
+          <div class="u">USDT</div>
+        </div>
+        <button class="btn btn-primary" id="clearBtn" style="width:100%;justify-content:center;margin-top:18px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          Clear this license
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 · LICENSE PASSPORT -->
+<section id="passport">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>License passport</h2>
+      <p>The credential a buyer receives. Verifiable offline — signatures, hashes, and the payment record travel with it.</p>
+    </div>
+    <div class="passport">
+      <div class="pp-art">
+        <img id="ppArt" alt="Licensed artwork" />
+        <div class="pp-stampwrap" id="ppStamp"></div>
+      </div>
+      <div class="pp-body">
+        <div class="pp-guil" id="ppGuil"></div>
+        <div class="pp-kicker">Credential · social-commercial-v1</div>
+        <div class="pp-title" id="ppTitle">—</div>
+        <div class="pp-status"><span class="d"></span> <span id="ppStatus">License active</span></div>
+
+        <div class="pp-sec">
+          <div class="h">Licensed scope</div>
+          <div class="pp-grant" id="ppGrant"></div>
+        </div>
+        <div class="pp-sec">
+          <div class="h">Parties</div>
+          <div class="pp-row"><span class="k">Licensor</span><span class="v" id="ppLicensor">—</span></div>
+          <div class="pp-row"><span class="k">Licensee</span><span class="v" id="ppLicensee">—</span></div>
+          <div class="pp-row"><span class="k">Issuer</span><span class="v">LICENSE402</span></div>
+        </div>
+        <div class="pp-sec pp-proof">
+          <div class="h">Proof</div>
+          <div class="pp-row"><span class="k">Creator offer</span><span class="v">✓ verified</span></div>
+          <div class="pp-row"><span class="k">Buyer intent</span><span class="v">✓ verified</span></div>
+          <div class="pp-row"><span class="k">Asset hash</span><span class="v" id="ppAsset">✓ matched</span></div>
+          <div class="pp-row"><span class="k">Buyer settlement</span><span class="v" id="ppSettle">✓ confirmed</span></div>
+          <div class="pp-row"><span class="k">Creator payout</span><span class="v" id="ppPayout">✓ paid</span></div>
+        </div>
+        <div class="pp-actions">
+          <button class="pp-btn" id="dlAsset">Download licensed asset</button>
+          <button class="pp-btn sec" id="dlCred">Download credential</button>
+          <button class="pp-btn sec" id="viewOrder">View payment record</button>
+        </div>
+        <p class="pp-disclaim">This credential records a signed license scope and a payment. It does not independently establish copyright ownership or determine infringement, and it is not DRM.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · PERMISSION LENS -->
+<section id="lens">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Permission lens</h2>
+      <p>Put the licensed asset into a real agent action. The scope check is a deterministic engine call — every verdict is live.</p>
+    </div>
+    <div class="lens">
+      <div class="lens-left">
+        <h3>Try to use it for…</h3>
+        <div class="scenarios">
+          <button class="scn" data-action="commercial_social_post" data-channel="x">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l16 16M20 4L4 20"/></svg>
+            <div class="nm">Publish to X</div><div class="ds">commercial social post</div><span class="go">stamp →</span>
+          </button>
+          <button class="scn" data-action="commercial_social_post" data-channel="linkedin">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 10v7M7 7v.01M12 17v-4a2 2 0 014 0v4"/></svg>
+            <div class="nm">Post to LinkedIn</div><div class="ds">commercial · other channel</div><span class="go">stamp →</span>
+          </button>
+          <button class="scn" data-action="model_training">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+            <div class="nm">Train an AI model</div><div class="ds">dataset ingestion</div><span class="go">stamp →</span>
+          </button>
+          <button class="scn" data-action="resale">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+            <div class="nm">Resell the file</div><div class="ds">sublicense / resale</div><span class="go">stamp →</span>
+          </button>
+        </div>
+        <div class="tamper">
+          <div class="tt"><b>Tamper challenge.</b> Flip a signed field, then re-check.</div>
+          <div class="switch" id="tamperSwitch" role="switch" aria-checked="false" tabindex="0"></div>
+        </div>
+      </div>
+
+      <div class="verdict">
+        <div class="idle" id="verdictIdle">Clear a license first, then send the asset into a scenario. The stamp lands live.</div>
+        <div class="stampwrap" id="lensStamp"></div>
+        <div class="verdict-word" id="verdictWord">—</div>
+        <div class="verdict-reason" id="verdictReason"></div>
+        <div class="verdict-duty" id="verdictDuty"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 · LEDGER -->
+<section id="ledger">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Public receipts</h2>
+      <p>Every settled figure has a transaction. Settled shows only after a creator payout is paid — otherwise payable / pending.</p>
+    </div>
+    <div class="banner" id="devBanner" style="display:none">DEV MODE — settlements below are simulated for the demo and are not real payments.</div>
+    <div class="stats" id="stats"></div>
+    <table class="ledger-table">
+      <thead><tr><th>Order</th><th>Status</th><th>Buyer payment</th><th>Creator payout</th><th>Economics</th></tr></thead>
+      <tbody id="ledgerBody"><tr><td colspan="5" style="color:var(--fog-2)">No orders yet — clear one above.</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-grid">
+    <div>
+      <div class="brandmark" style="margin-bottom:14px">
+        <svg class="sigil" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="47" stroke="var(--proof)" stroke-width="1.4"/><circle cx="50" cy="50" r="6" fill="var(--proof)"/></svg>
+        <div><b>LICENSE402</b><span class="sub">Rights Clearance Bureau</span></div>
+      </div>
+      <p class="foot-note">LICENSE402 records signed rights declarations, payments, and machine-checkable scope — it does not adjudicate copyright ownership or infringement, and it is not DRM. First-party signed catalog. Pilot terms. Combines signed creator offers, payment-bound purchase intent, x402 settlement, a portable executable scope policy, and auditable credentials in one agent-native transaction on OKX.AI.</p>
+    </div>
+    <div class="foot-meta" id="footMeta"></div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  const $=(s,r)=>(r||document).querySelector(s), $$=(s,r)=>[...(r||document).querySelectorAll(s)];
+  const api=(p,opts)=>fetch(p,opts).then(r=>r.json());
+  const short=a=>!a?"—":a.slice(0,6)+"…"+a.slice(-4);
+  const toast=(m)=>{const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2600)};
+
+  let CRED=null, ASSET=null, CFG=null, ORIGIN=location.origin, LICENSEE=null;
+
+  // ---- guilloché generator (hypotrochoid rosette) -> SVG path ----
+  function rosette(cx,cy,R,r,d,turns){
+    const pts=[];const steps=turns*90;
+    for(let i=0;i<=steps;i++){const t=i/90*Math.PI*2;
+      const x=cx+(R-r)*Math.cos(t)+d*Math.cos((R-r)/r*t);
+      const y=cy+(R-r)*Math.sin(t)-d*Math.sin((R-r)/r*t);
+      pts.push((i?"L":"M")+x.toFixed(2)+" "+y.toFixed(2));}
+    return pts.join(" ");
+  }
+  // sigil rose
+  const sr=$("#sigilRose"); if(sr) sr.setAttribute("d",rosette(50,50,30,7,10,7));
+
+  function guilSVG(size,stroke,op){
+    const layers=[[size/2.15,9,size/10,7],[size/2.6,11,size/9,11],[size/3.4,7,size/13,5]];
+    let paths=layers.map((L,i)=>`<path d="${rosette(size/2,size/2,L[0],L[1],L[2],L[3])}" fill="none" stroke="${stroke}" stroke-width="${0.5+i*0.12}" opacity="${op}"/>`).join("");
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}</svg>`;
+  }
+  // masthead ambient guilloché (two rosettes drifting right)
+  (function(){const g=$("#mastGuil"); if(!g)return;
+    g.innerHTML=`<div style="right:-160px;top:-140px">${guilSVG(560,"#39aec0",.5)}</div><div style="right:220px;top:60px">${guilSVG(320,"#33405a",.6)}</div>`;
+    [...g.children].forEach((c,i)=>{c.style.position="absolute";});
+  })();
+  const ppg=$("#ppGuil"); if(ppg) ppg.innerHTML=guilSVG(240,"#171a1f",1);
+
+  // ---- circular seal / stamp ----
+  function stampSVG(word,cls){
+    const ring="LICENSE402 · RIGHTS CLEARANCE · X LAYER · ";
+    const col=cls==="v-cleared"?"#2ea774":cls==="v-denied"?"#d6423a":cls==="v-duty"?"#c98a2b":"#8b94a6";
+    return `<svg viewBox="0 0 200 200" width="100%" height="100%" class="stamp-anim">
+      <defs><path id="ring" d="M100,100 m-74,0 a74,74 0 1,1 148,0 a74,74 0 1,1 -148,0"/></defs>
+      <circle cx="100" cy="100" r="90" fill="none" stroke="${col}" stroke-width="2.5"/>
+      <circle cx="100" cy="100" r="83" fill="none" stroke="${col}" stroke-width="1" opacity=".6"/>
+      <circle cx="100" cy="100" r="58" fill="none" stroke="${col}" stroke-width="1" opacity=".5"/>
+      <path d="${rosette(100,100,44,9,13,7)}" fill="none" stroke="${col}" stroke-width=".7" opacity=".38"/>
+      <text font-family="JetBrains Mono, monospace" font-size="11.5" letter-spacing="1.2" fill="${col}" opacity=".92"><textPath href="#ring" startOffset="0">${ring+ring}</textPath></text>
+      <text x="100" y="108" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="800" font-size="26" fill="${col}" letter-spacing="1">${word}</text>
+    </svg>`;
+  }
+
+  // ---- scope strip / grant tags ----
+  const SCOPE=[["Commercial social use","y"],["X · LinkedIn · Instagram","y"],["Worldwide","y"],["Up to 30 days","y"],["Crop · resize · add text","y"],["Model training","n"],["RAG indexing","n"]];
+  $("#heroScope").innerHTML=SCOPE.map(([k,m])=>`<div class="row"><span class="k">${k}</span><span class="mark ${m}">${m==="y"?"CLEARED":"DENIED"}</span></div>`).join("");
+
+  // ---- load config + catalog + ledger ----
+  async function boot(){
+    try{ CFG=await api("/config.json");
+      const pill=$("#modePill"); pill.textContent=CFG.paymentMode==="live"?"LIVE":"DEV"; pill.dataset.mode=CFG.paymentMode;
+      if(CFG.paymentMode!=="live"){$("#devBanner").style.display="flex";}
+      $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>price ${CFG.price} USDT`;
+    }catch(e){}
+    try{ const cat=await api("/v1/catalog");
+      const first=(cat.offers||[]).find(o=>o.commercialUse)||cat.offers[0];
+      if(first){ $("#heroArt").src=first.previewUrl; $("#consoleArt").src=first.previewUrl; }
+    }catch(e){}
+    renderRejectsPlaceholder();
+    refreshLedger();
+  }
+  function renderRejectsPlaceholder(){
+    $("#rejects").innerHTML=`
+      <div class="reject"><span class="t">Offer · editorial-only</span><span class="why">non-commercial</span></div>
+      <div class="reject"><span class="t">Offer · expired relic</span><span class="why">offer expired</span></div>
+      <div class="reject match"><span class="t">Offer · eligible match</span><span class="why">cleared</span></div>`;
+  }
+
+  async function refreshLedger(){
+    try{ const L=await api("/v1/ledger");
+      $("#stats").innerHTML=[["Licenses issued",L.activeLicenses],["Distinct buyers",L.distinctBuyers],["Creators paid",L.creatorPayoutsPaid],["Scope checks",window._checks||0]]
+        .map(([l,n])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+      const rows=(L.orders||[]).filter(o=>["LICENSE_ACTIVE","CREATOR_PAYOUT_PENDING","CREATOR_PAID","PAYOUT_RETRYING"].includes(o.status));
+      if(rows.length){ $("#ledgerBody").innerHTML=rows.map(o=>{
+        const paid=o.status==="CREATOR_PAID";
+        return `<tr><td>${short(o.order_id)}</td><td><span class="pill ${paid?"ok":"pend"}">${o.status.replace(/_/g," ").toLowerCase()}</span></td>
+          <td>${o.buyer_settle_tx?short(o.buyer_settle_tx):"—"}</td>
+          <td><span class="pill ${paid?"ok":"pend"}">${paid?"paid 0.07":"payable 0.07"}</span></td>
+          <td>${paid?"rev 0.10 · fee 0.03":"pending"}</td></tr>`;}).join("");
+      }
+    }catch(e){}
+  }
+
+  // ---- the clearance flow (wallet-free demo) ----
+  const railOrder=["offer","quote","intent","pay","cred","payout"];
+  function setRail(upto){railOrder.forEach((k,i)=>{const s=$(`.step[data-k="${k}"]`);s.classList.toggle("done",i<upto);s.classList.toggle("on",i===upto);});}
+  function fillGrant(){
+    const g=[["Commercial X post",1],["Crop",1],["Add text",1],["Worldwide",1],["14 days",1],["Model training",0],["RAG indexing",0],["Resale",0]];
+    $("#ppGrant").innerHTML=g.map(([t,ok])=>`<span class="g-tag ${ok?"":"no"}">${t}</span>`).join("");
+  }
+
+  let clearing=false;
+  async function clearLicense(){
+    if(clearing) return; clearing=true;
+    const btn=$("#clearBtn"); btn.disabled=true; const stage=$("#assetStage");
+    // animate the rail
+    for(let i=0;i<=6;i++){ setRail(i); await new Promise(r=>setTimeout(r,i<3?260:420)); }
+    try{
+      const res=await api("/v1/demo/acquire",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({})});
+      if(!res.ok){ toast("Demo unavailable: "+(res.error||"error")); btn.disabled=false; clearing=false; return; }
+      CRED=res.credential; ASSET=res.asset; LICENSEE=CRED.licenseeWallet;
+      // watermark dissolves -> full asset
+      $("#consoleArt").src=ASSET.url; stage.classList.remove("locked"); stage.classList.add("cleared");
+      // real rejected candidates
+      const rej=(res.quote&&res.quote.rejectedCandidates)||[];
+      if(rej.length){$("#rejects").innerHTML=rej.map(r=>`<div class="reject"><span class="t">Offer · ${r.title.replace(/\\(demo reject\\)/i,'').trim()}</span><span class="why">${(r.reasonCodes[0]||'').replace(/_/g,' ').toLowerCase()}</span></div>`).join("")+`<div class="reject match"><span class="t">Offer · ${res.quote.asset.title}</span><span class="why">cleared</span></div>`;}
+      renderPassport();
+      toast("License cleared — passport issued");
+      $("#passport").classList.add("show");
+      $("#verdictIdle").textContent="Send the licensed asset into a scenario. The stamp lands live.";
+      $$(".scn").forEach(b=>b.disabled=false);
+      setTimeout(()=>$("#passport").scrollIntoView({behavior:"smooth"}),400);
+      refreshLedger();
+    }catch(e){ toast("Network error"); }
+    btn.disabled=false; clearing=false;
+  }
+
+  function renderPassport(){
+    $("#ppArt").src=ASSET.url;
+    $("#ppTitle").textContent=ASSET.title;
+    $("#ppLicensor").textContent=short(CRED.licensorWallet);
+    $("#ppLicensee").textContent=short(CRED.licenseeWallet);
+    $("#ppAsset").textContent="✓ "+short(CRED.assetSha256);
+    fillGrant();
+    $("#ppStamp").innerHTML=stampSVG("CLEARED","v-cleared");
+    // payout may still be settling; reflect from order
+    api("/v1/orders/"+CRED.orderId).then(o=>{
+      const paid=o.creatorPayout&&o.creatorPayout.state==="PAID";
+      $("#ppPayout").textContent=paid?"✓ paid":"• pending";
+      $("#ppSettle").textContent=o.buyerSettleTx?"✓ confirmed":"• pending";
+    }).catch(()=>{});
+  }
+
+  $("#clearBtn").addEventListener("click",clearLicense);
+  $("#ctaClear").addEventListener("click",()=>{ if(!CRED) setTimeout(clearLicense,500); });
+
+  // ---- permission lens ----
+  let checks=0;
+  function paintVerdict(decision,reasons,duties){
+    const map={PERMITTED:["CLEARED","v-cleared"],PERMITTED_WITH_DUTIES:["CLEARED","v-duty"],NOT_PERMITTED:["DENIED","v-denied"],INVALID_CREDENTIAL:["VOID","v-void"],INDETERMINATE:["HELD","v-void"]};
+    const [word,cls]=map[decision]||["HELD","v-void"];
+    $("#verdictIdle").style.display="none";
+    const sw=$("#lensStamp"); sw.classList.add("show"); sw.innerHTML=stampSVG(word,cls);
+    const w=$("#verdictWord"); w.className="verdict-word show "+cls;
+    w.textContent=(decision==="PERMITTED_WITH_DUTIES")?"CLEARED — WITH DUTY":(decision==="NOT_PERMITTED"?"DENIED — BY LICENSE":(decision==="INVALID_CREDENTIAL"?"VOID — CREDENTIAL":(decision==="PERMITTED"?"CLEARED — BY LICENSE":"HELD")));
+    const r=$("#verdictReason"); r.className="verdict-reason show"; r.textContent=(reasons||[]).join(" · ");
+    const d=$("#verdictDuty"); if(duties&&duties.length){d.className="verdict-duty show";d.textContent="DUTY · "+duties.map(x=>x.text||x.type).join("; ");}else{d.className="verdict-duty";}
+  }
+  async function runScope(action,channel){
+    if(!CRED){toast("Clear a license first");return;}
+    let cred=CRED;
+    if($("#tamperSwitch").classList.contains("on")){ cred=JSON.parse(JSON.stringify(CRED)); cred.policy.modelTraining=true; }
+    const body={license:cred,action,channel,licensee:LICENSEE};
+    try{ const res=await api("/v1/check-license-scope",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+      paintVerdict(res.decision,res.reasonCodes,res.duties); checks++; window._checks=checks; refreshLedger();
+    }catch(e){toast("Scope check failed");}
+  }
+  $$(".scn").forEach(b=>{ b.disabled=true; b.addEventListener("click",()=>runScope(b.dataset.action,b.dataset.channel)); });
+  const ts=$("#tamperSwitch");
+  const toggleTamper=()=>{ts.classList.toggle("on");ts.setAttribute("aria-checked",ts.classList.contains("on"));};
+  ts.addEventListener("click",toggleTamper);
+  ts.addEventListener("keydown",e=>{if(e.key===" "||e.key==="Enter"){e.preventDefault();toggleTamper();}});
+
+  // ---- passport actions ----
+  $("#dlAsset").addEventListener("click",()=>{ if(ASSET) window.open(ASSET.url,"_blank"); });
+  $("#dlCred").addEventListener("click",()=>{ if(!CRED)return; const b=new Blob([JSON.stringify(CRED,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=CRED.licenseId+".license402.json"; a.click(); URL.revokeObjectURL(u); });
+  $("#viewOrder").addEventListener("click",()=>{ if(CRED) window.open("/v1/orders/"+CRED.orderId,"_blank"); });
+
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,357 @@
+[
+  {
+    "offer": {
+      "offerId": "off-cyber-dragon",
+      "offerVersion": 1,
+      "assetId": "asset-cyber-dragon",
+      "assetSha256": "0xf41dc4bc1f04aa77fb23734939a5cba08997921118ab8438b2a7aa6f013b4cd6",
+      "mimeType": "image/png",
+      "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "templateId": "social-commercial-v1",
+      "legalTextHash": "0x68cad767b97730af99577c220eb63e89969a9c2807e27ab97cc1cf3c54627fd5",
+      "policy": {
+        "policyVersion": 1,
+        "commercialUse": true,
+        "channels": [
+          "x",
+          "linkedin",
+          "instagram"
+        ],
+        "territory": "worldwide",
+        "maxDurationDays": 30,
+        "allowedTransformations": [
+          "crop",
+          "resize",
+          "overlay_text"
+        ],
+        "modelTraining": false,
+        "ragIndexing": false,
+        "exclusive": false,
+        "resale": false,
+        "sublicensing": false,
+        "attributionRequired": false
+      },
+      "creatorNetPrice": "0.07",
+      "currency": "USDT",
+      "rightsAttestationHash": "0x4bde0768451692bc22e3c850e32592441e5f838ceb8b8f49ad5c4be0d71acfea",
+      "validFrom": 1781308800,
+      "validUntil": 1815436800,
+      "nonce": "0x8e54568a40f32be638b30164ee2561d1975b5060f904c55a2a6299734af58d66",
+      "signature": "0xc02adea118cacd4e64d5ce70c126e334ee582f2e376b605ce39935a444da6dbf30666f759c087bf1f831d35e8199b9781298cdb9014fa02932e36242bada3ed91b"
+    },
+    "assetFile": "catalog/assets/cyber-dragon.png",
+    "previewFile": "catalog/previews/cyber-dragon.preview.png",
+    "title": "Cyberpunk Dragon",
+    "creatorDisplay": "Genesis Studio (first-party)",
+    "tags": [
+      "cyberpunk",
+      "dragon",
+      "neon"
+    ]
+  },
+  {
+    "offer": {
+      "offerId": "off-neon-city",
+      "offerVersion": 1,
+      "assetId": "asset-neon-city",
+      "assetSha256": "0xd3a5659945eef9e1b1e9439aba481434ff3471119290caa8b82e8336a30d0b51",
+      "mimeType": "image/png",
+      "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "templateId": "social-commercial-v1",
+      "legalTextHash": "0x68cad767b97730af99577c220eb63e89969a9c2807e27ab97cc1cf3c54627fd5",
+      "policy": {
+        "policyVersion": 1,
+        "commercialUse": true,
+        "channels": [
+          "x",
+          "linkedin",
+          "instagram"
+        ],
+        "territory": "worldwide",
+        "maxDurationDays": 30,
+        "allowedTransformations": [
+          "crop",
+          "resize",
+          "overlay_text"
+        ],
+        "modelTraining": false,
+        "ragIndexing": false,
+        "exclusive": false,
+        "resale": false,
+        "sublicensing": false,
+        "attributionRequired": true
+      },
+      "creatorNetPrice": "0.07",
+      "currency": "USDT",
+      "rightsAttestationHash": "0xc2c7c6cdc198a7620be75771cd7981597263fe37c2fc56258da21795b517af8b",
+      "validFrom": 1781308800,
+      "validUntil": 1815436800,
+      "nonce": "0x0ec969d1c0e65f24ff575b82eb158ed337eaa0f7debd078d88864e9f848e81e6",
+      "signature": "0x79a529b752398026aa3a9a330f7045a17ae4a0f0faa2f354d7ef7daa3cedd98b1fd8d75db05592027fea9f8b87d1b01c7a1cdd21e96dc0098bf7d23c8b87f1731b"
+    },
+    "assetFile": "catalog/assets/neon-city.png",
+    "previewFile": "catalog/previews/neon-city.preview.png",
+    "title": "Neon Skyline",
+    "creatorDisplay": "Genesis Studio (first-party)",
+    "tags": [
+      "city",
+      "neon",
+      "night"
+    ]
+  },
+  {
+    "offer": {
+      "offerId": "off-synth-portal",
+      "offerVersion": 1,
+      "assetId": "asset-synth-portal",
+      "assetSha256": "0xee4011cdd2fbb7d8fd63d36ed08d999db25a9c36dcf983b31672c050f3418f65",
+      "mimeType": "image/png",
+      "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "templateId": "social-commercial-v1",
+      "legalTextHash": "0x68cad767b97730af99577c220eb63e89969a9c2807e27ab97cc1cf3c54627fd5",
+      "policy": {
+        "policyVersion": 1,
+        "commercialUse": true,
+        "channels": [
+          "x",
+          "linkedin",
+          "instagram"
+        ],
+        "territory": "worldwide",
+        "maxDurationDays": 30,
+        "allowedTransformations": [
+          "crop",
+          "resize",
+          "overlay_text"
+        ],
+        "modelTraining": false,
+        "ragIndexing": false,
+        "exclusive": false,
+        "resale": false,
+        "sublicensing": false,
+        "attributionRequired": false
+      },
+      "creatorNetPrice": "0.07",
+      "currency": "USDT",
+      "rightsAttestationHash": "0x27d0eb7939c58bda0fb8b20c0b1504f421378b6578bd4021d8000e1d94751ebd",
+      "validFrom": 1781308800,
+      "validUntil": 1815436800,
+      "nonce": "0x0152ae8175b5e90d0667e2df76aeee7e9410939f43b58087bef2665b95022b3b",
+      "signature": "0x7d32deafadc54d52504734d2222173dc7dd27a042918369e3b744769d133124322029a1344c7d8ace0a1710259cd8ef7bdb99d4235de518826152bbd8c9710a11c"
+    },
+    "assetFile": "catalog/assets/synth-portal.png",
+    "previewFile": "catalog/previews/synth-portal.preview.png",
+    "title": "Synthwave Portal",
+    "creatorDisplay": "Genesis Studio (first-party)",
+    "tags": [
+      "synthwave",
+      "portal",
+      "abstract"
+    ]
+  },
+  {
+    "offer": {
+      "offerId": "off-aurora-koi",
+      "offerVersion": 1,
+      "assetId": "asset-aurora-koi",
+      "assetSha256": "0x79b1eb754e22bb10187a8bfddf47f23b39d4ed9e5f896f7737bedc4ac286711e",
+      "mimeType": "image/png",
+      "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "templateId": "social-commercial-v1",
+      "legalTextHash": "0x68cad767b97730af99577c220eb63e89969a9c2807e27ab97cc1cf3c54627fd5",
+      "policy": {
+        "policyVersion": 1,
+        "commercialUse": true,
+        "channels": [
+          "x",
+          "linkedin",
+          "instagram"
+        ],
+        "territory": "worldwide",
+        "maxDurationDays": 30,
+        "allowedTransformations": [
+          "crop",
+          "resize",
+          "overlay_text"
+        ],
+        "modelTraining": false,
+        "ragIndexing": false,
+        "exclusive": false,
+        "resale": false,
+        "sublicensing": false,
+        "attributionRequired": false
+      },
+      "creatorNetPrice": "0.07",
+      "currency": "USDT",
+      "rightsAttestationHash": "0x7aa628ed4a9a868de5b2fad3eb7f2c9fdc0cf2faba94329a429a73d9c95992ba",
+      "validFrom": 1781308800,
+      "validUntil": 1815436800,
+      "nonce": "0x0b34c9719ac8cefe003d14567296592e65c12d4869350f1681f2fad100b82af3",
+      "signature": "0x5fb91e8a67de53386fa82a684fd84d49c819ced784db9333ea812a8dace201a42d185493fb3c0130f73bb8ee6d19331d97c21001a4c233e1183ef8ded56b817a1c"
+    },
+    "assetFile": "catalog/assets/aurora-koi.png",
+    "previewFile": "catalog/previews/aurora-koi.preview.png",
+    "title": "Aurora Koi",
+    "creatorDisplay": "Genesis Studio (first-party)",
+    "tags": [
+      "koi",
+      "aurora",
+      "calm"
+    ]
+  },
+  {
+    "offer": {
+      "offerId": "off-glitch-mask",
+      "offerVersion": 1,
+      "assetId": "asset-glitch-mask",
+      "assetSha256": "0x3a8cf8c64e18c2310719b8afb37927122c7d28f2f4aae6f42526151017e309e0",
+      "mimeType": "image/png",
+      "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "templateId": "social-commercial-v1",
+      "legalTextHash": "0x68cad767b97730af99577c220eb63e89969a9c2807e27ab97cc1cf3c54627fd5",
+      "policy": {
+        "policyVersion": 1,
+        "commercialUse": true,
+        "channels": [
+          "x",
+          "linkedin",
+          "instagram"
+        ],
+        "territory": "worldwide",
+        "maxDurationDays": 30,
+        "allowedTransformations": [
+          "crop",
+          "resize",
+          "overlay_text"
+        ],
+        "modelTraining": false,
+        "ragIndexing": false,
+        "exclusive": false,
+        "resale": false,
+        "sublicensing": false,
+        "attributionRequired": false
+      },
+      "creatorNetPrice": "0.07",
+      "currency": "USDT",
+      "rightsAttestationHash": "0x1aa5471f86aee88f3a9dfed41f437528a3357b27ec617a2895affb40d3d4cf1a",
+      "validFrom": 1781308800,
+      "validUntil": 1815436800,
+      "nonce": "0xaf8c7bac16b7f043dc650abaacf4d5fcbbec6d7f68c9ffc56870d04446badb19",
+      "signature": "0x9a9245f4a7d27b3c4725f4401e8d02ac26bb24513b77d00695c15507a9426806678eb3eb7c92486dd610960449d048b2ee1756b1c468a6b166909c7f42decc001b"
+    },
+    "assetFile": "catalog/assets/glitch-mask.png",
+    "previewFile": "catalog/previews/glitch-mask.preview.png",
+    "title": "Glitch Mask",
+    "creatorDisplay": "Genesis Studio (first-party)",
+    "tags": [
+      "glitch",
+      "mask",
+      "portrait"
+    ]
+  },
+  {
+    "offer": {
+      "offerId": "off-expired-relic",
+      "offerVersion": 1,
+      "assetId": "asset-expired-relic",
+      "assetSha256": "0x1f03b5b7e86af997c381f54f9b8f90aa582f87e8c28361f44bc3924d6083fa54",
+      "mimeType": "image/png",
+      "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "templateId": "social-commercial-v1",
+      "legalTextHash": "0x68cad767b97730af99577c220eb63e89969a9c2807e27ab97cc1cf3c54627fd5",
+      "policy": {
+        "policyVersion": 1,
+        "commercialUse": true,
+        "channels": [
+          "x",
+          "linkedin",
+          "instagram"
+        ],
+        "territory": "worldwide",
+        "maxDurationDays": 30,
+        "allowedTransformations": [
+          "crop",
+          "resize",
+          "overlay_text"
+        ],
+        "modelTraining": false,
+        "ragIndexing": false,
+        "exclusive": false,
+        "resale": false,
+        "sublicensing": false,
+        "attributionRequired": false
+      },
+      "creatorNetPrice": "0.07",
+      "currency": "USDT",
+      "rightsAttestationHash": "0x4ef0e4f94adfc6ab6557e36832de0d7d85ec16035406604b3413dc03a8cf4d27",
+      "validFrom": 1778716800,
+      "validUntil": 1781308800,
+      "nonce": "0xe83b2aec2816baef71c514903db982bb350f5a15ea874f70da80c9ae0dfd261d",
+      "signature": "0x120e5030073c984a3a2281df7e979e3efad4cd8cb1ca0be38edd57f7741f90347a25ebc22aa9d6577e37b9e5013f9c0110a4553c0ce3c17b07e6c902d4c6dc101c"
+    },
+    "assetFile": "catalog/assets/expired-relic.png",
+    "previewFile": "catalog/previews/expired-relic.preview.png",
+    "title": "Bronze Relic",
+    "creatorDisplay": "Genesis Studio (first-party)",
+    "tags": [
+      "demo",
+      "expired"
+    ]
+  },
+  {
+    "offer": {
+      "offerId": "off-editorial-only",
+      "offerVersion": 1,
+      "assetId": "asset-editorial-only",
+      "assetSha256": "0x7892924bf8ac03720ac94c289fdd9a1e0026579cc8bfb77461f47f852c2b6a7b",
+      "mimeType": "image/png",
+      "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+      "templateId": "social-commercial-v1",
+      "legalTextHash": "0x68cad767b97730af99577c220eb63e89969a9c2807e27ab97cc1cf3c54627fd5",
+      "policy": {
+        "policyVersion": 1,
+        "commercialUse": false,
+        "channels": [
+          "x",
+          "linkedin",
+          "instagram"
+        ],
+        "territory": "worldwide",
+        "maxDurationDays": 30,
+        "allowedTransformations": [
+          "crop",
+          "resize",
+          "overlay_text"
+        ],
+        "modelTraining": false,
+        "ragIndexing": false,
+        "exclusive": false,
+        "resale": false,
+        "sublicensing": false,
+        "attributionRequired": false
+      },
+      "creatorNetPrice": "0.07",
+      "currency": "USDT",
+      "rightsAttestationHash": "0x7fdd2922f30e00a3a77eed438270a11f9055be160162953e88d14379dc2d7ad5",
+      "validFrom": 1781308800,
+      "validUntil": 1815436800,
+      "nonce": "0x10153d5bff38165ea3f5b943f60af928a00131503c930a67a377b388c7a3e089",
+      "signature": "0xe6077be2c13be9cb2ea8f9e16e4df09b7dbbe5a32991962f47d021cd2575b69b1463058b9af832a6460ff8c9fad90d852e6e64fb8a2d0e9f01172a6fa0e69e061b"
+    },
+    "assetFile": "catalog/assets/editorial-only.png",
+    "previewFile": "catalog/previews/editorial-only.preview.png",
+    "title": "Editorial Study",
+    "creatorDisplay": "Genesis Studio (first-party)",
+    "tags": [
+      "demo",
+      "noncommercial"
+    ]
+  }
+]
