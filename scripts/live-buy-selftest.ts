@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   console.log("buyer:", BUYER);
 
   // 1 · quote
-  const quote = await http("POST", "/v1/quote", { use: USE, licenseeWallet: BUYER });
+  const quote = await http("POST", "/v1/quote", { use: USE, licenseeWallet: BUYER, ...(NETWORK === "testnet" ? { network: "testnet" } : {}) });
   if (!quote.json?.serviceable) throw new Error("quote not serviceable: " + JSON.stringify(quote.json));
   const f = quote.json.purchaseIntentFields;
   console.log("1 quote:", quote.json.asset.title, "| expires", f.expiresAt);
@@ -73,6 +73,11 @@ async function main(): Promise<void> {
     legalTextHash: f.legalTextHash,
     totalPrice: f.totalPrice,
     currency: "USDT" as const,
+    settlementNetwork: f.settlementNetwork,
+    paymentAsset: f.paymentAsset,
+    payTo: f.payTo,
+    creatorPayoutMicro: f.creatorPayoutMicro,
+    platformFeeMicro: f.platformFeeMicro,
     expiresAt: f.expiresAt,
     nonce
   };

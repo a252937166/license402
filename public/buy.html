@@ -192,8 +192,11 @@
           <div class="addrbox"><code id="selfAddr">—</code><button class="btn ghost" id="copyAddr">Copy address</button><button class="btn ghost" id="recheckBal">Re-check balance</button></div>
         </div>
         <div id="fundTestnet" style="display:none">
-          <button class="btn" id="btnFaucet">Claim 0.50 test USDT — free</button>
-          <span class="hint">test-value tokens on X Layer testnet (1952) · one claim per wallet · zero real cost</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn" id="btnFaucet">Claim 0.50 test USDT — free</button>
+            <button class="btn ghost" id="skipFaucet">I already have test USDT →</button>
+          </div>
+          <span class="hint">test-value tokens on X Layer testnet (1952) · one claim per wallet · zero real cost · already funded? just skip</span>
         </div>
         <div class="err" id="err2"></div>
       </section>

@@ -56,8 +56,8 @@ export class XLayerService {
     this.token = this.profile.asset as `0x${string}`;
     this.chain = chainFor(this.profile);
     this.account = privateKeyToAccount(config.servicePrivateKey as `0x${string}`);
-    this.wallet = createWalletClient({ account: this.account, chain: this.chain, transport: http() });
-    this.pub = createPublicClient({ chain: this.chain, transport: http() });
+    this.wallet = createWalletClient({ account: this.account, chain: this.chain, transport: http(undefined, { timeout: 15_000, retryCount: 1 }) });
+    this.pub = createPublicClient({ chain: this.chain, transport: http(undefined, { timeout: 15_000, retryCount: 1 }) });
   }
 
   get address(): string {

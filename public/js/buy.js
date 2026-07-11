@@ -23,7 +23,22 @@
   const unlock = (id) => { $(id).classList.remove("locked"); };
   const lock = (id) => { $(id).classList.add("locked"); };
 
-  async function api(p, opt) { const r = await fetch(p, opt); const t = await r.text(); let j = null; try { j = t ? JSON.parse(t) : null; } catch (e) { /* not json */ } return { status: r.status, json: j, headers: r.headers }; }
+  async function api(p, opt, timeoutMs) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs || 20000);
+    try {
+      const r = await fetch(p, { ...(opt || {}), signal: ctl.signal });
+      const t = await r.text(); let j = null; try { j = t ? JSON.parse(t) : null; } catch (e) { /* not json */ }
+      return { status: r.status, json: j, headers: r.headers };
+    } finally { clearTimeout(timer); }
+  }
+  // Wallet prompts can sit unanswered forever — surface that instead of hanging.
+  function withWalletTimeout(promise, what) {
+    return Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error("Waiting on your wallet — please confirm the " + what + " prompt in the wallet extension, then retry.")), 25000))
+    ]);
+  }
 
   // ---- rail switching -------------------------------------------------------
   function applyRail() {
@@ -55,15 +70,17 @@
 
   // ---- header wallet button (standard top-right connect) --------------------
   async function ensureChain() {
+    const current = await eth.request({ method: "eth_chainId" }).catch(() => null);
+    if (String(current).toLowerCase() === rail().chainHex) return; // already there — no prompt
     try {
-      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: rail().chainHex }] });
+      await withWalletTimeout(eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: rail().chainHex }] }), "network switch");
     } catch (sw) {
       if (sw && (sw.code === 4902 || /unrecognized|not added/i.test(String(sw.message || "")))) {
-        await eth.request({ method: "wallet_addEthereumChain", params: [{ chainId: rail().chainHex, chainName: rail().name, nativeCurrency: { name: "OKB", symbol: "OKB", decimals: 18 }, rpcUrls: [rail().rpc], blockExplorerUrls: ["https://www.oklink.com/"] }] });
-      } else if (sw && sw.code === 4001) { throw sw; }
+        await withWalletTimeout(eth.request({ method: "wallet_addEthereumChain", params: [{ chainId: rail().chainHex, chainName: rail().name, nativeCurrency: { name: "OKB", symbol: "OKB", decimals: 18 }, rpcUrls: [rail().rpc], blockExplorerUrls: ["https://www.oklink.com/"] }] }), "add-network");
+      } else { throw sw; }
     }
     const chainId = await eth.request({ method: "eth_chainId" });
-    if (String(chainId).toLowerCase() !== rail().chainHex) throw new Error("Wrong network — please switch to " + rail().name);
+    if (String(chainId).toLowerCase() !== rail().chainHex) throw new Error("Wrong network — please approve the switch to " + rail().name + " in your wallet");
   }
 
   async function connect() {
@@ -98,10 +115,10 @@
   $("#walletBtn").addEventListener("click", () => { if (!ACC) connect(); else toast("Connected: " + ACC); });
 
   // ---- balances (read via the wallet provider on the SELECTED rail) ---------
-  async function refreshBalance() {
+  async function refreshBalance(skipChain) {
     if (!eth || !ACC) return 0n;
     try {
-      await ensureChain();
+      if (!skipChain) await ensureChain();
       const data = "0x70a08231" + ACC.replace(/^0x/, "").toLowerCase().padStart(64, "0");
       const hex = await eth.request({ method: "eth_call", params: [{ to: rail().asset, data }, "latest"] });
       const bal = BigInt(hex);
@@ -111,9 +128,20 @@
       if (bal >= 100000n) { $("#balTxt").classList.add("ok"); if (QUOTE) { unlock("#p3"); setStep(3); } }
       else { $("#balTxt").classList.remove("ok"); }
       return bal;
-    } catch (e) { $("#balTxt").textContent = "(balance check failed)"; return 0n; }
+    } catch (e) {
+      $("#balTxt").textContent = "(balance check failed)";
+      if (e && e.message && /wallet/i.test(e.message)) toast(String(e.message).slice(0, 140));
+      return 0n;
+    }
   }
   $("#recheckBal").addEventListener("click", refreshBalance);
+  // Skip the faucet entirely when the wallet is already funded (any rail).
+  $("#skipFaucet").addEventListener("click", async () => {
+    err(2, "");
+    if (!ACC) { err(2, "Connect your wallet first (top right)"); return; }
+    const bal = await refreshBalance();
+    if (bal < 100000n) err(2, "This wallet holds less than 0.10 test USDT on X Layer testnet — claim the free grant or fund it, then retry.");
+  });
   $("#copyAddr").addEventListener("click", () => { if (ACC) navigator.clipboard.writeText(ACC).then(() => toast("Address copied")); });
 
   // ---- testnet faucet --------------------------------------------------------
@@ -121,15 +149,21 @@
     err(2, "");
     if (!ACC) { err(2, "Connect your wallet first (top right)"); return; }
     if (RAIL !== "testnet") { err(2, "The faucet serves testnet only"); return; }
-    const b = $("#btnFaucet"); b.disabled = true; b.textContent = "Sending test USDT…";
+    const b = $("#btnFaucet"); b.disabled = true;
     try {
-      const r = await api("/v1/faucet", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: ACC }) });
+      // Make sure the wallet is actually ON testnet first — otherwise the
+      // balance readings below watch the wrong chain forever.
+      b.textContent = "Switch network in your wallet…";
+      await ensureChain();
+      b.textContent = "Requesting grant…";
+      const r = await api("/v1/faucet", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: ACC }) }, 60000);
       if (r.json && r.json.ok) {
-        toast(r.json.alreadyClaimed ? "Already claimed — checking balance" : "0.50 test USDT sent");
-        for (let i = 0; i < 10; i++) { const bal = await refreshBalance(); if (bal >= 100000n) break; await new Promise((r2) => setTimeout(r2, 3000)); }
+        toast(r.json.alreadyClaimed ? "Already claimed — checking balance" : "0.50 test USDT sent — confirming on-chain");
+        b.textContent = "Waiting for confirmation…";
+        for (let i = 0; i < 10; i++) { const bal = await refreshBalance(true); if (bal >= 100000n) { toast("Funded ✓"); break; } await new Promise((r2) => setTimeout(r2, 3000)); }
       } else err(2, (r.json && (r.json.detail || r.json.error)) || "Faucet unavailable");
-    } catch (e) { err(2, "Faucet request failed"); }
-    b.disabled = false; b.textContent = "Claim 0.50 test USDT — free";
+    } catch (e) { err(2, e && e.message ? String(e.message).slice(0, 180) : "Faucet request failed"); }
+    finally { b.disabled = false; b.textContent = "Claim 0.50 test USDT — free"; }
   });
 
   // ---- 01 review / quote -----------------------------------------------------
