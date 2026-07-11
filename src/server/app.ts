@@ -562,15 +562,25 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.send(readFileSync(path));
   });
 
-  // --- judge faucet (LIVE MODE) -----------------------------------------------
+  // --- judge faucet (LIVE MODE, INVITE-GATED) ---------------------------------
   // Sends 0.15 USDT of onboarding funds so a judge can make one real purchase.
-  // Hard limits: one claim per address ever, global cap, and never to a wallet
-  // that already holds the purchase price. Gas is paid by the service wallet.
+  // Real funds → locked down: requires the judge code (distributed only in the
+  // hackathon submission; unset = faucet disabled), one claim per address ever,
+  // a low global cap, and never to a wallet that already holds the price.
   const FAUCET_AMOUNT_MICRO = 150_000;
-  const FAUCET_GLOBAL_CAP = 60;
+  const FAUCET_GLOBAL_CAP = Number(process.env.FAUCET_CAP ?? 25);
   app.post("/v1/faucet", async (req: Request, res: Response) => {
     if (config.paymentMode !== "live" || !chain) {
       res.status(503).json({ error: "FAUCET_DISABLED", detail: "faucet runs only in live mode" });
+      return;
+    }
+    const judgeCode = process.env.FAUCET_CODE?.trim();
+    if (!judgeCode) {
+      res.status(503).json({ error: "FAUCET_DISABLED", detail: "no judge code configured" });
+      return;
+    }
+    if (String(req.body?.code ?? "").trim() !== judgeCode) {
+      res.status(403).json({ error: "JUDGE_CODE_REQUIRED", detail: "the judge code is in the hackathon submission" });
       return;
     }
     const address = String(req.body?.address ?? "");

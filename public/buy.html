@@ -158,8 +158,11 @@
         <h2><span class="idx">02</span> Fund the purchase</h2>
         <p class="note">The price is 0.10 USDT on X Layer. Payment is gasless for you (EIP-3009 — the facilitator broadcasts), so USDT is all you need.</p>
         <div class="kv"><span class="k">your USDT balance</span><span class="v" id="balTxt">—</span></div>
-        <button class="btn" id="btnFaucet" style="margin-top:14px">Claim 0.15 USDT judge grant</button>
-        <span class="hint" id="faucetHint">one grant per wallet · funded by the LICENSE402 service wallet</span>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center">
+          <input id="judgeCode" class="mono" placeholder="judge code (in the submission)" style="background:var(--ink-2);border:1px solid var(--line-strong);border-radius:var(--radius);color:var(--text);padding:11px 14px;font-size:13px;width:250px" />
+          <button class="btn" id="btnFaucet">Claim 0.15 USDT judge grant</button>
+        </div>
+        <span class="hint" id="faucetHint">judge-code gated · one grant per wallet · funded by the LICENSE402 service wallet — or just fund the wallet yourself with 0.10 USDT on X Layer</span>
         <div class="err" id="err2"></div>
       </section>
 
@@ -284,10 +287,15 @@
       return bal;
     }catch(e){ $("#balTxt").textContent="(balance check failed)"; return 0n; }
   }
+  const savedCode=localStorage.getItem("l402_judge_code"); if(savedCode) $("#judgeCode").value=savedCode;
   $("#btnFaucet").addEventListener("click",async()=>{
-    err(2,""); $("#btnFaucet").disabled=true; $("#btnFaucet").textContent="Sending grant…";
+    err(2,"");
+    const code=$("#judgeCode").value.trim();
+    if(!code){ err(2,"Enter the judge code — it is included in the hackathon submission. (Or fund the wallet yourself: 0.10 USDT on X Layer is enough.)"); return; }
+    localStorage.setItem("l402_judge_code",code);
+    $("#btnFaucet").disabled=true; $("#btnFaucet").textContent="Sending grant…";
     try{
-      const r=await api("/v1/faucet",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({address:ACC})});
+      const r=await api("/v1/faucet",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({address:ACC,code})});
       if(r.json&&r.json.ok){
         toast(r.json.alreadyClaimed?"Grant already claimed by this wallet":"0.15 USDT sent — confirming…");
         // poll balance up to ~30s
