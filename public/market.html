@@ -84,8 +84,9 @@
       const chips=o.commercialUse===false
         ?'<span class="chip no">Commercial use</span><span class="chip">Editorial only</span>'
         :'<span class="chip">Commercial social</span><span class="chip">Crop · text</span><span class="chip">Worldwide</span><span class="chip no">Training</span><span class="chip no">Resale</span>';
+      const offerId="off-"+o.assetId.replace(/^asset-/,"");
       const cta=eligible
-        ?'<span class="price"><b>0.10</b> USDT</span><a class="go" href="/buy">BUY LIVE →</a>'
+        ?`<span class="price"><b>0.10</b> USDT</span><a class="go" href="/buy?offerId=${encodeURIComponent(offerId)}">BUY THIS →</a>`
         :`<span class="why">${o.commercialUse===false?"COMMERCIAL_USE_PROHIBITED":"OFFER_EXPIRED"}</span><a class="go" href="/#console">SEE THE REJECT →</a>`;
       return `<div class="card">
         <div class="imgwrap"><img loading="lazy" decoding="async" src="${o.previewUrl}" alt="${o.title}">${badge}</div>

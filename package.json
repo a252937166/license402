@@ -6,7 +6,7 @@
   "description": "LICENSE402 - agent-native content licensing: signed creator offers, payment-bound purchase intent, x402 settlement, portable executable scope policy, auditable license credentials.",
   "scripts": {
     "dev": "tsx watch src/server/index.ts",
-    "build": "npm run typecheck && tsup src/server/index.ts --format esm --platform node --target node22 --out-dir dist-server --clean",
+    "build": "npm run build:web && npm run typecheck && tsup src/server/index.ts --format esm --platform node --target node22 --out-dir dist-server --clean",
     "start": "NODE_ENV=production node dist-server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -30,7 +30,8 @@
     "tsup": "^8.5.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "esbuild": "0.28.1"
   },
   "engines": {
     "node": ">=22"

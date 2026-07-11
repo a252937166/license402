@@ -46,7 +46,7 @@ export function prepareDelivery(
     verifiedPayer: string;
     buyerPaymentId: string;
     paymentAuthorizationDigest: string;
-    environment: "sample" | "production";
+    environment: "sample" | "production" | "testnet";
   }
 ): { ok: true; delivery: PreparedDelivery } | { ok: false; error: PrepareError } {
   const licensee = normalizeAddress(body.licenseeWallet);

@@ -26,6 +26,18 @@ export function loadDotEnvLocal(): void {
 
 export type PaymentMode = "off" | "live";
 
+/** One settlement rail: which chain, which token, and the token's EIP-712 domain. */
+export interface NetworkProfile {
+  key: "mainnet" | "testnet";
+  network: `${string}:${string}`;
+  chainId: number;
+  rpc: string;
+  asset: string;
+  assetName: string;
+  assetVersion: string;
+  explorerTx: string;
+}
+
 export interface AppConfig {
   port: number;
   publicOrigin: string;
@@ -40,6 +52,22 @@ export interface AppConfig {
   payToAddress: string;
   demoBuyerPrivateKey?: string;
   okx?: { apiKey: string; secretKey: string; passphrase: string };
+  /** X Layer testnet rail (free judge experience). Present when TESTNET_ENABLED=1. */
+  testnet?: NetworkProfile;
+}
+
+/** X Layer mainnet profile (values verified on-chain 2026-07-11). */
+export function mainnetProfile(config: AppConfig): NetworkProfile {
+  return {
+    key: "mainnet",
+    network: config.network,
+    chainId: 196,
+    rpc: process.env.XLAYER_RPC ?? "https://rpc.xlayer.tech",
+    asset: process.env.X402_ASSET ?? "0x779Ded0c9e1022225f8E0630b35a9b54bE713736",
+    assetName: process.env.X402_ASSET_NAME ?? "USD₮0",
+    assetVersion: process.env.X402_ASSET_VERSION ?? "1",
+    explorerTx: "https://www.oklink.com/x-layer/tx/"
+  };
 }
 
 function required(name: string): string {
@@ -80,6 +108,21 @@ export function loadConfig(): AppConfig {
       apiKey: required("OKX_API_KEY"),
       secretKey: required("OKX_SECRET_KEY"),
       passphrase: required("OKX_PASSPHRASE")
+    };
+  }
+
+  // X Layer testnet rail — token is the OFFICIAL x402 testnet default asset
+  // (SDK defaultAssets), EIP-3009 verified on-chain: domain USD₮0/1/1952.
+  if (process.env.TESTNET_ENABLED === "1") {
+    config.testnet = {
+      key: "testnet",
+      network: "eip155:1952",
+      chainId: 1952,
+      rpc: process.env.TESTNET_RPC ?? "https://testrpc.xlayer.tech",
+      asset: process.env.TESTNET_ASSET ?? "0x9e29b3aada05bf2d2c827af80bd28dc0b9b4fb0c",
+      assetName: process.env.TESTNET_ASSET_NAME ?? "USD₮0",
+      assetVersion: process.env.TESTNET_ASSET_VERSION ?? "1",
+      explorerTx: "https://www.oklink.com/x-layer-test/tx/"
     };
   }
 

@@ -16,14 +16,19 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Browser bundle is current (no drift between src/web and public/js)
+        run: |
+          npm run build:web
+          git diff --exit-code public/js/x402-pay.js
       - name: Typecheck
         run: npm run typecheck
       - name: Test
         run: npm test
       - name: Build
         run: npm run build
-      - name: Audit (high+)
-        run: npm audit --audit-level=high || true
+      - name: Audit (report-only, non-blocking by design)
+        run: npm audit --audit-level=high
+        continue-on-error: true
 
   catalog-integrity:
     runs-on: ubuntu-latest

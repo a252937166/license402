@@ -1,19 +1,23 @@
 import { createPublicClient, createWalletClient, defineChain, encodeFunctionData, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import type { AppConfig } from "./config.js";
+import type { AppConfig, NetworkProfile } from "./config.js";
+import { mainnetProfile } from "./config.js";
 
 /**
- * Minimal X Layer chain access for the two service-wallet duties:
- * creator payouts and the judge faucet. USDT0 transfers via viem.
+ * X Layer chain access (mainnet or testnet profile) for the service-wallet
+ * duties: creator payouts and the testnet faucet. All sends from one instance
+ * are SERIALIZED through an in-process queue with locally-tracked nonces, so
+ * concurrent faucet/payout requests can never race the same nonce (review §5).
  */
 
-export const X_LAYER = defineChain({
-  id: 196,
-  name: "X Layer",
-  nativeCurrency: { name: "OKB", symbol: "OKB", decimals: 18 },
-  rpcUrls: { default: { http: [process.env.XLAYER_RPC ?? "https://rpc.xlayer.tech"] } },
-  blockExplorers: { default: { name: "OKLink", url: "https://www.oklink.com/x-layer" } }
-});
+function chainFor(profile: NetworkProfile) {
+  return defineChain({
+    id: profile.chainId,
+    name: profile.key === "testnet" ? "X Layer Testnet" : "X Layer",
+    nativeCurrency: { name: "OKB", symbol: "OKB", decimals: 18 },
+    rpcUrls: { default: { http: [profile.rpc] } }
+  });
+}
 
 const ERC20_ABI = [
   {
@@ -40,14 +44,20 @@ export class XLayerService {
   private readonly wallet;
   private readonly pub;
   private readonly token: `0x${string}`;
+  private readonly chain;
+  readonly profile: NetworkProfile;
+  /** Serialized send queue + locally-advanced nonce (never re-read mid-burst). */
+  private sendQueue: Promise<unknown> = Promise.resolve();
+  private localNonce: number | null = null;
 
-  constructor(config: AppConfig) {
-    const asset = process.env.X402_ASSET?.trim();
-    if (!asset) throw new Error("X402_ASSET required for on-chain operations");
-    this.token = asset as `0x${string}`;
+  constructor(config: AppConfig, profile?: NetworkProfile) {
+    this.profile = profile ?? mainnetProfile(config);
+    if (!this.profile.asset) throw new Error("settlement token contract required for on-chain operations");
+    this.token = this.profile.asset as `0x${string}`;
+    this.chain = chainFor(this.profile);
     this.account = privateKeyToAccount(config.servicePrivateKey as `0x${string}`);
-    this.wallet = createWalletClient({ account: this.account, chain: X_LAYER, transport: http() });
-    this.pub = createPublicClient({ chain: X_LAYER, transport: http() });
+    this.wallet = createWalletClient({ account: this.account, chain: this.chain, transport: http() });
+    this.pub = createPublicClient({ chain: this.chain, transport: http() });
   }
 
   get address(): string {
@@ -63,14 +73,49 @@ export class XLayerService {
     })) as bigint;
   }
 
+  async okbBalance(owner: string): Promise<bigint> {
+    return this.pub.getBalance({ address: owner as `0x${string}` });
+  }
+
+  /**
+   * Reserve the next nonce, serialized: the first call seeds from the RPC's
+   * pending count; subsequent calls advance locally so two concurrent callers
+   * (faucet + payout) can never both receive the same nonce.
+   */
   async nextNonce(): Promise<number> {
-    return this.pub.getTransactionCount({ address: this.account.address, blockTag: "pending" });
+    const run = this.sendQueue.then(async () => {
+      if (this.localNonce === null) {
+        this.localNonce = await this.pub.getTransactionCount({ address: this.account.address, blockTag: "pending" });
+      }
+      const n = this.localNonce;
+      this.localNonce = n + 1;
+      return n;
+    });
+    this.sendQueue = run.catch(() => {});
+    return run;
   }
 
   /** Broadcast a USDT transfer with a FIXED nonce (double-spend-proof retries). */
   async sendUsdt(to: string, amountMicro: number, nonce: number): Promise<string> {
-    const data = encodeFunctionData({ abi: ERC20_ABI, functionName: "transfer", args: [to as `0x${string}`, BigInt(amountMicro)] });
-    return this.wallet.sendTransaction({ to: this.token, data, nonce, chain: X_LAYER });
+    const run = this.sendQueue.then(async () => {
+      const data = encodeFunctionData({ abi: ERC20_ABI, functionName: "transfer", args: [to as `0x${string}`, BigInt(amountMicro)] });
+      try {
+        return await this.wallet.sendTransaction({ to: this.token, data, nonce, chain: this.chain });
+      } catch (e) {
+        // A failed send may leave the local counter ahead of the chain — reseed
+        // from the RPC on the next reservation instead of guessing.
+        this.localNonce = null;
+        throw e;
+      }
+    });
+    this.sendQueue = run.catch(() => {});
+    return run as Promise<string>;
+  }
+
+  /** Convenience: reserve a nonce and send in one serialized step. */
+  async transferUsdt(to: string, amountMicro: number): Promise<string> {
+    const nonce = await this.nextNonce();
+    return this.sendUsdt(to, amountMicro, nonce);
   }
 
   /** "confirmed" | "reverted" | "pending" (not yet found). */

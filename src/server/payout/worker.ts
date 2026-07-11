@@ -52,22 +52,33 @@ export class LivePayoutSender implements PayoutSender {
   }
 }
 
+/** One sender per settlement rail — orders route by their environment stamp. */
+export interface PayoutSenders {
+  production?: PayoutSender;
+  testnet?: PayoutSender;
+}
+
 export async function runPayoutWorker(
   repo: Repo,
   config: AppConfig,
   now: () => number,
-  sender?: PayoutSender
+  senders?: PayoutSender | PayoutSenders
 ): Promise<{ processed: number }> {
-  // Safety: the simulated sender may ONLY run in dev/off mode. In live mode a
-  // real on-chain sender must be injected; without one, payouts stay PENDING
-  // rather than being marked PAID against a synthetic tx.
-  if (!sender) {
-    if (config.paymentMode === "live") {
-      console.warn("[payout] live mode with no live sender — leaving payouts CREATOR_PAYOUT_PENDING");
-      return { processed: 0 };
+  const map: PayoutSenders =
+    senders && typeof (senders as PayoutSender).send === "function" ? { production: senders as PayoutSender } : ((senders as PayoutSenders) ?? {});
+  const devSender = new DevPayoutSender();
+  const senderFor = (environment: string): PayoutSender | undefined => {
+    // Safety: simulated payouts may ONLY back simulated orders. A live order
+    // without a real on-chain sender stays CREATOR_PAYOUT_PENDING rather than
+    // being marked PAID against a synthetic tx.
+    if (environment === "production") {
+      if (map.production) return map.production;
+      if (config.paymentMode === "live") return undefined;
+      return devSender;
     }
-    sender = new DevPayoutSender();
-  }
+    if (environment === "testnet") return map.testnet;
+    return devSender; // sample/dev
+  };
   const nowSeconds = now();
   const orderIds = repo.claimPayoutJobs(nowSeconds, 300, 10);
   let processed = 0;
@@ -75,6 +86,12 @@ export async function runPayoutWorker(
   for (const orderId of orderIds) {
     const payout = repo.getPayout(orderId);
     if (!payout || payout.state === "PAID") continue;
+    const order = repo.getOrder(orderId);
+    const sender = senderFor(order?.environment ?? "sample");
+    if (!sender) {
+      console.warn(`[payout] no sender for ${orderId} (${order?.environment}) — leaving PENDING`);
+      continue;
+    }
 
     try {
       // Already broadcast → only the receipt decides. Never re-send, never

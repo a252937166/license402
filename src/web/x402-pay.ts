@@ -36,16 +36,41 @@ function typedDataJson(m: TypedDataMessage): string {
   );
 }
 
+export interface PaymentExpectations {
+  network?: string;
+  asset?: string;
+  payTo?: string;
+  amount?: string;
+}
+
 /**
  * Given the 402 PaymentRequired body, produce the PAYMENT-SIGNATURE header via
  * the official client. The wallet prompts once (EIP-3009 TransferWithAuthorization
  * typed-data signature) — gasless for the payer; the facilitator broadcasts.
+ *
+ * `expected` is a business preflight: the challenge must match what the page
+ * showed the buyer (network / token / payTo / amount) or we refuse to invoke
+ * the wallet at all — a swapped challenge can never reach a signature prompt.
  */
 export async function buildPaymentHeaders(
   paymentRequired: Record<string, unknown>,
   ethereum: Eip1193,
-  account: `0x${string}`
+  account: `0x${string}`,
+  expected?: PaymentExpectations
 ): Promise<Record<string, string>> {
+  if (expected) {
+    const accepts = (paymentRequired.accepts as Record<string, unknown>[]) ?? [];
+    const match = accepts.find(
+      (r) =>
+        (!expected.network || r.network === expected.network) &&
+        (!expected.asset || String(r.asset).toLowerCase() === expected.asset.toLowerCase()) &&
+        (!expected.payTo || String(r.payTo).toLowerCase() === expected.payTo.toLowerCase()) &&
+        (!expected.amount || String(r.amount) === expected.amount)
+    );
+    if (!match) {
+      throw new Error("Challenge mismatch: the server's payment terms differ from what this page displayed — refusing to sign.");
+    }
+  }
   const signer = {
     address: account,
     async signTypedData(message: TypedDataMessage): Promise<`0x${string}`> {
@@ -56,7 +81,8 @@ export async function buildPaymentHeaders(
     }
   };
   const client = new x402Client();
-  registerExactEvmScheme(client, { signer, networks: ["eip155:196"] });
+  // Both X Layer rails: mainnet 196 (real USDT) and testnet 1952 (free test USDT).
+  registerExactEvmScheme(client, { signer, networks: ["eip155:196", "eip155:1952"] });
   const http = new x402HTTPClient(client);
   const payload = await http.createPaymentPayload(paymentRequired as never);
   return http.encodePaymentSignatureHeader(payload);

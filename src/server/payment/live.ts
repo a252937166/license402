@@ -2,7 +2,8 @@ import type { Request } from "express";
 import { sha256Hex } from "../domain/index.js";
 import { parseUsdtToMicro } from "../license/money.js";
 import type { Challenge, PaymentAdapter, SettleOutcome, SettleStatus, VerifiedPayment } from "./adapter.js";
-import type { AppConfig } from "../config.js";
+import type { AppConfig, NetworkProfile } from "../config.js";
+import { mainnetProfile } from "../config.js";
 
 /**
  * Live OKX x402 adapter — standard x402 v2 wire format end-to-end:
@@ -31,21 +32,20 @@ export class LivePaymentAdapter implements PaymentAdapter {
         encodePaymentResponseHeader: (sr: unknown) => string;
       }
     | undefined;
-  private readonly asset: string;
-  private readonly assetName: string;
-  private readonly assetVersion: string;
+  private readonly profile: NetworkProfile;
 
-  constructor(private readonly config: AppConfig) {
+  constructor(
+    private readonly config: AppConfig,
+    profile?: NetworkProfile
+  ) {
     if (!config.okx) throw new Error("Live payment requires OKX credentials");
-    const asset = process.env.X402_ASSET?.trim();
+    this.profile = profile ?? mainnetProfile(config);
     // Refuse to boot live without the settlement asset — an empty asset string
-    // would produce challenges no wallet could pay against.
-    if (!asset) throw new Error("X402_ASSET (settlement token contract) is required in live mode");
-    this.asset = asset;
-    // EIP-712 domain of the settlement token. Verified on-chain for USDT0 on
-    // X Layer: name()="USD₮0", DOMAIN_SEPARATOR matches {name,version:"1",chainId:196}.
-    this.assetName = process.env.X402_ASSET_NAME?.trim() || "USD₮0";
-    this.assetVersion = process.env.X402_ASSET_VERSION?.trim() || "1";
+    // would produce challenges no wallet could pay against. The asset's EIP-712
+    // domain (name/version) is verified on-chain for both rails:
+    //   mainnet 196:  USD₮0/1 @ 0x779d…3736
+    //   testnet 1952: USD₮0/1 @ 0x9e29…4fb0c (official SDK default asset)
+    if (!this.profile.asset) throw new Error("settlement token contract is required in live mode");
   }
 
   private async facilitatorClient(): Promise<{
@@ -76,14 +76,14 @@ export class LivePaymentAdapter implements PaymentAdapter {
     const priceMicro = parseUsdtToMicro(this.config.priceUsd.replace(/^\$/, ""));
     return {
       scheme: "exact",
-      network: this.config.network,
-      asset: this.asset,
+      network: this.profile.network,
+      asset: this.profile.asset,
       amount: String(priceMicro),
       payTo: this.config.payToAddress,
       maxTimeoutSeconds: 120,
       // Required by the official exact-EVM client: EIP-712 domain of the token.
       // Without name/version the wallet-side createPaymentPayload throws.
-      extra: { name: this.assetName, version: this.assetVersion }
+      extra: { name: this.profile.assetName, version: this.profile.assetVersion }
     };
   }
 

@@ -3,7 +3,7 @@ import type { Express, Request, Response } from "express";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createHmac } from "node:crypto";
-import { loadConfig, PROJECT_ROOT } from "./config.js";
+import { loadConfig, mainnetProfile, PROJECT_ROOT } from "./config.js";
 import type { AppConfig } from "./config.js";
 import { sha256Hex } from "./domain/index.js";
 import { legalTextHash } from "./legal.js";
@@ -89,19 +89,46 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   console.log(`[LICENSE402] catalog loaded: ${seed.loaded} offers`);
 
   const payment: PaymentAdapter = options.payment ?? (config.paymentMode === "live" ? new LivePaymentAdapter(config) : new DevPaymentAdapter());
-  // Live mode gains real on-chain capability: creator payouts + the judge faucet.
-  let chain: XLayerService | undefined;
-  let payoutSender: PayoutSender | undefined;
+  // Optional second rail: X Layer TESTNET — the free judge experience. Same code
+  // path, same facilitator, test-value token. Orders are stamped 'testnet'.
+  const paymentTestnet: PaymentAdapter | undefined =
+    config.paymentMode === "live" && config.testnet && !options.payment ? new LivePaymentAdapter(config, config.testnet) : undefined;
+  // Live mode gains real on-chain capability: creator payouts + the testnet faucet.
+  let chainMain: XLayerService | undefined;
+  let chainTest: XLayerService | undefined;
+  const payoutSenders: { production?: PayoutSender; testnet?: PayoutSender } = {};
   if (config.paymentMode === "live" && !options.payment) {
-    chain = new XLayerService(config);
-    payoutSender = new LivePayoutSender(chain);
+    chainMain = new XLayerService(config, mainnetProfile(config));
+    payoutSenders.production = new LivePayoutSender(chainMain);
+    if (config.testnet) {
+      chainTest = new XLayerService(config, config.testnet);
+      payoutSenders.testnet = new LivePayoutSender(chainTest);
+    }
+  }
+
+  let buildInfo: { commit?: string; builtAt?: string } = {};
+  try {
+    buildInfo = JSON.parse(readFileSync(resolve(PROJECT_ROOT, "BUILD_INFO.json"), "utf8")) as typeof buildInfo;
+  } catch {
+    // local dev — no build stamp
   }
 
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "512kb" }));
-  app.use((_req, res, next) => {
-    res.setHeader("Cache-Control", "no-store");
+  app.use((req, res, next) => {
+    // Verifiable build identity on EVERY response — judges and crawlers can
+    // confirm which commit is serving without trusting page content.
+    if (buildInfo.commit) res.setHeader("X-License402-Build", String(buildInfo.commit));
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    if (req.path.endsWith(".html") || req.path === "/" || ["/buy", "/market", "/verify"].includes(req.path)) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+    } else {
+      res.setHeader("Cache-Control", "no-store");
+    }
     next();
   });
 
@@ -135,13 +162,17 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return;
     }
 
-    const quote = buildQuote(catalogOffers(), parsedUse.data, licenseeWallet, { nowSeconds: now() });
+    // Optional exact-offer pin (market → buy): hard gates still run; the engine
+    // never substitutes a different asset for the one the buyer clicked.
+    const requestedOfferId = typeof req.body?.requestedOfferId === "string" ? req.body.requestedOfferId : undefined;
+    const quote = buildQuote(catalogOffers(), parsedUse.data, licenseeWallet, { nowSeconds: now(), pinOfferId: requestedOfferId });
     if (!quote.serviceable || !quote.selected) {
       res.status(200).json({
         serviceable: false,
+        requestedOfferId: requestedOfferId ?? null,
         reasons: quote.reasons ?? [],
         rejectedCandidates: quote.rejectedCandidates,
-        nextAction: "REQUEST_DIFFERENT_LICENSE"
+        nextAction: requestedOfferId ? "OFFER_NOT_ELIGIBLE_FOR_THIS_USE" : "REQUEST_DIFFERENT_LICENSE"
       });
       return;
     }
@@ -171,6 +202,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       asset: {
         assetId: quote.selected.assetId,
         assetSha256: quote.selected.assetSha256,
+        // Canonical field is previewUrl; watermarkedPreviewUrl kept as an alias
+        // for early consumers. (Naming: previewUrl / displayUrl / url everywhere.)
+        previewUrl: quote.selected.previewUrl,
         watermarkedPreviewUrl: quote.selected.previewUrl,
         title: quote.selected.title,
         creator: quote.selected.creatorDisplay
@@ -219,10 +253,20 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   });
 
   // --- POST /v1/acquire/social-commercial (x402-protected) -------------------
+  // body.network selects the settlement rail: "mainnet" (default, real 0.10
+  // USDT) or "testnet" (X Layer 1952, free test-value experience).
   app.post("/v1/acquire/social-commercial", async (req: Request, res: Response) => {
-    const verified = await payment.verify(req);
+    const wantTestnet = req.body?.network === "testnet";
+    if (wantTestnet && !paymentTestnet) {
+      res.status(503).json({ error: "TESTNET_DISABLED", detail: "testnet rail is not enabled on this deployment" });
+      return;
+    }
+    const rail = wantTestnet ? paymentTestnet! : payment;
+    const environment: "sample" | "production" | "testnet" = wantTestnet ? "testnet" : rail.mode === "live" ? "production" : "sample";
+
+    const verified = await rail.verify(req);
     if (!verified) {
-      const challenge = await payment.challenge(`${config.publicOrigin}/v1/acquire/social-commercial`);
+      const challenge = await rail.challenge(`${config.publicOrigin}/v1/acquire/social-commercial`);
       for (const [k, v] of Object.entries(challenge.headers)) res.setHeader(k, v);
       res.status(challenge.status).json(challenge.body);
       return;
@@ -243,7 +287,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         verifiedPayer: verified.verifiedPayer,
         buyerPaymentId: verified.buyerPaymentId,
         paymentAuthorizationDigest: verified.paymentAuthorizationDigest,
-        environment: payment.mode === "live" ? "production" : "sample"
+        environment
       }
     );
 
@@ -260,6 +304,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     // and must never void the license it already bought).
     const settledOrder = repo.getOrder(prepared.delivery.orderId);
     if (settledOrder && SETTLED_STATES.has(settledOrder.status) && settledOrder.paymentAuthorizationDigest === verified.paymentAuthorizationDigest) {
+      // The replay carries the SAME standard receipt header the first delivery did.
+      if (settledOrder.paymentResponseHeader) res.setHeader("PAYMENT-RESPONSE", settledOrder.paymentResponseHeader);
       res.status(200).json({
         orderId: prepared.delivery.orderId,
         license: prepared.delivery.credential,
@@ -285,12 +331,16 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return;
     }
 
-    const outcome = await payment.settle(verified);
+    const outcome = await rail.settle(verified);
     if (outcome.status === "success") {
       onSettlementSuccess(repo, prepared.delivery.orderId, outcome.tx, { nowSeconds: now() });
-      await runPayoutWorker(repo, config, now, payoutSender).catch((e) => console.warn("[payout] inline:", e));
-      // Standard x402 v2 receipt: the settle response, base64-encoded.
-      if (outcome.responseHeader) res.setHeader("PAYMENT-RESPONSE", outcome.responseHeader);
+      await runPayoutWorker(repo, config, now, payoutSenders).catch((e) => console.warn("[payout] inline:", e));
+      // Standard x402 v2 receipt: the settle response, base64-encoded —
+      // persisted so idempotent replays return the identical header.
+      if (outcome.responseHeader) {
+        repo.setPaymentResponseHeader(prepared.delivery.orderId, outcome.responseHeader, now());
+        res.setHeader("PAYMENT-RESPONSE", outcome.responseHeader);
+      }
       res.status(200).json({
         orderId: prepared.delivery.orderId,
         license: prepared.delivery.credential,
@@ -562,25 +612,18 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.send(readFileSync(path));
   });
 
-  // --- judge faucet (LIVE MODE, INVITE-GATED) ---------------------------------
-  // Sends 0.15 USDT of onboarding funds so a judge can make one real purchase.
-  // Real funds → locked down: requires the judge code (distributed only in the
-  // hackathon submission; unset = faucet disabled), one claim per address ever,
-  // a low global cap, and never to a wallet that already holds the price.
-  const FAUCET_AMOUNT_MICRO = 150_000;
-  const FAUCET_GLOBAL_CAP = Number(process.env.FAUCET_CAP ?? 25);
+  // --- faucet (TESTNET ONLY — free test-value onboarding) ---------------------
+  // There is NO mainnet faucet: the real-money experience is self-funded (bring
+  // your own 0.10 USDT on X Layer). The testnet rail hands out test USDT freely
+  // so anyone can run the full loop at zero cost. One claim per address ever.
+  const FAUCET_AMOUNT_MICRO = 500_000; // 0.5 test USDT = five purchases
+  const FAUCET_GLOBAL_CAP = Number(process.env.FAUCET_CAP ?? 500);
   app.post("/v1/faucet", async (req: Request, res: Response) => {
-    if (config.paymentMode !== "live" || !chain) {
-      res.status(503).json({ error: "FAUCET_DISABLED", detail: "faucet runs only in live mode" });
-      return;
-    }
-    const judgeCode = process.env.FAUCET_CODE?.trim();
-    if (!judgeCode) {
-      res.status(503).json({ error: "FAUCET_DISABLED", detail: "no judge code configured" });
-      return;
-    }
-    if (String(req.body?.code ?? "").trim() !== judgeCode) {
-      res.status(403).json({ error: "JUDGE_CODE_REQUIRED", detail: "the judge code is in the hackathon submission" });
+    if (config.paymentMode !== "live" || !chainTest || !config.testnet) {
+      res.status(503).json({
+        error: "FAUCET_DISABLED",
+        detail: "the faucet serves TESTNET funds only; on mainnet, fund your wallet yourself (0.10 USDT on X Layer)"
+      });
       return;
     }
     const address = String(req.body?.address ?? "");
@@ -594,29 +637,18 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
     const prior = repo.getFaucetClaim(address);
     if (prior) {
-      res.status(200).json({ ok: true, alreadyClaimed: true, tx: prior.tx ?? null });
-      return;
-    }
-    try {
-      const balance = await chain.usdtBalance(address);
-      if (balance >= 100_000n) {
-        res.status(409).json({ error: "ALREADY_FUNDED", detail: "wallet already holds the 0.10 USDT purchase price" });
-        return;
-      }
-    } catch {
-      res.status(502).json({ error: "CHAIN_UNAVAILABLE" });
+      res.status(200).json({ ok: true, alreadyClaimed: true, network: "testnet", tx: prior.tx ?? null });
       return;
     }
     const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
     if (!repo.reserveFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, now())) {
-      res.status(200).json({ ok: true, alreadyClaimed: true });
+      res.status(200).json({ ok: true, alreadyClaimed: true, network: "testnet" });
       return;
     }
     try {
-      const nonce = await chain.nextNonce();
-      const tx = await chain.sendUsdt(address, FAUCET_AMOUNT_MICRO, nonce);
+      const tx = await chainTest.transferUsdt(address, FAUCET_AMOUNT_MICRO);
       repo.recordFaucetTx(address, tx);
-      res.status(200).json({ ok: true, tx, amount: "0.15", explorer: `https://www.oklink.com/x-layer/tx/${tx}` });
+      res.status(200).json({ ok: true, network: "testnet", tx, amount: "0.50", explorer: `${config.testnet.explorerTx}${tx}` });
     } catch (e) {
       repo.releaseFaucetClaim(address);
       res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
@@ -672,7 +704,20 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     });
   });
   app.get("/config.json", (_req, res) => {
-    res.json({ paymentMode: config.paymentMode, network: config.network, issuer: config.issuerAddress, payTo: config.payToAddress, price: config.priceUsd });
+    const main = mainnetProfile(config);
+    res.json({
+      paymentMode: config.paymentMode,
+      network: config.network,
+      issuer: config.issuerAddress,
+      payTo: config.payToAddress,
+      price: config.priceUsd,
+      rails: {
+        mainnet: { network: main.network, chainId: main.chainId, asset: main.asset, explorerTx: main.explorerTx, faucet: false },
+        ...(config.testnet
+          ? { testnet: { network: config.testnet.network, chainId: config.testnet.chainId, asset: config.testnet.asset, explorerTx: config.testnet.explorerTx, faucet: true } }
+          : {})
+      }
+    });
   });
   // Version transparency: judges and crawlers can confirm the running build
   // matches GitHub main. BUILD_INFO.json is written at deploy time (gitignored).
@@ -700,7 +745,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
     try {
       const settled = await reconcileSettlements(repo, payment, now);
-      const payouts = await runPayoutWorker(repo, config, now, payoutSender);
+      const payouts = await runPayoutWorker(repo, config, now, payoutSenders);
       res.json({ ok: true, settled, payouts });
     } catch (e) {
       res.status(500).json({ ok: false, error: e instanceof Error ? e.message : "reconcile failed" });
@@ -713,7 +758,15 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   // Pretty routes for the feature pages (each a self-contained HTML file).
   for (const page of ["buy", "market", "verify"]) {
     app.get(`/${page}`, (_req, res) => {
-      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      if (page === "buy") {
+        // The wallet page runs NO inline script (external /js/buy.js only) so it
+        // gets a strict CSP — an injected <script> can never reach the wallet.
+        res.setHeader(
+          "Content-Security-Policy",
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+        );
+      }
       res.sendFile(resolve(PROJECT_ROOT, `public/${page}.html`));
     });
   }
@@ -746,7 +799,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       running = true;
       try {
         await reconcileSettlements(repo, payment, now);
-        await runPayoutWorker(repo, config, now, payoutSender);
+        await runPayoutWorker(repo, config, now, payoutSenders);
       } catch (e) {
         console.warn("[reconcile] interval error:", (e as Error).message);
       } finally {
@@ -760,8 +813,15 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
 }
 
 function ledgerJson(db: AppDatabase): unknown {
+  // sponsored = the buyer wallet drew onboarding funds from OUR faucet. Those
+  // orders prove the pipeline but are excluded from qualified revenue.
   const orders = db
-    .prepare(`SELECT order_id, status, buyer_settle_tx, environment, created_at FROM orders ORDER BY created_at DESC LIMIT 100`)
+    .prepare(
+      `SELECT o.order_id, o.status, o.buyer_settle_tx, o.environment, o.created_at,
+              CASE WHEN f.address IS NOT NULL THEN 1 ELSE 0 END AS sponsored
+         FROM orders o LEFT JOIN faucet_claims f ON f.address = o.licensee_wallet
+         ORDER BY o.created_at DESC LIMIT 100`
+    )
     .all();
   const paid = db.prepare(`SELECT COUNT(*) AS n FROM creator_payouts WHERE state = 'PAID'`).get() as { n: number };
   const active = db.prepare(`SELECT COUNT(*) AS n FROM licenses WHERE status = 'ACTIVE'`).get() as { n: number };
@@ -780,11 +840,25 @@ function ledgerJson(db: AppDatabase): unknown {
          WHERE p.state = 'PAID' AND o.environment = 'production'`
     )
     .get() as { n: number };
+  // Qualified = production AND the buyer never drew faucet funds (self-funded).
+  const qualified = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM orders o LEFT JOIN faucet_claims f ON f.address = o.licensee_wallet
+         WHERE o.environment = 'production' AND f.address IS NULL
+           AND o.status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','CREATOR_PAID')`
+    )
+    .get() as { n: number };
   return {
     activeLicenses: active.n,
     creatorPayoutsPaid: paid.n,
     distinctBuyers: buyers.n,
-    production: { licenses: prodSettled.n, distinctBuyers: prodSettled.buyers, creatorsPaid: prodPaid.n },
+    production: {
+      licenses: prodSettled.n,
+      distinctBuyers: prodSettled.buyers,
+      creatorsPaid: prodPaid.n,
+      qualified: qualified.n,
+      sponsored: prodSettled.n - qualified.n
+    },
     orders
   };
 }

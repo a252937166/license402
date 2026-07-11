@@ -99,6 +99,11 @@
         <div class="w" id="vWord">—</div>
         <div class="r" id="vReasons"></div>
         <div class="r" id="vStatus"></div>
+        <div id="vDuties" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--duty);background:var(--duty-soft);border-radius:var(--radius);text-align:left">
+          <div class="mono" style="font-size:10px;letter-spacing:.2em;color:var(--duty)">DUTIES — PERMITTED ONLY IF YOU:</div>
+          <div class="mono" id="vDutyList" style="font-size:12px;margin-top:6px"></div>
+          <button class="btn ghost" id="copyDuty" style="margin-top:10px;padding:8px 12px;font-size:12px">Copy attribution</button>
+        </div>
         <div class="checks" id="vChecks"></div>
       </div>
     </section>
@@ -135,6 +140,13 @@
     w.className="w "+(eff==="PERMITTED"||eff==="PERMITTED_WITH_DUTIES"?"ok":(eff==="INDETERMINATE"?"hold":"no"));
     $("#vReasons").textContent=(r.reasonCodes||[]).join(" · ")||"";
     $("#vStatus").textContent="credential status: "+(r.currentStatus||"—");
+    const duties=r.duties||[];
+    if(duties.length){
+      $("#vDuties").style.display="block";
+      const text=duties.map(d=>d.text||d.type).join("; ");
+      $("#vDutyList").textContent=text;
+      $("#copyDuty").onclick=()=>navigator.clipboard.writeText(text).then(()=>{$("#copyDuty").textContent="Copied ✓";setTimeout(()=>$("#copyDuty").textContent="Copy attribution",1600);});
+    } else { $("#vDuties").style.display="none"; }
     $("#vChecks").innerHTML=(r.checks||[]).map(c=>`<div class="check"><span class="b ${c.status==='PASS'?'p':'f'}"></span>${c.label}<span style="margin-left:auto">${c.status}</span></div>`).join("");
   });
 })();

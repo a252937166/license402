@@ -72,6 +72,12 @@ export interface QuoteResult {
 export interface QuoteEngineOptions {
   nowSeconds: number;
   quoteTtlSeconds?: number;
+  /**
+   * Pin the quote to ONE exact offer (e.g. the buyer clicked a specific item in
+   * the market). Hard gates still run; if that offer is ineligible the quote is
+   * simply not serviceable — the engine never substitutes a different asset.
+   */
+  pinOfferId?: string;
 }
 
 /** Derive a deterministic quoteId/idempotencyKey from the request (stable within a TTL bucket). */
@@ -88,8 +94,12 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
   const ttl = opts.quoteTtlSeconds ?? 900;
   const rejected: RejectedCandidate[] = [];
   const eligible: CatalogOffer[] = [];
+  const candidates = opts.pinOfferId ? catalog.filter((c) => c.offer.offerId === opts.pinOfferId) : catalog;
+  if (opts.pinOfferId && candidates.length === 0) {
+    return { serviceable: false, reasons: [], rejectedCandidates: [{ offerId: opts.pinOfferId, title: opts.pinOfferId, reasonCodes: [] }] };
+  }
 
-  for (const candidate of catalog) {
+  for (const candidate of candidates) {
     const result = evaluateOfferEligibility(candidate.offer, use, {
       storedAssetSha256: candidate.storedAssetSha256,
       nowSeconds: opts.nowSeconds,

@@ -53,7 +53,8 @@ export interface OrderRow {
   status: OrderStatus;
   buyerSettleTx: string | null;
   settleStatusDetail: string | null;
-  environment: "sample" | "production";
+  environment: "sample" | "production" | "testnet";
+  paymentResponseHeader: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -233,7 +234,8 @@ export class Repo {
       status: row.status as OrderStatus,
       buyerSettleTx: (row.buyer_settle_tx as string) ?? null,
       settleStatusDetail: (row.settle_status_detail as string) ?? null,
-      environment: ((row.environment as string) ?? "sample") as "sample" | "production",
+      environment: ((row.environment as string) ?? "sample") as "sample" | "production" | "testnet",
+      paymentResponseHeader: (row.payment_response_header as string) ?? null,
       createdAt: row.created_at as number,
       updatedAt: row.updated_at as number
     };
@@ -269,7 +271,7 @@ export class Repo {
     purchaseIntent: PurchaseIntent;
     purchaseIntentDigest: string;
     status: OrderStatus;
-    environment: "sample" | "production";
+    environment: "sample" | "production" | "testnet";
     nowSeconds: number;
   }): OrderRow {
     const existing = this.getOrderByCommitment(input.quoteCommitment, input.licenseeWallet);
@@ -315,6 +317,13 @@ export class Repo {
            payment_authorization_digest = ?, updated_at = ? WHERE order_id = ?`
       )
       .run(buyerPaymentId, buyerSettleTx, paymentAuthDigest, nowSeconds, orderId);
+  }
+
+  /** Persist the standard x402 receipt header so idempotent replays return it too. */
+  setPaymentResponseHeader(orderId: string, header: string, nowSeconds: number): void {
+    this.db
+      .prepare(`UPDATE orders SET payment_response_header = ?, updated_at = ? WHERE order_id = ?`)
+      .run(header, nowSeconds, orderId);
   }
 
   /**

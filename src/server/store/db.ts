@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS orders (
   buyer_settle_tx TEXT,
   settle_status_detail TEXT,
   environment TEXT NOT NULL DEFAULT 'sample',
+  payment_response_header TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   UNIQUE(quote_commitment, licensee_wallet)
@@ -154,6 +155,11 @@ function migrate(db: Database): void {
   const cols = db.prepare(`PRAGMA table_info(orders)`).all() as { name: string }[];
   if (!cols.some((c) => c.name === "environment")) {
     db.exec(`ALTER TABLE orders ADD COLUMN environment TEXT NOT NULL DEFAULT 'sample'`);
+  }
+  if (!cols.some((c) => c.name === "payment_response_header")) {
+    // Standard x402 receipt header, persisted so idempotent replays of a settled
+    // payment can return the SAME PAYMENT-RESPONSE the first delivery carried.
+    db.exec(`ALTER TABLE orders ADD COLUMN payment_response_header TEXT`);
   }
 }
 
