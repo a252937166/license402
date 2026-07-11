@@ -1,1 +1,154 @@
-{"generatedFor":"ord-e76242b07ad21600","environment":"production","authorization":{"mode":"eip712_purchase_intent","note":"Buyer-signed EIP-712 PurchaseIntent (recover the signer to verify)."},"creatorOffer":{"offerId":"off-cyber-dragon","offerVersion":1,"assetId":"asset-cyber-dragon","assetSha256":"0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf","mimeType":"image/png","licensorWallet":"0xc11e926344d0b05317861f57bae7f7d3990729e9","payoutWallet":"0xc11e926344d0b05317861f57bae7f7d3990729e9","templateId":"social-commercial-v1","legalTextHash":"0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33","policy":{"policyVersion":1,"commercialUse":true,"channels":["x","linkedin","instagram"],"territory":"worldwide","maxDurationDays":30,"allowedTransformations":["crop","resize","overlay_text"],"modelTraining":false,"ragIndexing":false,"exclusive":false,"resale":false,"sublicensing":false,"attributionRequired":false},"creatorNetPrice":"0.07","currency":"USDT","rightsAttestationHash":"0xbec4c70c768a8a5e6f3d1c0518d1078d290633f854da1a91aad89c6ca3a600b8","validFrom":1781308800,"validUntil":1815436800,"nonce":"0x8e54568a40f32be638b30164ee2561d1975b5060f904c55a2a6299734af58d66","signature":"0xbcedcd6aa1bceb7ac34422132d9ff5096b0e6f0bd084aa16d92a5af0e895742c64706b5680c0b400acceacd24d43ff602b971acc881b1488059f0bf4694776b81b"},"quote":{"quoteId":"quote-bd719915eda69a6c","quoteCommitment":"0xd2f8bdd41f6be9090be160b317155a30d45549d34a37c51e6256f317abaa8af6","offerDigest":"0xdd9a171f7de2f6867ac8e68b6c8e05e2a9762eac84396111fd2fdfa17ce27bdb","useSpec":{"brief":"cyberpunk dragon hero image for a commercial X campaign","channel":"x","commercial":true,"durationDays":14,"territory":"worldwide","transformations":["crop","overlay_text"],"modelTraining":false,"ragIndexing":false,"exclusive":false,"maxBudget":"0.10"},"priceMicro":100000,"platformFeeMicro":30000,"creatorPayoutMicro":70000,"expiresAt":1783782000},"purchaseIntent":{"quoteId":"quote-bd719915eda69a6c","quoteCommitment":"0xd2f8bdd41f6be9090be160b317155a30d45549d34a37c51e6256f317abaa8af6","buyer":"0x959d73ed302be6e2955668fdeb7382c5a726d4f6","licensee":"0x959d73ed302be6e2955668fdeb7382c5a726d4f6","assetSha256":"0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf","offerDigest":"0xdd9a171f7de2f6867ac8e68b6c8e05e2a9762eac84396111fd2fdfa17ce27bdb","policyAstHash":"0x0f7f495269c80d8634dd59eab340f0a62644576b3406ddd0596aeceb95631dc8","legalTextHash":"0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e","totalPrice":"0.1","currency":"USDT","expiresAt":1783782000,"nonce":"0x4a383d11cfd07604932de50151e90c9e75283c5dfcc6fafc9097a2af1e1effec","signature":"0xcbb442cb0a9812d2ae161a71115a4459d72b10a94bd3c7a940e82e2fb954c29c3ad89421bd93015d0da29d963936278454f6b3120e16158f75cc573eccb5863b1c"},"licenseCredential":{"credentialVersion":"1","templateId":"social-commercial-v1","issuer":"0x9c9ee6576d9bbd28f89854c3f09bf8ad460f7a40","licensorWallet":"0xc11e926344d0b05317861f57bae7f7d3990729e9","licenseeWallet":"0x959d73ed302be6e2955668fdeb7382c5a726d4f6","assetSha256":"0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf","policy":{"policyVersion":1,"commercialUse":true,"channels":["x","linkedin","instagram"],"territory":"worldwide","maxDurationDays":30,"allowedTransformations":["crop","resize","overlay_text"],"modelTraining":false,"ragIndexing":false,"exclusive":false,"resale":false,"sublicensing":false,"attributionRequired":false},"grant":{"channels":["x"],"transformations":["crop","overlay_text"],"territory":"worldwide","issuedAt":1783780817,"expiresAt":1784990417},"legalTextHash":"0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e","policyAstHash":"0x0f7f495269c80d8634dd59eab340f0a62644576b3406ddd0596aeceb95631dc8","offerDigest":"0xdd9a171f7de2f6867ac8e68b6c8e05e2a9762eac84396111fd2fdfa17ce27bdb","purchaseIntentDigest":"0x4f8a5961b3094f66c5008b19c10d5d7ba9c9854bc543081d9ff3ccc8e4e81e20","paymentAuthorizationDigest":"0xbe06260af0f1a43245dccb62fdf5921e54bef9bc1c133457ad1fa68a4174d5c5","orderId":"ord-e76242b07ad21600","buyerPaymentId":"be06260af0f1a43245dccb62fdf5921e","licenseId":"lic-c3b4f351a56fd9fe","statusUrl":"https://license402.axiqo.xyz/v1/orders/ord-e76242b07ad21600","issuerSignature":"0xbc790ab709ad57f11c14f1014127153c4a2e62400e63e0e95dd3d65cd85e2ae5495df8b6dddc48951aab2ba6bb513ed8bd98f745628bec2d2af265ac4738b2891c"},"order":{"orderId":"ord-e76242b07ad21600","status":"CREATOR_PAID","buyerPaymentId":"be06260af0f1a43245dccb62fdf5921e","buyerSettleTx":"0x36c19b15ec1982cdbabbe41a26d4d218eef62788723476d6261daefecfc8ccea","paymentAuthorizationDigest":"0xbe06260af0f1a43245dccb62fdf5921e54bef9bc1c133457ad1fa68a4174d5c5"},"creatorPayout":{"state":"PAID","amountMicro":70000,"confirmedTx":"0x66d8754d06a7281fc6d2bb752d58b36c1605c071a55ce6201afed63e158cf199"},"notes":"Verify: recover CreatorOffer + PurchaseIntent signers (EIP-712), recompute quoteCommitment, recover the credential issuer signature, and re-run check-license-scope. Sample environment = simulated settlement, no funds moved."}
+{
+    "generatedFor": "ord-e76242b07ad21600",
+    "environment": "production",
+    "authorization": {
+        "mode": "eip712_purchase_intent",
+        "note": "Buyer-signed EIP-712 PurchaseIntent (recover the signer to verify)."
+    },
+    "creatorOffer": {
+        "offerId": "off-cyber-dragon",
+        "offerVersion": 1,
+        "assetId": "asset-cyber-dragon",
+        "assetSha256": "0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf",
+        "mimeType": "image/png",
+        "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+        "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+        "templateId": "social-commercial-v1",
+        "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+        "policy": {
+            "policyVersion": 1,
+            "commercialUse": true,
+            "channels": [
+                "x",
+                "linkedin",
+                "instagram"
+            ],
+            "territory": "worldwide",
+            "maxDurationDays": 30,
+            "allowedTransformations": [
+                "crop",
+                "resize",
+                "overlay_text"
+            ],
+            "modelTraining": false,
+            "ragIndexing": false,
+            "exclusive": false,
+            "resale": false,
+            "sublicensing": false,
+            "attributionRequired": false
+        },
+        "creatorNetPrice": "0.07",
+        "currency": "USDT",
+        "rightsAttestationHash": "0x4bde0768451692bc22e3c850e32592441e5f838ceb8b8f49ad5c4be0d71acfea",
+        "validFrom": 1781308800,
+        "validUntil": 1815436800,
+        "nonce": "0x8e54568a40f32be638b30164ee2561d1975b5060f904c55a2a6299734af58d66",
+        "signature": "0xb1c9bfaff68ccb393baf69429978fb19e21d4de03c196d0fa3240ddd0b30803f4d867d9d1614d5edf02b8e692765426da1a117405cc1d65a62a9bc2c08f839b11b"
+    },
+    "legalTextUrl": "https://license402.axiqo.xyz/v1/legal/0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+    "quote": {
+        "quoteId": "quote-bd719915eda69a6c",
+        "quoteCommitment": "0xd2f8bdd41f6be9090be160b317155a30d45549d34a37c51e6256f317abaa8af6",
+        "offerDigest": "0xdd9a171f7de2f6867ac8e68b6c8e05e2a9762eac84396111fd2fdfa17ce27bdb",
+        "useSpec": {
+            "brief": "cyberpunk dragon hero image for a commercial X campaign",
+            "channel": "x",
+            "commercial": true,
+            "durationDays": 14,
+            "territory": "worldwide",
+            "transformations": [
+                "crop",
+                "overlay_text"
+            ],
+            "modelTraining": false,
+            "ragIndexing": false,
+            "exclusive": false,
+            "maxBudget": "0.10"
+        },
+        "priceMicro": 100000,
+        "platformFeeMicro": 30000,
+        "creatorPayoutMicro": 70000,
+        "idempotencyKey": "quote-bd719915eda69a6c",
+        "expiresAt": 1783782000
+    },
+    "purchaseIntent": {
+        "quoteId": "quote-bd719915eda69a6c",
+        "quoteCommitment": "0xd2f8bdd41f6be9090be160b317155a30d45549d34a37c51e6256f317abaa8af6",
+        "buyer": "0x959d73ed302be6e2955668fdeb7382c5a726d4f6",
+        "licensee": "0x959d73ed302be6e2955668fdeb7382c5a726d4f6",
+        "assetSha256": "0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf",
+        "offerDigest": "0xdd9a171f7de2f6867ac8e68b6c8e05e2a9762eac84396111fd2fdfa17ce27bdb",
+        "policyAstHash": "0x0f7f495269c80d8634dd59eab340f0a62644576b3406ddd0596aeceb95631dc8",
+        "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+        "totalPrice": "0.1",
+        "currency": "USDT",
+        "expiresAt": 1783782000,
+        "nonce": "0x4a383d11cfd07604932de50151e90c9e75283c5dfcc6fafc9097a2af1e1effec",
+        "signature": "0xcbb442cb0a9812d2ae161a71115a4459d72b10a94bd3c7a940e82e2fb954c29c3ad89421bd93015d0da29d963936278454f6b3120e16158f75cc573eccb5863b1c"
+    },
+    "licenseCredential": {
+        "credentialVersion": "1",
+        "templateId": "social-commercial-v1",
+        "issuer": "0x9c9ee6576d9bbd28f89854c3f09bf8ad460f7a40",
+        "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+        "licenseeWallet": "0x959d73ed302be6e2955668fdeb7382c5a726d4f6",
+        "assetSha256": "0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf",
+        "policy": {
+            "policyVersion": 1,
+            "commercialUse": true,
+            "channels": [
+                "x",
+                "linkedin",
+                "instagram"
+            ],
+            "territory": "worldwide",
+            "maxDurationDays": 30,
+            "allowedTransformations": [
+                "crop",
+                "resize",
+                "overlay_text"
+            ],
+            "modelTraining": false,
+            "ragIndexing": false,
+            "exclusive": false,
+            "resale": false,
+            "sublicensing": false,
+            "attributionRequired": false
+        },
+        "grant": {
+            "channels": [
+                "x"
+            ],
+            "transformations": [
+                "crop",
+                "overlay_text"
+            ],
+            "territory": "worldwide",
+            "issuedAt": 1783780817,
+            "expiresAt": 1784990417
+        },
+        "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+        "policyAstHash": "0x0f7f495269c80d8634dd59eab340f0a62644576b3406ddd0596aeceb95631dc8",
+        "offerDigest": "0xdd9a171f7de2f6867ac8e68b6c8e05e2a9762eac84396111fd2fdfa17ce27bdb",
+        "purchaseIntentDigest": "0x4f8a5961b3094f66c5008b19c10d5d7ba9c9854bc543081d9ff3ccc8e4e81e20",
+        "paymentAuthorizationDigest": "0xbe06260af0f1a43245dccb62fdf5921e54bef9bc1c133457ad1fa68a4174d5c5",
+        "orderId": "ord-e76242b07ad21600",
+        "buyerPaymentId": "be06260af0f1a43245dccb62fdf5921e",
+        "licenseId": "lic-c3b4f351a56fd9fe",
+        "statusUrl": "https://license402.axiqo.xyz/v1/orders/ord-e76242b07ad21600",
+        "issuerSignature": "0xbc790ab709ad57f11c14f1014127153c4a2e62400e63e0e95dd3d65cd85e2ae5495df8b6dddc48951aab2ba6bb513ed8bd98f745628bec2d2af265ac4738b2891c"
+    },
+    "order": {
+        "orderId": "ord-e76242b07ad21600",
+        "status": "CREATOR_PAID",
+        "buyerPaymentId": "be06260af0f1a43245dccb62fdf5921e",
+        "buyerSettleTx": "0x36c19b15ec1982cdbabbe41a26d4d218eef62788723476d6261daefecfc8ccea",
+        "paymentAuthorizationDigest": "0xbe06260af0f1a43245dccb62fdf5921e54bef9bc1c133457ad1fa68a4174d5c5"
+    },
+    "creatorPayout": {
+        "state": "PAID",
+        "amountMicro": 70000,
+        "confirmedTx": "0x66d8754d06a7281fc6d2bb752d58b36c1605c071a55ce6201afed63e158cf199"
+    },
+    "notes": "Verify: recover CreatorOffer + PurchaseIntent signers (EIP-712), recompute quoteCommitment, recover the credential issuer signature, and re-run check-license-scope. Sample environment = simulated settlement, no funds moved."
+}

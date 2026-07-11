@@ -85,10 +85,14 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
 | Facilitator interop self-test (mainnet, 0.10 self-transfer) | `0xd8cecdcc…34ca8` |
 | First production purchase (signed-intent, mainnet) | buyer `0x36c19b15…ccea` · payout `0x66d8754d…f199` |
 | External buyer purchase (mainnet) | buyer `0x98ab4a03…9173` · payout `0xd7f95342…e8b8` |
-| Testnet full loop (signed-intent) | buyer `0xa5eb8a69…684c` (eip155:1952) |
-| Testnet A2MCP direct purchase | order `ord-b9b65667fb3e77be`, delivered via ticket |
+| Testnet full loop (signed-intent, **v2 credential**) | `ord-7612c61775e24993` · payout `0x4e271e49…b728d` |
+| Testnet A2MCP direct purchase (**v2**, single request → 200 + PAYMENT-RESPONSE) | `ord-32d3f53b9a0cd3bd` · buyer `0xfa2c8a44…c24051` · payout `0xc1ed4826…c462d` |
+| Live NEEDS_RECONCILIATION drill (real nonce collision → parked → verified on-chain → explicit release → paid once) | `ord-32d3f53b9a0cd3bd` payout above |
 
-See `docs/evidence/` and the public **Receipts** tabs (Production / Testnet / Samples).
+Every bundle in `docs/evidence/` verifies **offline**: `npm run verify:evidence`
+(signatures, digests, commitments — v1 and v2 materials; runs in CI). Single
+credentials: `tsx scripts/verify-credential.ts <credential.json>`. Public
+**Receipts** tabs (Production / Testnet / Samples) link each row's txs.
 
 ## Architecture
 
@@ -125,7 +129,7 @@ npm ci
 python3 scripts/make_media.py     # webp renditions from catalog/assets/*.png
 npx tsx scripts/seed-catalog.ts   # sign the catalog (needs DEMO_CREATOR_PRIVATE_KEY)
 npm run dev                       # PAYMENT_MODE=off — full flow with simulated settlement
-npm run check                     # typecheck + 65 tests + build (CI also verifies the
+npm run check                     # typecheck + 77 tests + build (CI also verifies the
                                   # browser bundle has no drift and catalog integrity)
 ```
 
