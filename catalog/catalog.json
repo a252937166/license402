@@ -4,7 +4,7 @@
       "offerId": "off-cyber-dragon",
       "offerVersion": 1,
       "assetId": "asset-cyber-dragon",
-      "assetSha256": "0xf41dc4bc1f04aa77fb23734939a5cba08997921118ab8438b2a7aa6f013b4cd6",
+      "assetSha256": "0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
@@ -38,16 +38,16 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x8e54568a40f32be638b30164ee2561d1975b5060f904c55a2a6299734af58d66",
-      "signature": "0xc02adea118cacd4e64d5ce70c126e334ee582f2e376b605ce39935a444da6dbf30666f759c087bf1f831d35e8199b9781298cdb9014fa02932e36242bada3ed91b"
+      "signature": "0xc58ff23c9fd3045cce61261296aeb919afcfdb8ca467f2eaf5a2987e85c4a3961ce8f421dd35ca69fb66d0b14b7677c6446c98595327b299448cb7be03c9a8631b"
     },
     "assetFile": "catalog/assets/cyber-dragon.png",
     "previewFile": "catalog/previews/cyber-dragon.preview.png",
-    "title": "Ember Nebula",
+    "title": "Ember Drake",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "abstract",
-      "nebula",
-      "magenta"
+      "dragon",
+      "cyberpunk",
+      "campaign"
     ]
   },
   {
@@ -55,7 +55,7 @@
       "offerId": "off-neon-city",
       "offerVersion": 1,
       "assetId": "asset-neon-city",
-      "assetSha256": "0xd3a5659945eef9e1b1e9439aba481434ff3471119290caa8b82e8336a30d0b51",
+      "assetSha256": "0xd4ac896b6b8f3b9f17b8f6cd43876b14922d5aab0fe1434e9acd1c05eee24ada",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
@@ -89,16 +89,16 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0ec969d1c0e65f24ff575b82eb158ed337eaa0f7debd078d88864e9f848e81e6",
-      "signature": "0x79a529b752398026aa3a9a330f7045a17ae4a0f0faa2f354d7ef7daa3cedd98b1fd8d75db05592027fea9f8b87d1b01c7a1cdd21e96dc0098bf7d23c8b87f1731b"
+      "signature": "0xf43c3103f345468892c10cb47e4bcbc3f88cde6e1bc6e11f277025d14481941a2b91ac2e18539346ad8744add17d8af3814d3026a066c4aa82073607a7709a791c"
     },
     "assetFile": "catalog/assets/neon-city.png",
     "previewFile": "catalog/previews/neon-city.preview.png",
-    "title": "Cyan Tempest",
+    "title": "Neon Harbor",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "abstract",
-      "storm",
-      "cyan"
+      "cyberpunk",
+      "city",
+      "night"
     ]
   },
   {
@@ -106,7 +106,7 @@
       "offerId": "off-synth-portal",
       "offerVersion": 1,
       "assetId": "asset-synth-portal",
-      "assetSha256": "0xee4011cdd2fbb7d8fd63d36ed08d999db25a9c36dcf983b31672c050f3418f65",
+      "assetSha256": "0x21f47cbc16e183f189a4f4c1ee2d8d44eb0b538dc67286964406b810fe5331c0",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
@@ -140,16 +140,16 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0152ae8175b5e90d0667e2df76aeee7e9410939f43b58087bef2665b95022b3b",
-      "signature": "0x7d32deafadc54d52504734d2222173dc7dd27a042918369e3b744769d133124322029a1344c7d8ace0a1710259cd8ef7bdb99d4235de518826152bbd8c9710a11c"
+      "signature": "0x196dcfb37e4caf502c3e08231125158222a911afc37277175d1bea0e3a9aaee061c2cc20194b22815dac3e22f075e3f10c148d2591bf10a18241b8594e47e8ca1b"
     },
     "assetFile": "catalog/assets/synth-portal.png",
     "previewFile": "catalog/previews/synth-portal.preview.png",
-    "title": "Violet Signal",
+    "title": "Solar Gate",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "abstract",
       "synthwave",
-      "violet"
+      "portal",
+      "cinematic"
     ]
   },
   {
@@ -157,7 +157,7 @@
       "offerId": "off-aurora-koi",
       "offerVersion": 1,
       "assetId": "asset-aurora-koi",
-      "assetSha256": "0x79b1eb754e22bb10187a8bfddf47f23b39d4ed9e5f896f7737bedc4ac286711e",
+      "assetSha256": "0x205e5bc7869888a2f582b38906529d07ade9d56c79498ef286afbe84778493ae",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
@@ -191,16 +191,16 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0b34c9719ac8cefe003d14567296592e65c12d4869350f1681f2fad100b82af3",
-      "signature": "0x5fb91e8a67de53386fa82a684fd84d49c819ced784db9333ea812a8dace201a42d185493fb3c0130f73bb8ee6d19331d97c21001a4c233e1183ef8ded56b817a1c"
+      "signature": "0x4c636d773dafce97b3de43c2f17fdc4de27432c7c82172bba46582250cc38f4578845acf8d7571f1859638f1a8cac83ce570155fcdcc308e4735b9817e839a841b"
     },
     "assetFile": "catalog/assets/aurora-koi.png",
     "previewFile": "catalog/previews/aurora-koi.preview.png",
-    "title": "Aurora Veil",
+    "title": "Aurora Koi",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "abstract",
+      "koi",
       "aurora",
-      "teal"
+      "serene"
     ]
   },
   {
@@ -208,7 +208,7 @@
       "offerId": "off-glitch-mask",
       "offerVersion": 1,
       "assetId": "asset-glitch-mask",
-      "assetSha256": "0x3a8cf8c64e18c2310719b8afb37927122c7d28f2f4aae6f42526151017e309e0",
+      "assetSha256": "0xf7d9a2d34957698ca7fbd8f866d8fde86c07bf11360069fa6ff83e155c3e9d08",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
@@ -242,16 +242,16 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0xaf8c7bac16b7f043dc650abaacf4d5fcbbec6d7f68c9ffc56870d04446badb19",
-      "signature": "0x9a9245f4a7d27b3c4725f4401e8d02ac26bb24513b77d00695c15507a9426806678eb3eb7c92486dd610960449d048b2ee1756b1c468a6b166909c7f42decc001b"
+      "signature": "0xd8b9662f09d2db79509746cb4028dea6fc63c6b03742cbcad8d5b0df77abf2c30a62d65677ff281ad1c850aeb007f64856ab3aebf451d96550a366d3e103ef7b1b"
     },
     "assetFile": "catalog/assets/glitch-mask.png",
     "previewFile": "catalog/previews/glitch-mask.preview.png",
-    "title": "Cobalt Drift",
+    "title": "Cobalt Mask",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "abstract",
+      "mask",
       "cobalt",
-      "flow"
+      "product"
     ]
   },
   {
@@ -259,7 +259,7 @@
       "offerId": "off-expired-relic",
       "offerVersion": 1,
       "assetId": "asset-expired-relic",
-      "assetSha256": "0x1f03b5b7e86af997c381f54f9b8f90aa582f87e8c28361f44bc3924d6083fa54",
+      "assetSha256": "0xa4135054e3d401445f9c8fe39a271046873531a43c3ee7ddb11e8a9cb6963e8a",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
@@ -293,15 +293,15 @@
       "validFrom": 1778716800,
       "validUntil": 1781308800,
       "nonce": "0xe83b2aec2816baef71c514903db982bb350f5a15ea874f70da80c9ae0dfd261d",
-      "signature": "0x120e5030073c984a3a2281df7e979e3efad4cd8cb1ca0be38edd57f7741f90347a25ebc22aa9d6577e37b9e5013f9c0110a4553c0ce3c17b07e6c902d4c6dc101c"
+      "signature": "0x5b8d607345de8ba657c0cd6fbc47d2e9513b5e210ff00b0335df597d7ce5bdaa66f1ef25b41cebad055124a8682cde3f8a3bcb4e6f2dd5c21bbd14c658acdae21c"
     },
     "assetFile": "catalog/assets/expired-relic.png",
     "previewFile": "catalog/previews/expired-relic.preview.png",
     "title": "Bronze Relic",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "abstract",
-      "bronze"
+      "bronze",
+      "relic"
     ]
   },
   {
@@ -309,7 +309,7 @@
       "offerId": "off-editorial-only",
       "offerVersion": 1,
       "assetId": "asset-editorial-only",
-      "assetSha256": "0x7892924bf8ac03720ac94c289fdd9a1e0026579cc8bfb77461f47f852c2b6a7b",
+      "assetSha256": "0x84a9737f8009dfcd4ec49c2e0bad464e25e25d4940ebfc04c846ac449373ef99",
       "mimeType": "image/png",
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
@@ -343,15 +343,15 @@
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x10153d5bff38165ea3f5b943f60af928a00131503c930a67a377b388c7a3e089",
-      "signature": "0xe6077be2c13be9cb2ea8f9e16e4df09b7dbbe5a32991962f47d021cd2575b69b1463058b9af832a6460ff8c9fad90d852e6e64fb8a2d0e9f01172a6fa0e69e061b"
+      "signature": "0x6d3b869bcdf635c4655cbb66147686de7baf8b2bc5e5df9450876deb752043300c9a839387a0b014b7b0256d3f094d6e68151f95a226f2b6563b7e2cadb355bd1c"
     },
     "assetFile": "catalog/assets/editorial-only.png",
     "previewFile": "catalog/previews/editorial-only.preview.png",
     "title": "Editorial Study",
     "creatorDisplay": "Genesis Studio (first-party)",
     "tags": [
-      "abstract",
-      "monochrome"
+      "editorial",
+      "still-life"
     ]
   }
 ]
