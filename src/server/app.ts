@@ -847,6 +847,48 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
   });
 
+  // --- faucet (TESTNET ONLY — 0.5 test USDT per claim) ------------------------
+  // Dispenses from OUR service wallet (the official faucet is captcha-gated and
+  // has no API). 0.5 per claim, unlimited claims with a 60s cooldown; purchases
+  // replenish the pool (0.10 in / 0.07 payout → net +0.03 per order). The
+  // official faucet link is offered in the UI for bigger top-ups.
+  const FAUCET_AMOUNT_MICRO = 500_000;
+  app.post("/v1/faucet", async (req: Request, res: Response) => {
+    if (config.paymentMode !== "live" || !chainTest || !config.testnet) {
+      res.status(503).json({ error: "FAUCET_DISABLED", detail: "the faucet serves TESTNET funds only" });
+      return;
+    }
+    const address = String(req.body?.address ?? "");
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      res.status(400).json({ error: "INVALID_ADDRESS" });
+      return;
+    }
+    const prior = repo.getFaucetClaim(address, "testnet");
+    if (prior && now() - Number(prior.created_at ?? 0) < 60) {
+      res.status(429).json({ error: "COOLDOWN", detail: "wait a minute between claims" });
+      return;
+    }
+    try {
+      const pool = Number(await chainTest.usdtBalance(chainTest.address));
+      if (pool - 100_000 < FAUCET_AMOUNT_MICRO) {
+        res.status(503).json({ error: "FAUCET_POOL_LOW", detail: "pool refilling — use the official faucet meanwhile" });
+        return;
+      }
+    } catch {
+      res.status(502).json({ error: "CHAIN_UNAVAILABLE" });
+      return;
+    }
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
+    repo.upsertFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, "testnet", now());
+    try {
+      const tx = await chainTest.transferUsdt(address, FAUCET_AMOUNT_MICRO);
+      repo.recordFaucetTx(address, "testnet", tx);
+      res.status(200).json({ ok: true, network: "testnet", tx, amount: "0.5", explorer: `${config.testnet.explorerTx}${tx}` });
+    } catch (e) {
+      res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
+    }
+  });
+
   // --- wallet-free judge demo (DEV MODE ONLY) --------------------------------
   app.post("/v1/demo/acquire", async (req: Request, res: Response) => {
     if (!config.demoBuyerPrivateKey) {
@@ -909,7 +951,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       rails: {
         mainnet: { network: main.network, chainId: main.chainId, asset: main.asset, explorerTx: main.explorerTx, faucet: false },
         ...(config.testnet
-          ? { testnet: { network: config.testnet.network, chainId: config.testnet.chainId, asset: config.testnet.asset, explorerTx: config.testnet.explorerTx, faucet: false, officialFaucet: "https://web3.okx.com/xlayer/faucet" } }
+          ? { testnet: { network: config.testnet.network, chainId: config.testnet.chainId, asset: config.testnet.asset, explorerTx: config.testnet.explorerTx, faucet: true, officialFaucet: "https://web3.okx.com/xlayer/faucet" } }
           : {})
       }
     });

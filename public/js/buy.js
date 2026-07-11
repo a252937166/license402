@@ -45,7 +45,7 @@
     document.querySelectorAll(".railopt").forEach((b) => b.classList.toggle("on", b.dataset.rail === RAIL));
     $("#envNet").textContent = rail().label;
     $("#envToken").textContent = (RAIL === "testnet" ? "test USDT (USD₮0) · " : "USDT (USD₮0) · ") + short(rail().asset);
-    $("#subFund").textContent = RAIL === "testnet" ? "free via the official faucet" : "0.10 USDT · self-funded";
+    $("#subFund").textContent = RAIL === "testnet" ? "0.5 free per claim · official faucet for more" : "0.10 USDT · self-funded";
     $("#fundMainnet").style.display = RAIL === "mainnet" ? "block" : "none";
     $("#fundTestnet").style.display = RAIL === "testnet" ? "block" : "none";
     $("#btnBuy").textContent = RAIL === "testnet" ? "Sign & pay 0.10 test USDT" : "Sign & pay 0.10 USDT";
@@ -142,6 +142,24 @@
     if (bal < 100000n) err(2, "This wallet holds less than 0.10 test USDT on X Layer testnet — grab free USDT from the official faucet (button above), then retry.");
   });
   $("#copyAddr").addEventListener("click", () => { if (ACC) navigator.clipboard.writeText(ACC).then(() => toast("Address copied")); });
+
+  // ---- testnet faucet (0.5 per claim) ----
+  $("#btnFaucet").addEventListener("click", async () => {
+    err(2, "");
+    if (!ACC) { err(2, "Connect your wallet first (top right)"); return; }
+    if (RAIL !== "testnet") { err(2, "The faucet serves testnet only"); return; }
+    const b = $("#btnFaucet"); b.disabled = true;
+    try {
+      b.textContent = "Requesting grant…";
+      const r = await api("/v1/faucet", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: ACC }) }, 60000);
+      if (r.json && r.json.ok) {
+        toast((r.json.amount || "0.5") + " test USDT sent — confirming on-chain");
+        b.textContent = "Waiting for confirmation…";
+        for (let i = 0; i < 10; i++) { const bal = await refreshBalance(); if (bal >= 100000n) { toast("Funded ✓"); break; } await new Promise((r2) => setTimeout(r2, 3000)); }
+      } else err(2, (r.json && (r.json.detail || r.json.error)) || "Faucet unavailable");
+    } catch (e) { err(2, e && e.message ? String(e.message).slice(0, 180) : "Faucet request failed"); }
+    finally { b.disabled = false; b.textContent = "Claim 0.5 test USDT — free"; }
+  });
 
   // ---- 01 review / quote -----------------------------------------------------
   async function getQuote() {
