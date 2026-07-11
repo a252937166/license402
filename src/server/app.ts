@@ -19,7 +19,7 @@ import { EIP712_TYPES } from "./license/eip712.js";
 import { EIP712_DOMAIN } from "./license/vocab.js";
 import { formatMicroUsdt, CREATOR_PAYOUT_MICRO, PLATFORM_FEE_MICRO, SALE_PRICE_MICRO } from "./license/money.js";
 import { UseSpecSchema } from "./license/types.js";
-import { onSettlementFailure, onSettlementSuccess, prepareDelivery, SETTLED_STATES } from "./orders/prepare.js";
+import { onSettlementFailure, onSettlementSuccess, prepareDelivery, prepareDirectDelivery, SETTLED_STATES } from "./orders/prepare.js";
 import { runDemoAcquire } from "./orders/demo.js";
 import { buildSampleEnvelope } from "./orders/sample.js";
 import { DevPaymentAdapter } from "./payment/adapter.js";
@@ -272,24 +272,89 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return;
     }
 
-    const prepared = prepareDelivery(
-      repo,
-      config,
-      {
-        use: req.body?.use,
-        licenseeWallet: req.body?.licenseeWallet,
-        quoteCommitment: req.body?.quoteCommitment,
-        idempotencyKey: req.body?.idempotencyKey,
-        purchaseIntent: req.body?.purchaseIntent
-      },
-      {
+    // Two authorization modes share this endpoint:
+    //  - SIGNED-INTENT (the site / integrators): body carries quoteCommitment +
+    //    an EIP-712 PurchaseIntent — the strong two-signature binding.
+    //  - DIRECT (OKX.AI A2MCP marketplace agents): one paid POST, no pre-flow.
+    //    The x402 payment signature is the authorization; payer == licensee.
+    const isDirect = !req.body?.quoteCommitment || !req.body?.purchaseIntent;
+    let prepared: ReturnType<typeof prepareDelivery>;
+    if (isDirect) {
+      // The marketplace caller may state the licensee — it must be the payer.
+      const claimed = typeof req.body?.licenseeWallet === "string" ? req.body.licenseeWallet.toLowerCase() : null;
+      if (claimed && claimed !== verified.verifiedPayer.toLowerCase()) {
+        res.status(400).json({ error: "PAYER_MISMATCH", detail: "in direct mode the licensee is the paying wallet" });
+        return;
+      }
+      const brief =
+        typeof req.body?.brief === "string" && req.body.brief.trim()
+          ? req.body.brief.trim().slice(0, 240)
+          : "commercial social campaign image";
+      const parsedUse = UseSpecSchema.safeParse(req.body?.use);
+      // payment-ref salt in the brief → every distinct payment pins its own
+      // quote/order (direct purchases are one-license-per-payment by design).
+      const ref = ` [ref:${verified.paymentAuthorizationDigest.slice(2, 10)}]`;
+      const use = parsedUse.success
+        ? UseSpecSchema.parse({ ...parsedUse.data, brief: `${parsedUse.data.brief.slice(0, 240)}${ref}` })
+        : UseSpecSchema.parse({
+            brief: `${brief}${ref}`,
+            channel: "x",
+            commercial: true,
+            durationDays: 14,
+            territory: "worldwide",
+            transformations: ["crop", "overlay_text"],
+            maxBudget: "0.10"
+          });
+      const q = buildQuote(catalogOffers(), use, verified.verifiedPayer, { nowSeconds: now() });
+      if (!q.serviceable || !q.selected) {
+        // Payment was VERIFIED but never settled — no funds moved; safe to refuse.
+        res.status(409).json({ error: "NOT_SERVICEABLE", reasons: q.reasons ?? [], rejectedCandidates: q.rejectedCandidates });
+        return;
+      }
+      repo.insertQuote(
+        {
+          quoteId: q.selected.quoteId,
+          quoteCommitment: q.selected.quoteCommitment,
+          offerId: q.selected.offerId,
+          offerDigest: q.selected.offerDigest,
+          licenseeWallet: verified.verifiedPayer.toLowerCase(),
+          useSpec: use,
+          useSpecHash: useSpecHash(use),
+          priceMicro: q.selected.priceMicro,
+          platformFeeMicro: q.selected.platformFeeMicro,
+          creatorPayoutMicro: q.selected.creatorPayoutMicro,
+          idempotencyKey: q.selected.idempotencyKey,
+          expiresAt: q.selected.quoteExpiresAt
+        },
+        now()
+      );
+      prepared = prepareDirectDelivery(repo, config, q.selected, use, {
         nowSeconds: now(),
         verifiedPayer: verified.verifiedPayer,
         buyerPaymentId: verified.buyerPaymentId,
         paymentAuthorizationDigest: verified.paymentAuthorizationDigest,
         environment
-      }
-    );
+      });
+    } else {
+      prepared = prepareDelivery(
+        repo,
+        config,
+        {
+          use: req.body?.use,
+          licenseeWallet: req.body?.licenseeWallet,
+          quoteCommitment: req.body?.quoteCommitment,
+          idempotencyKey: req.body?.idempotencyKey,
+          purchaseIntent: req.body?.purchaseIntent
+        },
+        {
+          nowSeconds: now(),
+          verifiedPayer: verified.verifiedPayer,
+          buyerPaymentId: verified.buyerPaymentId,
+          paymentAuthorizationDigest: verified.paymentAuthorizationDigest,
+          environment
+        }
+      );
+    }
 
     if (!prepared.ok) {
       res.status(prepared.error.http).json({
@@ -711,6 +776,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       issuer: config.issuerAddress,
       payTo: config.payToAddress,
       price: config.priceUsd,
+      // Set OKX_LISTING_URL once the marketplace listing is approved — the site
+      // then shows "Hire on OKX.AI ↗" buttons without a code change.
+      listingUrl: process.env.OKX_LISTING_URL?.trim() || null,
       rails: {
         mainnet: { network: main.network, chainId: main.chainId, asset: main.asset, explorerTx: main.explorerTx, faucet: false },
         ...(config.testnet

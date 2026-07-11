@@ -253,6 +253,48 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
     expect(res.json.error).toBe("INTENT_SIGNATURE_INVALID");
   });
 
+  it("A2MCP direct purchase: one paid POST with no pre-flow issues a license to the payer", async () => {
+    // An OKX.AI marketplace agent never runs /v1/quote or signs a PurchaseIntent —
+    // it just pays and POSTs. The x402 payment signature IS the authorization.
+    const headers = { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-direct-1" };
+    const res = await post(base, "/v1/acquire/social-commercial", { brief: "cyberpunk dragon banner" }, headers);
+    expect(res.status).toBe(200);
+    expect(res.json.license.licenseeWallet).toBe(BUYER);
+    expect(res.json.settlement.status).toBe("SETTLED");
+
+    // The credential passes the live scope check like any other.
+    const ok = await post(base, "/v1/check-license-scope", {
+      license: res.json.license,
+      action: "commercial_social_post",
+      channel: "x",
+      licensee: BUYER
+    });
+    expect(ok.json.effectiveDecision).toBe("PERMITTED");
+
+    // Same payment replayed → same order (idempotent). New payment → NEW order.
+    const replay = await post(base, "/v1/acquire/social-commercial", { brief: "cyberpunk dragon banner" }, headers);
+    expect(replay.status).toBe(200);
+    expect(replay.json.orderId).toBe(res.json.orderId);
+    const second = await post(
+      base,
+      "/v1/acquire/social-commercial",
+      { brief: "cyberpunk dragon banner" },
+      { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-direct-2" }
+    );
+    expect(second.status).toBe(200);
+    expect(second.json.orderId).not.toBe(res.json.orderId);
+
+    // A stated licensee that is not the payer is refused.
+    const other = await post(
+      base,
+      "/v1/acquire/social-commercial",
+      { brief: "x", licenseeWallet: "0x1111111111111111111111111111111111111111" },
+      { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-direct-3" }
+    );
+    expect(other.status).toBe(400);
+    expect(other.json.error).toBe("PAYER_MISMATCH");
+  });
+
   it("signed sample is read-only: real signatures, zero ledger writes, SAMPLE status in scope checks", async () => {
     const before = await get(base, "/v1/ledger");
     const s1 = await get(base, "/v1/samples/default");

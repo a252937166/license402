@@ -154,6 +154,108 @@ export function prepareDelivery(
   return { ok: true, delivery: { orderId: order.orderId, credential, assetId: offer.assetId, buyerPaymentIdHint: ctx.buyerPaymentId } };
 }
 
+/**
+ * A2MCP DIRECT purchase (OKX.AI marketplace calls): one paid POST, no pre-flow.
+ * The caller never ran /v1/quote or signed a PurchaseIntent — the x402 payment
+ * signature (EIP-3009: payer, amount, payTo, validity window) IS the buyer's
+ * authorization, and the facilitator-verified payer becomes the licensee.
+ * Terms are pinned server-side at payment time; a synthesized intent record
+ * (sentinel signature = 65 zero bytes, nonce derived from the payment
+ * authorization digest) is stored so the proof bundle shows exactly how this
+ * order was authorized. Each distinct payment creates its own order.
+ */
+export function prepareDirectDelivery(
+  repo: Repo,
+  config: AppConfig,
+  sel: {
+    quoteId: string;
+    quoteCommitment: string;
+    offerId: string;
+    offerDigest: string;
+    assetId: string;
+    assetSha256: string;
+    policyAstHash: string;
+    price: string;
+    quoteExpiresAt: number;
+  },
+  use: unknown,
+  ctx: {
+    nowSeconds: number;
+    verifiedPayer: string;
+    buyerPaymentId: string;
+    paymentAuthorizationDigest: string;
+    environment: "sample" | "production" | "testnet";
+  }
+): { ok: true; delivery: PreparedDelivery } | { ok: false; error: PrepareError } {
+  const licensee = normalizeAddress(ctx.verifiedPayer);
+
+  // Idempotent short-circuit: this payment already produced an order.
+  const byPayment = repo.getOrderByPaymentId(ctx.buyerPaymentId);
+  if (byPayment) {
+    const credential = repo.getLicenseByOrder(byPayment.orderId);
+    if (credential) {
+      return { ok: true, delivery: { orderId: byPayment.orderId, credential, assetId: credentialAssetId(repo, byPayment.orderId), buyerPaymentIdHint: ctx.buyerPaymentId } };
+    }
+  }
+
+  const offerRow = repo.getOffer(sel.offerId);
+  if (!offerRow) return { ok: false, error: { code: "QUOTE_NOT_FOUND", http: 404 } };
+  const offer = offerRow.offer;
+
+  const unsignedIntent = {
+    quoteId: sel.quoteId,
+    quoteCommitment: sel.quoteCommitment,
+    buyer: licensee,
+    licensee,
+    assetSha256: sel.assetSha256,
+    offerDigest: sel.offerDigest,
+    policyAstHash: sel.policyAstHash,
+    legalTextHash: offer.legalTextHash,
+    totalPrice: sel.price,
+    currency: "USDT" as const,
+    expiresAt: sel.quoteExpiresAt,
+    nonce: sha256Hex(`L402:DIRECT:${ctx.paymentAuthorizationDigest}`)
+  };
+  // Sentinel signature: authorization came from the x402 payment itself.
+  const intent = { ...unsignedIntent, signature: `0x${"0".repeat(130)}` } as PurchaseIntent;
+  const intentDigest = purchaseIntentDigestHex(unsignedIntent);
+  // Distinct payments create distinct orders (auth digest in the id), unlike the
+  // signed-intent flow where the quote commitment is the idempotency key.
+  const orderId = `ord-${canonicalHash({ commitment: sel.quoteCommitment, licensee, auth: ctx.paymentAuthorizationDigest }, "L402:ORDERID:v1").slice(2, 18)}`;
+
+  const order = repo.createOrGetOrder({
+    orderId,
+    quoteId: sel.quoteId,
+    quoteCommitment: sel.quoteCommitment,
+    licenseeWallet: licensee,
+    purchaseIntent: intent,
+    purchaseIntentDigest: intentDigest,
+    status: "PAYMENT_VERIFIED",
+    environment: ctx.environment,
+    nowSeconds: ctx.nowSeconds
+  });
+
+  let credential = repo.getLicenseByOrder(order.orderId);
+  if (!credential) {
+    const parsedUse = UseSpecSchema.parse(use);
+    credential = issueCredential({
+      offer,
+      use: parsedUse,
+      purchaseIntent: intent,
+      orderId: order.orderId,
+      buyerPaymentId: ctx.buyerPaymentId,
+      paymentAuthorizationDigest: ctx.paymentAuthorizationDigest,
+      issuedAtSeconds: ctx.nowSeconds,
+      issuerPrivateKey: config.issuerPrivateKey,
+      statusBaseUrl: config.publicOrigin
+    });
+    repo.insertLicense(credential, ctx.nowSeconds);
+  }
+  repo.updateOrderStatus(order.orderId, "DELIVERY_PREPARED", ctx.nowSeconds);
+
+  return { ok: true, delivery: { orderId: order.orderId, credential, assetId: offer.assetId, buyerPaymentIdHint: ctx.buyerPaymentId } };
+}
+
 function credentialAssetId(repo: Repo, orderId: string): string {
   const credential = repo.getLicenseByOrder(orderId);
   if (!credential) return "";

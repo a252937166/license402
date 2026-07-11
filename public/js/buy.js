@@ -297,6 +297,7 @@
       }
     } catch (e) { /* defaults hold */ }
     try { const v = (await api("/version.json")).json; if (v && v.commit) $("#footBuild").textContent = "build " + String(v.commit).slice(0, 7); } catch (e) { /* dev */ }
+    if (CFG && CFG.listingUrl) { const n = document.createElement("a"); n.href = CFG.listingUrl; n.target = "_blank"; n.rel = "noopener"; n.className = "hint"; n.style.color = "var(--proof)"; n.textContent = "Also listed on OKX.AI — hire this service in the agent marketplace ↗"; const h = document.querySelector(".head p"); if (h) h.after(n); }
     applyRail();
     setStep(1);
     // pinned offer from the market → show its exact title in the note

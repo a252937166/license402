@@ -387,6 +387,7 @@
             Try the signed sample
           </a>
           <a class="btn btn-ghost" id="ctaBuy" href="/buy">Buy live with your wallet · 0.10 USDT</a>
+          <a class="btn btn-ghost" id="ctaOkx" href="#" style="display:none" target="_blank" rel="noopener">Hire on OKX.AI ↗</a>
         </div>
         <div class="cta-note" id="ctaNote">Free sample — no wallet, no funds moved. The live purchase settles for real on X Layer: two signatures, zero gas.</div>
       </div>
@@ -745,6 +746,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   async function boot(){
     try{ CFG=await api("/config.json");
       const pill=$("#modePill"); pill.textContent=CFG.paymentMode==="live"?"LIVE · X LAYER":"PUBLIC DEMO"; pill.dataset.mode=CFG.paymentMode;
+      if(CFG.listingUrl){ const b=$("#ctaOkx"); b.href=CFG.listingUrl; b.style.display="inline-flex"; }
       $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>settlement asset USDT (USD₮0 · ${short("0x779Ded0c9e1022225f8E0630b35a9b54bE713736")})`;
     }catch(e){}
     try{ const v=await api("/version.json"); if(v&&v.commit) $("#footBuild").textContent="build "+String(v.commit).slice(0,7); }catch(e){}
