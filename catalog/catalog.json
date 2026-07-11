@@ -9,7 +9,7 @@
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -34,11 +34,11 @@
       },
       "creatorNetPrice": "0.07",
       "currency": "USDT",
-      "rightsAttestationHash": "0x4bde0768451692bc22e3c850e32592441e5f838ceb8b8f49ad5c4be0d71acfea",
+      "rightsAttestationHash": "0xbec4c70c768a8a5e6f3d1c0518d1078d290633f854da1a91aad89c6ca3a600b8",
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x8e54568a40f32be638b30164ee2561d1975b5060f904c55a2a6299734af58d66",
-      "signature": "0xb1c9bfaff68ccb393baf69429978fb19e21d4de03c196d0fa3240ddd0b30803f4d867d9d1614d5edf02b8e692765426da1a117405cc1d65a62a9bc2c08f839b11b"
+      "signature": "0xbcedcd6aa1bceb7ac34422132d9ff5096b0e6f0bd084aa16d92a5af0e895742c64706b5680c0b400acceacd24d43ff602b971acc881b1488059f0bf4694776b81b"
     },
     "assetFile": "catalog/assets/cyber-dragon.png",
     "previewFile": "catalog/previews/cyber-dragon.preview.webp",
@@ -60,7 +60,7 @@
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -85,11 +85,11 @@
       },
       "creatorNetPrice": "0.07",
       "currency": "USDT",
-      "rightsAttestationHash": "0xc2c7c6cdc198a7620be75771cd7981597263fe37c2fc56258da21795b517af8b",
+      "rightsAttestationHash": "0x6603b676099956b466a481bd10aa14edf1b5111448859320b4a31285bf0a6b37",
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0ec969d1c0e65f24ff575b82eb158ed337eaa0f7debd078d88864e9f848e81e6",
-      "signature": "0x46882e3ee84e69226720f0822ac80777a9b06903320440688b0902af28160dcc256c47209f47f46d3e24c1fbfe6b6a66b346c09169be195494b86d2c2c1e8be41c"
+      "signature": "0x12a20387214138f9d9b9de4fc1adcfe721f8c4affaa9224f3719888695a7ac12751cb5ca9616c14273d91a92c62d99ef1a5a35f436ac736a60073e458377ab5c1b"
     },
     "assetFile": "catalog/assets/neon-city.png",
     "previewFile": "catalog/previews/neon-city.preview.webp",
@@ -111,7 +111,7 @@
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -136,11 +136,11 @@
       },
       "creatorNetPrice": "0.07",
       "currency": "USDT",
-      "rightsAttestationHash": "0x27d0eb7939c58bda0fb8b20c0b1504f421378b6578bd4021d8000e1d94751ebd",
+      "rightsAttestationHash": "0xd2ab8bd922da524997cdbca8708a8b530dc6898cdc8754d79c0d9cd18c92409d",
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0152ae8175b5e90d0667e2df76aeee7e9410939f43b58087bef2665b95022b3b",
-      "signature": "0xb1f67f58b2d275a91765bab0843c7bc616335bfa8f2374aa22116390c2bb1eb33fba6697ec14409fbd36802d7ebf17458b0ccc6225d06a8f64529722893febf11c"
+      "signature": "0x438cc54f7e3d26d2438a43b458dcd631e7b43d51334930662c25e6fb71620dc263e01eb2cc3cc40f0595a8767751df8cc940a323d150870330fd6d61fa7d29751b"
     },
     "assetFile": "catalog/assets/synth-portal.png",
     "previewFile": "catalog/previews/synth-portal.preview.webp",
@@ -162,7 +162,7 @@
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -187,11 +187,11 @@
       },
       "creatorNetPrice": "0.07",
       "currency": "USDT",
-      "rightsAttestationHash": "0x7aa628ed4a9a868de5b2fad3eb7f2c9fdc0cf2faba94329a429a73d9c95992ba",
+      "rightsAttestationHash": "0x02ddb2f6a1451c1f029faf1c22522f333f2ff08b4eedd2c7345cf9d6c21bf9ce",
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x0b34c9719ac8cefe003d14567296592e65c12d4869350f1681f2fad100b82af3",
-      "signature": "0x60ca402570dca0fc0afe310c5dd56c7e669decfc02de3ffe4c7e3a19e37c400c0fa6bf6de653f04aa9299d67a2ce41f036ac4194f2ca8ccb2b8499b37826c33b1c"
+      "signature": "0x77cc4bfd977902a3997ec1a529ec55378548fa31d771cef671e2fb8ddf8db12453259fbbda3951598c39c0e6125eb50535a5c2eb01fee08a8190b24d55fa6bef1c"
     },
     "assetFile": "catalog/assets/aurora-koi.png",
     "previewFile": "catalog/previews/aurora-koi.preview.webp",
@@ -213,7 +213,7 @@
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -238,11 +238,11 @@
       },
       "creatorNetPrice": "0.07",
       "currency": "USDT",
-      "rightsAttestationHash": "0x1aa5471f86aee88f3a9dfed41f437528a3357b27ec617a2895affb40d3d4cf1a",
+      "rightsAttestationHash": "0xea8777cb30ddd265505f825047de38db8480f2d9741da3ffb1356c63eb801691",
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0xaf8c7bac16b7f043dc650abaacf4d5fcbbec6d7f68c9ffc56870d04446badb19",
-      "signature": "0xcc5f629e18d2d5173ea6fcc594e42dade8bcf15981fc17b446e48cebae9edead7cf8dc074a990d93074fe12bb5eaae3d4d05b6643c21bdcd35715e81ece6dfdb1b"
+      "signature": "0x24eefc2fd9433ab553f2c5645c5dbaff40fee3f53aa49ba74369d143ecc5879015b7e6da8b1074a4f4515723a5e3fc9cfda34fc4be77f926437261407575f42b1c"
     },
     "assetFile": "catalog/assets/glitch-mask.png",
     "previewFile": "catalog/previews/glitch-mask.preview.webp",
@@ -264,7 +264,7 @@
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": true,
@@ -289,11 +289,11 @@
       },
       "creatorNetPrice": "0.07",
       "currency": "USDT",
-      "rightsAttestationHash": "0x4ef0e4f94adfc6ab6557e36832de0d7d85ec16035406604b3413dc03a8cf4d27",
+      "rightsAttestationHash": "0x248ddaaa745f5ecd3af21aaa0b0f22688f207ae01d26eaba12b1f5ef633dd351",
       "validFrom": 1778716800,
       "validUntil": 1781308800,
       "nonce": "0xe83b2aec2816baef71c514903db982bb350f5a15ea874f70da80c9ae0dfd261d",
-      "signature": "0x9478fd5017b8a9ab07dc55ad4babd05cba5a129c7aab9177c1d18ac0789e065d53de70ff0fd9940f489a2b7681134e3b64d9fd4f28b7746c8fa06cfacefe4e9c1b"
+      "signature": "0xf86129e4e503671b1663e8adf58d185f171a29a0fad799a12c87189477db85631a89b5e2d6c317a7911c76cf986d8541f302b546235ed664ec5ff9196a5cfdde1c"
     },
     "assetFile": "catalog/assets/expired-relic.png",
     "previewFile": "catalog/previews/expired-relic.preview.webp",
@@ -314,7 +314,7 @@
       "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "payoutWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
       "templateId": "social-commercial-v1",
-      "legalTextHash": "0xf02f8921da7dd0ff412d637bc7796ff18174903701fb750a2399a2561424fb0e",
+      "legalTextHash": "0xf6185e7518010af013fad79649fd59b3b5a278efe6be204615fa6e1780535f33",
       "policy": {
         "policyVersion": 1,
         "commercialUse": false,
@@ -339,11 +339,11 @@
       },
       "creatorNetPrice": "0.07",
       "currency": "USDT",
-      "rightsAttestationHash": "0x7fdd2922f30e00a3a77eed438270a11f9055be160162953e88d14379dc2d7ad5",
+      "rightsAttestationHash": "0xb37e7e1b566426bb3d007d4c14511bc115504af5dc1d941422c5e48159249505",
       "validFrom": 1781308800,
       "validUntil": 1815436800,
       "nonce": "0x10153d5bff38165ea3f5b943f60af928a00131503c930a67a377b388c7a3e089",
-      "signature": "0x5ab1a66e583bd85c0eeccd46b64cd929b087ef324af053d75855afa1c09b5d0574f22eb14cb51165a697a15f1dcd60cc255889e59b33956b72fc25f389d662131b"
+      "signature": "0xc326b055c89fc13755f9e5bb991c67585d9b616a35209bd4fe8ed8045f90438035e1e824ac96e71d8722eefd7ddee1c2949fcc69b9333a08cfa410003e27220d1b"
     },
     "assetFile": "catalog/assets/editorial-only.png",
     "previewFile": "catalog/previews/editorial-only.preview.webp",

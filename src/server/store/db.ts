@@ -67,6 +67,9 @@ CREATE TABLE IF NOT EXISTS quotes (
   price_micro INTEGER NOT NULL,
   platform_fee_micro INTEGER NOT NULL,
   creator_payout_micro INTEGER NOT NULL,
+  settlement_network TEXT NOT NULL DEFAULT 'eip155:196',
+  payment_asset TEXT NOT NULL DEFAULT '',
+  pay_to TEXT NOT NULL DEFAULT '',
   idempotency_key TEXT NOT NULL,
   expires_at INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
@@ -123,6 +126,7 @@ CREATE TABLE IF NOT EXISTS faucet_claims (
   ip TEXT,
   tx TEXT,
   amount_micro INTEGER NOT NULL,
+  network TEXT NOT NULL DEFAULT 'testnet',
   created_at INTEGER NOT NULL
 );
 
@@ -160,6 +164,19 @@ function migrate(db: Database): void {
     // Standard x402 receipt header, persisted so idempotent replays of a settled
     // payment can return the SAME PAYMENT-RESPONSE the first delivery carried.
     db.exec(`ALTER TABLE orders ADD COLUMN payment_response_header TEXT`);
+  }
+  const qcols = db.prepare(`PRAGMA table_info(quotes)`).all() as { name: string }[];
+  if (!qcols.some((c) => c.name === "settlement_network")) {
+    // Rail semantics (commitment v2): pre-existing quotes were all mainnet-era.
+    db.exec(`ALTER TABLE quotes ADD COLUMN settlement_network TEXT NOT NULL DEFAULT 'eip155:196'`);
+    db.exec(`ALTER TABLE quotes ADD COLUMN payment_asset TEXT NOT NULL DEFAULT ''`);
+    db.exec(`ALTER TABLE quotes ADD COLUMN pay_to TEXT NOT NULL DEFAULT ''`);
+  }
+  const fcols = db.prepare(`PRAGMA table_info(faucet_claims)`).all() as { name: string }[];
+  if (fcols.length > 0 && !fcols.some((c) => c.name === "network")) {
+    // The two pre-existing claims were the mainnet-era grants; new claims are
+    // testnet-only. Sponsorship joins now match on the SAME rail only.
+    db.exec(`ALTER TABLE faucet_claims ADD COLUMN network TEXT NOT NULL DEFAULT 'mainnet'`);
   }
 }
 

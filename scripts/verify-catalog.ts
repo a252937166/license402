@@ -20,6 +20,11 @@ interface Entry {
   title: string;
 }
 
+function attestationHash(offerId: string): string {
+  const slug = offerId.replace(/^off-/, "");
+  return sha256Hex(readFileSync(resolve(PROJECT_ROOT, `catalog/attestations/${slug}.md`)));
+}
+
 const catalog = JSON.parse(readFileSync(resolve(PROJECT_ROOT, "catalog/catalog.json"), "utf8")) as Entry[];
 const legal = legalTextHash();
 let failures = 0;
@@ -37,6 +42,7 @@ for (const entry of catalog) {
   if (!verifyOfferSignature(offer)) problems.push("signature does not recover to licensorWallet");
   if (sha256Hex(bytes) !== offer.assetSha256) problems.push("assetSha256 != file bytes");
   if (offer.legalTextHash !== legal) problems.push("legalTextHash != legal file");
+  if (offer.rightsAttestationHash !== attestationHash(offer.offerId)) problems.push("rightsAttestationHash != attestation file");
   if (problems.length) {
     console.error(`✗ ${offer.offerId}: ${problems.join("; ")}`);
     failures += problems.length;

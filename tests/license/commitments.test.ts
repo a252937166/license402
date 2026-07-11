@@ -56,6 +56,9 @@ describe("commitments", () => {
       priceMicro: 100_000,
       platformFeeMicro: 30_000,
       creatorPayoutMicro: 70_000,
+      settlementNetwork: "eip155:196",
+      paymentAsset: "0x779ded0c9e1022225f8e0630b35a9b54be713736",
+      payTo: "0x0000000000000000000000000000000000000402",
       quoteExpiresAt: NOW + 900,
       idempotencyKey: "idem-1"
     };
@@ -67,6 +70,10 @@ describe("commitments", () => {
     expect(quoteCommitment({ ...base, licenseeWallet: "0x2222222222222222222222222222222222222222" })).not.toBe(
       commitment
     );
+    // The settlement rail is part of the commitment: a testnet quote is a
+    // DIFFERENT commitment than a mainnet quote for the same terms.
+    expect(quoteCommitment({ ...base, settlementNetwork: "eip155:1952" })).not.toBe(commitment);
+    expect(quoteCommitment({ ...base, payTo: "0x0000000000000000000000000000000000000403" })).not.toBe(commitment);
   });
 
   it("useSpecHash reflects buyer intent changes", () => {

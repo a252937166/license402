@@ -110,6 +110,11 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
       legalTextHash: f.legalTextHash,
       totalPrice: "0.10",
       currency: "USDT" as const,
+      settlementNetwork: f.settlementNetwork,
+      paymentAsset: f.paymentAsset,
+      payTo: f.payTo,
+      creatorPayoutMicro: f.creatorPayoutMicro,
+      platformFeeMicro: f.platformFeeMicro,
       expiresAt: f.expiresAt,
       nonce: sha256Hex("buyer-nonce-e2e")
     };
@@ -131,16 +136,55 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
     return { quote: quote.json, intent, acquire, order: null };
   }
 
-  it("challenges with 402 when no payment is attached", async () => {
+  it("challenges with 402 only AFTER the signed terms preflight passes", async () => {
     const quote = await post(base, "/v1/quote", { use: USE, licenseeWallet: BUYER });
-    const res = await post(base, "/v1/acquire/social-commercial", {
+    const f = quote.json.purchaseIntentFields;
+    const unsigned = {
+      quoteId: f.quoteId,
+      quoteCommitment: f.quoteCommitment,
+      buyer: BUYER,
+      licensee: BUYER,
+      assetSha256: f.assetSha256,
+      offerDigest: f.offerDigest,
+      policyAstHash: f.policyAstHash,
+      legalTextHash: f.legalTextHash,
+      totalPrice: "0.10",
+      currency: "USDT" as const,
+      settlementNetwork: f.settlementNetwork,
+      paymentAsset: f.paymentAsset,
+      payTo: f.payTo,
+      creatorPayoutMicro: f.creatorPayoutMicro,
+      platformFeeMicro: f.platformFeeMicro,
+      expiresAt: f.expiresAt,
+      nonce: sha256Hex("nonce-402-preflight")
+    };
+    const signature = signTypedData("PurchaseIntent", purchaseIntentToTypedMessage(unsigned), BUYER_KEY);
+    const body = {
       use: USE,
       licenseeWallet: BUYER,
       quoteCommitment: quote.json.quoteCommitment,
       idempotencyKey: quote.json.idempotencyKey,
-      purchaseIntent: {}
-    });
+      purchaseIntent: { ...unsigned, signature }
+    };
+    // Valid signed terms, no payment → the standard 402 challenge.
+    const res = await post(base, "/v1/acquire/social-commercial", body);
     expect(res.status).toBe(402);
+
+    // Broken terms are rejected BEFORE any 402 — the buyer is never asked to
+    // sign a payment for a request that would fail anyway (review §9).
+    const bad = await post(base, "/v1/acquire/social-commercial", { ...body, purchaseIntent: {} });
+    expect(bad.status).toBe(400);
+    expect(bad.json.error).toBe("INTENT_INVALID");
+
+    // Half-present signed fields are an error, never a silent direct fallback.
+    const half = await post(base, "/v1/acquire/social-commercial", {
+      use: USE,
+      licenseeWallet: BUYER,
+      quoteCommitment: quote.json.quoteCommitment,
+      idempotencyKey: quote.json.idempotencyKey
+    });
+    expect(half.status).toBe(400);
+    expect(half.json.error).toBe("INCOMPLETE_SIGNED_INTENT");
   });
 
   it("completes quote → sign intent → acquire → license issued + settled", async () => {
@@ -190,6 +234,11 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
       legalTextHash: f.legalTextHash,
       totalPrice: "0.10",
       currency: "USDT" as const,
+      settlementNetwork: f.settlementNetwork,
+      paymentAsset: f.paymentAsset,
+      payTo: f.payTo,
+      creatorPayoutMicro: f.creatorPayoutMicro,
+      platformFeeMicro: f.platformFeeMicro,
       expiresAt: f.expiresAt,
       nonce: sha256Hex("buyer-nonce-idem")
     };
@@ -238,6 +287,11 @@ describe("LICENSE402 end-to-end (dev payment)", () => {
       legalTextHash: f.legalTextHash,
       totalPrice: "0.10",
       currency: "USDT" as const,
+      settlementNetwork: f.settlementNetwork,
+      paymentAsset: f.paymentAsset,
+      payTo: f.payTo,
+      creatorPayoutMicro: f.creatorPayoutMicro,
+      platformFeeMicro: f.platformFeeMicro,
       expiresAt: f.expiresAt,
       nonce: sha256Hex("wrong-signer")
     };

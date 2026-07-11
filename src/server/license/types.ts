@@ -98,12 +98,23 @@ export const PurchaseIntentSchema = z.strictObject({
   legalTextHash: hash32,
   totalPrice: usdt,
   currency: z.literal("USDT"),
+  // Payment-rail binding (review §2/§8): the buyer signs WHICH chain, WHICH
+  // token, and WHO gets paid — a testnet intent can never settle a mainnet
+  // purchase, and a swapped payTo invalidates the signature.
+  settlementNetwork: z.string().regex(/^eip155:\d+$/),
+  paymentAsset: address,
+  payTo: address,
+  creatorPayoutMicro: z.number().int().nonnegative(),
+  platformFeeMicro: z.number().int().nonnegative(),
   expiresAt: unixSeconds,
   nonce: hash32,
   signature
 });
 export type PurchaseIntent = z.infer<typeof PurchaseIntentSchema>;
 export type UnsignedPurchaseIntent = Omit<PurchaseIntent, "signature">;
+
+/** How the buyer authorized a purchase — the union the credential records. */
+export type AuthorizationMode = "eip712_purchase_intent" | "x402_direct";
 
 /**
  * License credential v2 (spec v4 §0.3): three-signature model — this document
@@ -135,6 +146,17 @@ export const LicenseCredentialSchema = z.strictObject({
   orderId: id,
   buyerPaymentId: z.string().min(1).max(128),
   statusUrl: z.string().url().max(512),
+  // Environment & rail semantics live IN the signed credential (review §2/§7):
+  // a testnet credential is distinguishable from a production one even fully
+  // offline. Optional for backward compatibility with already-issued credentials
+  // (absent ⇒ pre-rail credential, treated as its order's environment).
+  credentialEnvironment: z.enum(["production", "testnet", "sample"]).optional(),
+  settlementNetwork: z.string().regex(/^eip155:\d+$/).optional(),
+  paymentAsset: address.optional(),
+  // How the buyer authorized: a signed EIP-712 PurchaseIntent, or an x402
+  // direct purchase where the EIP-3009 payment signature IS the authorization.
+  authorizationMode: z.enum(["eip712_purchase_intent", "x402_direct"]).optional(),
+  buyerAuthorizationDigest: hash32.optional(),
   issuerSignature: signature
 });
 export type LicenseCredential = z.infer<typeof LicenseCredentialSchema>;

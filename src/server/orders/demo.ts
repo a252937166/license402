@@ -9,6 +9,7 @@ import { prepareDelivery, onSettlementSuccess } from "./prepare.js";
 import { runPayoutWorker } from "../payout/worker.js";
 import type { Repo } from "../store/repo.js";
 import type { AppConfig } from "../config.js";
+import { mainnetProfile } from "../config.js";
 
 
 
@@ -44,7 +45,9 @@ export async function runDemoAcquire(
   if (!parsedUse.success) return { ok: false, error: "INVALID_USESPEC" };
   const buyer = privateKeyToAddress(demoBuyerKey);
 
-  const quote = buildQuote(catalog, parsedUse.data, buyer, { nowSeconds });
+  const profile = mainnetProfile(config);
+  const rail = { settlementNetwork: profile.network, paymentAsset: profile.asset, payTo: config.payToAddress };
+  const quote = buildQuote(catalog, parsedUse.data, buyer, { nowSeconds, rail });
   if (!quote.serviceable || !quote.selected) return { ok: false, error: "NOT_SERVICEABLE", quote };
 
   const sel = quote.selected;
@@ -60,6 +63,9 @@ export async function runDemoAcquire(
       priceMicro: sel.priceMicro,
       platformFeeMicro: sel.platformFeeMicro,
       creatorPayoutMicro: sel.creatorPayoutMicro,
+      settlementNetwork: sel.settlementNetwork,
+      paymentAsset: sel.paymentAsset,
+      payTo: sel.payTo,
       idempotencyKey: sel.idempotencyKey,
       expiresAt: sel.quoteExpiresAt
     },
@@ -77,6 +83,11 @@ export async function runDemoAcquire(
     legalTextHash: legalTextHash(),
     totalPrice: sel.price,
     currency: "USDT" as const,
+    settlementNetwork: sel.settlementNetwork,
+    paymentAsset: sel.paymentAsset,
+    payTo: sel.payTo,
+    creatorPayoutMicro: sel.creatorPayoutMicro,
+    platformFeeMicro: sel.platformFeeMicro,
     expiresAt: sel.quoteExpiresAt,
     nonce: sha256Hex(`demo-${buyer}-${sel.quoteId}`)
   };

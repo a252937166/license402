@@ -1,11 +1,12 @@
 import { canonicalHash, sha256Hex } from "../domain/index.js";
 import { normalizeAddress, recoverTypedDataSigner, purchaseIntentToTypedMessage } from "../license/eip712.js";
 import { issueCredential } from "../license/credential.js";
+import type { BuyerAuthorization } from "../license/credential.js";
 import { policyAstHash, purchaseIntentDigestHex, quoteCommitment } from "../license/commitments.js";
 import { parseUsdtToMicro } from "../license/money.js";
 import { PurchaseIntentSchema, UseSpecSchema } from "../license/types.js";
 import type { LicenseCredential, PurchaseIntent } from "../license/types.js";
-import type { Repo } from "../store/repo.js";
+import type { Repo, QuoteRow, OfferRow } from "../store/repo.js";
 import type { AppConfig } from "../config.js";
 
 export type PrepareError =
@@ -31,40 +32,39 @@ export interface AcquireRequestBody {
   purchaseIntent: unknown;
 }
 
-/**
- * Prepare a delivery (validate commitment + purchase intent, issue credential,
- * create idempotent order) WITHOUT settling. Called inside the x402-protected
- * handler; the credential is only released to the buyer if settlement succeeds.
- * Payment is verified by the middleware before this runs.
- */
-export function prepareDelivery(
-  repo: Repo,
-  config: AppConfig,
-  body: AcquireRequestBody,
-  ctx: {
-    nowSeconds: number;
-    verifiedPayer: string;
-    buyerPaymentId: string;
-    paymentAuthorizationDigest: string;
-    environment: "sample" | "production" | "testnet";
-  }
-): { ok: true; delivery: PreparedDelivery } | { ok: false; error: PrepareError } {
-  const licensee = normalizeAddress(body.licenseeWallet);
+export type Environment = "sample" | "production" | "testnet";
 
-  // Idempotent short-circuit: this payment already produced an order.
-  const byPayment = repo.getOrderByPaymentId(ctx.buyerPaymentId);
-  if (byPayment) {
-    const credential = repo.getLicenseByOrder(byPayment.orderId);
-    if (credential) {
-      return { ok: true, delivery: { orderId: byPayment.orderId, credential, assetId: credentialAssetId(repo, byPayment.orderId), buyerPaymentIdHint: ctx.buyerPaymentId } };
-    }
+interface ValidatedSignedAcquire {
+  licensee: string;
+  quote: QuoteRow;
+  offer: OfferRow["offer"];
+  intent: PurchaseIntent;
+}
+
+/**
+ * Pure validation of a signed-intent acquire body — NO side effects, NO payment
+ * required. Runs BEFORE the 402 challenge (review §9): an expired quote, a
+ * drifted commitment, or a bad intent signature is rejected before the buyer
+ * is ever asked to sign a payment authorization.
+ */
+export function validateSignedAcquire(
+  repo: Repo,
+  body: AcquireRequestBody,
+  nowSeconds: number
+): { ok: true; v: ValidatedSignedAcquire } | { ok: false; error: PrepareError } {
+  let licensee: string;
+  try {
+    licensee = normalizeAddress(body.licenseeWallet);
+  } catch {
+    return { ok: false, error: { code: "INTENT_INVALID", http: 400, detail: "licenseeWallet" } };
   }
 
   const quote = repo.getQuoteByCommitment(body.quoteCommitment, licensee, body.idempotencyKey);
   if (!quote) return { ok: false, error: { code: "QUOTE_NOT_FOUND", http: 404 } };
-  if (quote.expiresAt < ctx.nowSeconds) return { ok: false, error: { code: "QUOTE_EXPIRED", http: 409 } };
+  if (quote.expiresAt < nowSeconds) return { ok: false, error: { code: "QUOTE_EXPIRED", http: 409 } };
 
-  // Recompute the commitment from stored quote fields; drift ⇒ 409 (pre-settlement guaranteed by middleware order).
+  // Recompute the commitment (v2 — includes the settlement rail) from stored
+  // quote fields; drift ⇒ 409 before any 402 challenge is generated.
   const recomputed = quoteCommitment({
     offerDigest: quote.offerDigest,
     licenseeWallet: licensee,
@@ -72,6 +72,9 @@ export function prepareDelivery(
     priceMicro: quote.priceMicro,
     platformFeeMicro: quote.platformFeeMicro,
     creatorPayoutMicro: quote.creatorPayoutMicro,
+    settlementNetwork: quote.settlementNetwork,
+    paymentAsset: quote.paymentAsset,
+    payTo: quote.payTo,
     quoteExpiresAt: quote.expiresAt,
     idempotencyKey: quote.idempotencyKey
   });
@@ -88,11 +91,10 @@ export function prepareDelivery(
   const offer = offerRow.offer;
   const astHash = policyAstHash(offer.policy);
 
-  // The intent must reference exactly this quote/offer/policy/legal-text/price.
-  // Every buyer-visible field is checked verbatim — a signed intent showing a
-  // different price, expiry, or quote id than the stored quote is rejected even
-  // though the commitment already binds most of them (defense in depth against
-  // "the buyer signed a document that says something else").
+  // The intent must reference exactly this quote/offer/policy/legal-text/price
+  // AND the exact settlement rail (network, token, payTo, split). Every
+  // buyer-visible field is checked verbatim — defense in depth against "the
+  // buyer signed a document that says something else".
   const intentMismatch =
     intent.quoteCommitment !== body.quoteCommitment ||
     intent.quoteId !== quote.quoteId ||
@@ -104,6 +106,11 @@ export function prepareDelivery(
     intent.legalTextHash !== offer.legalTextHash ||
     parseUsdtToMicro(intent.totalPrice) !== quote.priceMicro ||
     intent.currency !== "USDT" ||
+    intent.settlementNetwork !== quote.settlementNetwork ||
+    normalizeAddress(intent.paymentAsset) !== quote.paymentAsset.toLowerCase() ||
+    normalizeAddress(intent.payTo) !== quote.payTo.toLowerCase() ||
+    intent.creatorPayoutMicro !== quote.creatorPayoutMicro ||
+    intent.platformFeeMicro !== quote.platformFeeMicro ||
     intent.expiresAt !== quote.expiresAt;
   if (intentMismatch) return { ok: false, error: { code: "INTENT_INVALID", http: 400, detail: "binding" } };
 
@@ -113,11 +120,46 @@ export function prepareDelivery(
     return { ok: false, error: { code: "INTENT_SIGNATURE_INVALID", http: 400 } };
   }
 
-  // verifiedPayer (from x402 settlement) must equal buyer == licensee (MVP: no third-party payment).
+  return { ok: true, v: { licensee, quote, offer, intent } };
+}
+
+/**
+ * Prepare a delivery (validate commitment + purchase intent, issue credential,
+ * create idempotent order) WITHOUT settling. Called inside the x402-protected
+ * handler; the credential is only released to the buyer if settlement succeeds.
+ * Payment is verified by the adapter before this runs.
+ */
+export function prepareDelivery(
+  repo: Repo,
+  config: AppConfig,
+  body: AcquireRequestBody,
+  ctx: {
+    nowSeconds: number;
+    verifiedPayer: string;
+    buyerPaymentId: string;
+    paymentAuthorizationDigest: string;
+    environment: Environment;
+  }
+): { ok: true; delivery: PreparedDelivery } | { ok: false; error: PrepareError } {
+  // Idempotent short-circuit: this payment already produced an order.
+  const byPayment = repo.getOrderByPaymentId(ctx.buyerPaymentId);
+  if (byPayment) {
+    const credential = repo.getLicenseByOrder(byPayment.orderId);
+    if (credential) {
+      return { ok: true, delivery: { orderId: byPayment.orderId, credential, assetId: credentialAssetId(repo, byPayment.orderId), buyerPaymentIdHint: ctx.buyerPaymentId } };
+    }
+  }
+
+  const validated = validateSignedAcquire(repo, body, ctx.nowSeconds);
+  if (!validated.ok) return validated;
+  const { licensee, quote, offer, intent } = validated.v;
+
+  // verifiedPayer (from x402) must equal buyer == licensee (MVP: no third-party payment).
   if (normalizeAddress(ctx.verifiedPayer) !== licensee) {
     return { ok: false, error: { code: "PAYER_MISMATCH", http: 400, detail: `payer ${ctx.verifiedPayer} != licensee ${licensee}` } };
   }
 
+  const { signature: _sig, ...unsignedIntent } = intent;
   const intentDigest = purchaseIntentDigestHex(unsignedIntent);
   const orderId = `ord-${canonicalHash({ commitment: body.quoteCommitment, licensee }, "L402:ORDERID:v1").slice(2, 18)}`;
 
@@ -139,7 +181,10 @@ export function prepareDelivery(
     credential = issueCredential({
       offer,
       use,
-      purchaseIntent: intent,
+      authorization: { mode: "eip712_purchase_intent", purchaseIntent: intent },
+      environment: ctx.environment,
+      settlementNetwork: quote.settlementNetwork,
+      paymentAsset: quote.paymentAsset,
       orderId: order.orderId,
       buyerPaymentId: ctx.buyerPaymentId,
       paymentAuthorizationDigest: ctx.paymentAuthorizationDigest,
@@ -156,13 +201,12 @@ export function prepareDelivery(
 
 /**
  * A2MCP DIRECT purchase (OKX.AI marketplace calls): one paid POST, no pre-flow.
- * The caller never ran /v1/quote or signed a PurchaseIntent — the x402 payment
- * signature (EIP-3009: payer, amount, payTo, validity window) IS the buyer's
- * authorization, and the facilitator-verified payer becomes the licensee.
- * Terms are pinned server-side at payment time; a synthesized intent record
- * (sentinel signature = 65 zero bytes, nonce derived from the payment
- * authorization digest) is stored so the proof bundle shows exactly how this
- * order was authorized. Each distinct payment creates its own order.
+ * The x402 payment signature (EIP-3009: payer, amount, payTo, validity window)
+ * IS the buyer's authorization; the facilitator-verified payer becomes the
+ * licensee. No PurchaseIntent exists and NONE IS FABRICATED — the stored
+ * record and the credential carry authorizationMode "x402_direct" plus a
+ * digest of the canonical authorization record. Each distinct payment creates
+ * its own order.
  */
 export function prepareDirectDelivery(
   repo: Repo,
@@ -176,6 +220,8 @@ export function prepareDirectDelivery(
     assetSha256: string;
     policyAstHash: string;
     price: string;
+    settlementNetwork: string;
+    paymentAsset: string;
     quoteExpiresAt: number;
   },
   use: unknown,
@@ -184,12 +230,12 @@ export function prepareDirectDelivery(
     verifiedPayer: string;
     buyerPaymentId: string;
     paymentAuthorizationDigest: string;
-    environment: "sample" | "production" | "testnet";
+    requestBodyHash: string;
+    environment: Environment;
   }
 ): { ok: true; delivery: PreparedDelivery } | { ok: false; error: PrepareError } {
   const licensee = normalizeAddress(ctx.verifiedPayer);
 
-  // Idempotent short-circuit: this payment already produced an order.
   const byPayment = repo.getOrderByPaymentId(ctx.buyerPaymentId);
   if (byPayment) {
     const credential = repo.getLicenseByOrder(byPayment.orderId);
@@ -202,25 +248,25 @@ export function prepareDirectDelivery(
   if (!offerRow) return { ok: false, error: { code: "QUOTE_NOT_FOUND", http: 404 } };
   const offer = offerRow.offer;
 
-  const unsignedIntent = {
+  const authorization: BuyerAuthorization = {
+    mode: "x402_direct",
+    payer: licensee,
+    requestBodyHash: ctx.requestBodyHash,
+    paymentAuthorizationDigest: ctx.paymentAuthorizationDigest,
     quoteId: sel.quoteId,
-    quoteCommitment: sel.quoteCommitment,
-    buyer: licensee,
-    licensee,
-    assetSha256: sel.assetSha256,
-    offerDigest: sel.offerDigest,
-    policyAstHash: sel.policyAstHash,
-    legalTextHash: offer.legalTextHash,
-    totalPrice: sel.price,
-    currency: "USDT" as const,
-    expiresAt: sel.quoteExpiresAt,
-    nonce: sha256Hex(`L402:DIRECT:${ctx.paymentAuthorizationDigest}`)
+    quoteCommitment: sel.quoteCommitment
   };
-  // Sentinel signature: authorization came from the x402 payment itself.
-  const intent = { ...unsignedIntent, signature: `0x${"0".repeat(130)}` } as PurchaseIntent;
-  const intentDigest = purchaseIntentDigestHex(unsignedIntent);
-  // Distinct payments create distinct orders (auth digest in the id), unlike the
-  // signed-intent flow where the quote commitment is the idempotency key.
+  const authDigest = canonicalHash(
+    {
+      mode: authorization.mode,
+      payer: licensee,
+      requestBodyHash: ctx.requestBodyHash,
+      paymentAuthorizationDigest: ctx.paymentAuthorizationDigest,
+      quoteId: sel.quoteId,
+      quoteCommitment: sel.quoteCommitment
+    },
+    "L402:BUYERAUTH:v1"
+  );
   const orderId = `ord-${canonicalHash({ commitment: sel.quoteCommitment, licensee, auth: ctx.paymentAuthorizationDigest }, "L402:ORDERID:v1").slice(2, 18)}`;
 
   const order = repo.createOrGetOrder({
@@ -228,8 +274,9 @@ export function prepareDirectDelivery(
     quoteId: sel.quoteId,
     quoteCommitment: sel.quoteCommitment,
     licenseeWallet: licensee,
-    purchaseIntent: intent,
-    purchaseIntentDigest: intentDigest,
+    // The honest record: what authorized this order (NOT a fake intent).
+    purchaseIntent: authorization as unknown as PurchaseIntent,
+    purchaseIntentDigest: authDigest,
     status: "PAYMENT_VERIFIED",
     environment: ctx.environment,
     nowSeconds: ctx.nowSeconds
@@ -241,7 +288,10 @@ export function prepareDirectDelivery(
     credential = issueCredential({
       offer,
       use: parsedUse,
-      purchaseIntent: intent,
+      authorization,
+      environment: ctx.environment,
+      settlementNetwork: sel.settlementNetwork,
+      paymentAsset: sel.paymentAsset,
       orderId: order.orderId,
       buyerPaymentId: ctx.buyerPaymentId,
       paymentAuthorizationDigest: ctx.paymentAuthorizationDigest,

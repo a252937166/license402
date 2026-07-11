@@ -137,7 +137,7 @@
     const v=$("#verdict"); v.style.display="block";
     const w=$("#vWord");
     w.textContent=eff.replace(/_/g," ");
-    w.className="w "+(eff==="PERMITTED"||eff==="PERMITTED_WITH_DUTIES"?"ok":(eff==="INDETERMINATE"?"hold":"no"));
+    w.className="w "+(eff==="PERMITTED"||eff==="PERMITTED_WITH_DUTIES"?"ok":(eff==="INDETERMINATE"||eff==="PERMITTED_TESTNET_ONLY"?"hold":"no"));
     $("#vReasons").textContent=(r.reasonCodes||[]).join(" · ")||"";
     $("#vStatus").textContent="credential status: "+(r.currentStatus||"—");
     const duties=r.duties||[];

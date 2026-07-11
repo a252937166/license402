@@ -1,3 +1,13 @@
+> **IMPLEMENTATION STATUS (2026-07-12).** This document is a historical design
+> plan. The SHIPPED system deliberately converged on a simpler, more trustworthy
+> core: the license scope is a **canonical PolicyV1 evaluated by a deterministic
+> TypeScript engine** (server + agent API), NOT an RVM bytecode / on-chain
+> interpreter — RVM-1 / RightsScopeOracle / "the chain runs the license" were cut
+> and are NOT claimed in the submission. X Layer carries what is real: x402
+> payments, settlements, and creator payouts. Accurate one-liner:
+> **"The credential carries a portable deterministic scope policy that any
+> downstream agent can evaluate."** See the repo root README for what runs.
+
 # RVM-1 — the Rights VM (reference: FUTURE compile target, demoted by spec v4)
 
 > ⚠️ **Status: demoted, not deleted (2026-07-11, sixth review).** Spec v4 §0 overrides this annex: the semantic source of truth is the **Canonical PolicyV1 AST**; the primary compiled form is the fixed-structure **License402 Policy Capsule**; a general bytecode VM becomes worthwhile only when the policy space outgrows one closed template. Superseded points: "the license is a program" wording (→ "carries a portable executable scope policy"); `compile(decompile(p))==p` invariant (→ AST round-trip + deterministic compile + differential eval); `evaluate(program, action, channel, at)` context (→ full `UseContextV1`); `RightsScopeOracle` name (→ `RightsPolicyEvaluator`, "on-chain reproducible policy computation"); "L402 Envelope" (→ License402 Capsule); byte-size claims (unmeasured numbers removed); RVM's place in M1/G1 (→ P3, after listing). The ISA below remains a useful reference for RVM-2 planning.

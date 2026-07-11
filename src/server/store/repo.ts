@@ -37,6 +37,9 @@ export interface QuoteRow {
   priceMicro: number;
   platformFeeMicro: number;
   creatorPayoutMicro: number;
+  settlementNetwork: string;
+  paymentAsset: string;
+  payTo: string;
   idempotencyKey: string;
   expiresAt: number;
 }
@@ -166,9 +169,11 @@ export class Repo {
     this.db
       .prepare(
         `INSERT INTO quotes (quote_id, quote_commitment, offer_id, offer_digest, licensee_wallet, use_spec_json,
-           use_spec_hash, price_micro, platform_fee_micro, creator_payout_micro, idempotency_key, expires_at, created_at)
+           use_spec_hash, price_micro, platform_fee_micro, creator_payout_micro,
+           settlement_network, payment_asset, pay_to, idempotency_key, expires_at, created_at)
          VALUES (@quoteId, @quoteCommitment, @offerId, @offerDigest, @licenseeWallet, @useSpecJson,
-           @useSpecHash, @priceMicro, @platformFeeMicro, @creatorPayoutMicro, @idempotencyKey, @expiresAt, @createdAt)
+           @useSpecHash, @priceMicro, @platformFeeMicro, @creatorPayoutMicro,
+           @settlementNetwork, @paymentAsset, @payTo, @idempotencyKey, @expiresAt, @createdAt)
          ON CONFLICT(quote_id) DO NOTHING`
       )
       .run({
@@ -182,6 +187,9 @@ export class Repo {
         priceMicro: row.priceMicro,
         platformFeeMicro: row.platformFeeMicro,
         creatorPayoutMicro: row.creatorPayoutMicro,
+        settlementNetwork: row.settlementNetwork,
+        paymentAsset: row.paymentAsset,
+        payTo: row.payTo,
         idempotencyKey: row.idempotencyKey,
         expiresAt: row.expiresAt,
         createdAt: nowSeconds
@@ -200,6 +208,9 @@ export class Repo {
       priceMicro: row.price_micro as number,
       platformFeeMicro: row.platform_fee_micro as number,
       creatorPayoutMicro: row.creator_payout_micro as number,
+      settlementNetwork: (row.settlement_network as string) ?? "eip155:196",
+      paymentAsset: (row.payment_asset as string) ?? "",
+      payTo: (row.pay_to as string) ?? "",
       idempotencyKey: row.idempotency_key as string,
       expiresAt: row.expires_at as number
     };
@@ -497,10 +508,10 @@ export class Repo {
   }
 
   /** Atomically reserve a claim (one per address, ever). Returns false if already claimed. */
-  reserveFaucetClaim(address: string, ip: string, amountMicro: number, nowSeconds: number): boolean {
+  reserveFaucetClaim(address: string, ip: string, amountMicro: number, network: string, nowSeconds: number): boolean {
     const result = this.db
-      .prepare(`INSERT INTO faucet_claims (address, ip, amount_micro, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(address) DO NOTHING`)
-      .run(address.toLowerCase(), ip, amountMicro, nowSeconds);
+      .prepare(`INSERT INTO faucet_claims (address, ip, amount_micro, network, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(address) DO NOTHING`)
+      .run(address.toLowerCase(), ip, amountMicro, network, nowSeconds);
     return Number(result.changes) === 1;
   }
 

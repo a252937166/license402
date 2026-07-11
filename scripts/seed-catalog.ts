@@ -100,7 +100,8 @@ for (const spec of SPECS) {
     policy,
     creatorNetPrice: "0.07",
     currency: "USDT",
-    rightsAttestationHash: sha256Hex(`rights-attestation:${spec.slug}`),
+    // Hash of the REAL attestation file bytes (catalog/attestations/<slug>.md)
+    rightsAttestationHash: sha256Hex(readFileSync(resolve(PROJECT_ROOT, `catalog/attestations/${spec.slug}.md`))),
     validFrom: spec.expired ? NOW - 60 * 86_400 : NOW - 30 * 86_400,
     validUntil: spec.expired ? NOW - 30 * 86_400 : NOW + YEAR,
     nonce: sha256Hex(`nonce:${spec.slug}`)

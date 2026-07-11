@@ -63,15 +63,26 @@ export interface QuoteResult {
     platformFee: string;
     creatorPayout: string;
     currency: "USDT";
+    settlementNetwork: string;
+    paymentAsset: string;
+    payTo: string;
     quoteCommitment: string;
     quoteExpiresAt: number;
     idempotencyKey: string;
   };
 }
 
+export interface QuoteRail {
+  settlementNetwork: string;
+  paymentAsset: string;
+  payTo: string;
+}
+
 export interface QuoteEngineOptions {
   nowSeconds: number;
   quoteTtlSeconds?: number;
+  /** Which settlement rail this quote binds to. Part of the commitment (v2). */
+  rail: QuoteRail;
   /**
    * Pin the quote to ONE exact offer (e.g. the buyer clicked a specific item in
    * the market). Hard gates still run; if that offer is ineligible the quote is
@@ -81,8 +92,8 @@ export interface QuoteEngineOptions {
 }
 
 /** Derive a deterministic quoteId/idempotencyKey from the request (stable within a TTL bucket). */
-function deriveQuoteId(offerDigest: string, licenseeWallet: string, useSpecDigest: string, ttlBucket: number): string {
-  return `quote-${canonicalHash({ offerDigest, licenseeWallet, useSpecDigest, ttlBucket }, "L402:QUOTEID:v1").slice(2, 18)}`;
+function deriveQuoteId(offerDigest: string, licenseeWallet: string, useSpecDigest: string, ttlBucket: number, network: string): string {
+  return `quote-${canonicalHash({ offerDigest, licenseeWallet, useSpecDigest, ttlBucket, network }, "L402:QUOTEID:v2").slice(2, 18)}`;
 }
 
 /**
@@ -144,7 +155,7 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
   // the stored quote out from under a buyer who is mid-payment. Expiry is the
   // bucket end + one full TTL, so a quote is always valid for at least one TTL.
   const quoteExpiresAt = (ttlBucket + 2) * ttl;
-  const quoteId = deriveQuoteId(offerDigest, licenseeWallet.toLowerCase(), specHash, ttlBucket);
+  const quoteId = deriveQuoteId(offerDigest, licenseeWallet.toLowerCase(), specHash, ttlBucket, opts.rail.settlementNetwork);
   const idempotencyKey = quoteId;
 
   // Honor the creator's SIGNED net price; the platform fee is the remainder of
@@ -161,6 +172,9 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
     priceMicro: SALE_PRICE_MICRO,
     platformFeeMicro,
     creatorPayoutMicro,
+    settlementNetwork: opts.rail.settlementNetwork,
+    paymentAsset: opts.rail.paymentAsset.toLowerCase(),
+    payTo: opts.rail.payTo.toLowerCase(),
     quoteExpiresAt,
     idempotencyKey
   });
@@ -192,6 +206,9 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
       platformFee: formatMicroUsdt(platformFeeMicro),
       creatorPayout: formatMicroUsdt(creatorPayoutMicro),
       currency: "USDT",
+      settlementNetwork: opts.rail.settlementNetwork,
+      paymentAsset: opts.rail.paymentAsset.toLowerCase(),
+      payTo: opts.rail.payTo.toLowerCase(),
       quoteCommitment: commitment,
       quoteExpiresAt,
       idempotencyKey

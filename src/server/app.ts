@@ -19,7 +19,7 @@ import { EIP712_TYPES } from "./license/eip712.js";
 import { EIP712_DOMAIN } from "./license/vocab.js";
 import { formatMicroUsdt, CREATOR_PAYOUT_MICRO, PLATFORM_FEE_MICRO, SALE_PRICE_MICRO } from "./license/money.js";
 import { UseSpecSchema } from "./license/types.js";
-import { onSettlementFailure, onSettlementSuccess, prepareDelivery, prepareDirectDelivery, SETTLED_STATES } from "./orders/prepare.js";
+import { onSettlementFailure, onSettlementSuccess, prepareDelivery, prepareDirectDelivery, validateSignedAcquire, SETTLED_STATES } from "./orders/prepare.js";
 import { runDemoAcquire } from "./orders/demo.js";
 import { buildSampleEnvelope } from "./orders/sample.js";
 import { DevPaymentAdapter } from "./payment/adapter.js";
@@ -41,17 +41,34 @@ export interface CreateAppOptions {
 
 const SIGNED_URL_TTL = 3 * 3600;
 
+/**
+ * Dedicated HMAC secrets (review §8): the wallet private key that moves real
+ * funds must NEVER be the URL-signing key. Live mode requires explicit secrets;
+ * dev/test fall back to fixed dev-only constants.
+ */
+function assetUrlSecret(config: AppConfig): string {
+  const s = process.env.ASSET_URL_HMAC_SECRET?.trim();
+  if (s) return s;
+  if (config.paymentMode === "live") throw new Error("ASSET_URL_HMAC_SECRET is required in live mode");
+  return "dev-asset-url-secret";
+}
+function deliveryTicketSecret(config: AppConfig): string {
+  const s = process.env.DELIVERY_TICKET_HMAC_SECRET?.trim();
+  if (s) return s;
+  if (config.paymentMode === "live") throw new Error("DELIVERY_TICKET_HMAC_SECRET is required in live mode");
+  return "dev-delivery-ticket-secret";
+}
 
 function signedAssetUrl(config: AppConfig, assetId: string, nowSeconds: number): string {
   const exp = nowSeconds + SIGNED_URL_TTL;
-  const sig = createHmac("sha256", config.servicePrivateKey).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
+  const sig = createHmac("sha256", assetUrlSecret(config)).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
   return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}?exp=${exp}&sig=${sig}`;
 }
 
 /** Same signature/expiry as the download URL, but serves the fast webp display rendition. */
 function signedDisplayUrl(config: AppConfig, assetId: string, nowSeconds: number): string {
   const exp = nowSeconds + SIGNED_URL_TTL;
-  const sig = createHmac("sha256", config.servicePrivateKey).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
+  const sig = createHmac("sha256", assetUrlSecret(config)).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
   return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}/display?exp=${exp}&sig=${sig}`;
 }
 
@@ -62,19 +79,28 @@ function signedDisplayUrl(config: AppConfig, assetId: string, nowSeconds: number
  */
 function signedDeliveryUrl(config: AppConfig, orderId: string, nowSeconds: number): string {
   const exp = nowSeconds + 24 * 3600;
-  const sig = createHmac("sha256", config.servicePrivateKey).update(`delivery.${orderId}.${exp}`).digest("hex").slice(0, 32);
+  const sig = createHmac("sha256", deliveryTicketSecret(config)).update(`delivery.${orderId}.${exp}`).digest("hex").slice(0, 32);
   return `${config.publicOrigin}/v1/orders/${encodeURIComponent(orderId)}/delivery?exp=${exp}&sig=${sig}`;
 }
 
 function verifyDeliverySig(config: AppConfig, orderId: string, exp: number, sig: string, nowSeconds: number): boolean {
   if (!Number.isFinite(exp) || exp < nowSeconds) return false;
-  const expected = createHmac("sha256", config.servicePrivateKey).update(`delivery.${orderId}.${exp}`).digest("hex").slice(0, 32);
+  const expected = createHmac("sha256", deliveryTicketSecret(config)).update(`delivery.${orderId}.${exp}`).digest("hex").slice(0, 32);
   return expected === sig;
+}
+
+/** Standard x402 receipt header for settlements confirmed via status polling. */
+function synthesizePaymentResponse(tx: string, network: string, payer: string): string | null {
+  try {
+    return Buffer.from(JSON.stringify({ success: true, status: "success", transaction: tx, network, payer })).toString("base64");
+  } catch {
+    return null;
+  }
 }
 
 function verifyAssetSig(config: AppConfig, assetId: string, exp: number, sig: string, nowSeconds: number): boolean {
   if (!Number.isFinite(exp) || exp < nowSeconds) return false;
-  const expected = createHmac("sha256", config.servicePrivateKey).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
+  const expected = createHmac("sha256", assetUrlSecret(config)).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
   return expected === sig;
 }
 
@@ -105,6 +131,15 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       payoutSenders.testnet = new LivePayoutSender(chainTest);
     }
   }
+
+  /** Resolve the settlement rail for a request ("testnet" opt-in, mainnet default). */
+  const railFor = (networkParam: unknown): { key: "mainnet" | "testnet"; profile: ReturnType<typeof mainnetProfile> } | null => {
+    if (networkParam === "testnet") {
+      if (!config.testnet) return null;
+      return { key: "testnet", profile: config.testnet };
+    }
+    return { key: "mainnet", profile: mainnetProfile(config) };
+  };
 
   let buildInfo: { commit?: string; builtAt?: string } = {};
   try {
@@ -165,7 +200,13 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     // Optional exact-offer pin (market → buy): hard gates still run; the engine
     // never substitutes a different asset for the one the buyer clicked.
     const requestedOfferId = typeof req.body?.requestedOfferId === "string" ? req.body.requestedOfferId : undefined;
-    const quote = buildQuote(catalogOffers(), parsedUse.data, licenseeWallet, { nowSeconds: now(), pinOfferId: requestedOfferId });
+    const railSel = railFor(req.body?.network);
+    if (!railSel) {
+      res.status(503).json({ error: "TESTNET_DISABLED" });
+      return;
+    }
+    const rail = { settlementNetwork: railSel.profile.network, paymentAsset: railSel.profile.asset, payTo: config.payToAddress };
+    const quote = buildQuote(catalogOffers(), parsedUse.data, licenseeWallet, { nowSeconds: now(), pinOfferId: requestedOfferId, rail });
     if (!quote.serviceable || !quote.selected) {
       res.status(200).json({
         serviceable: false,
@@ -189,6 +230,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         priceMicro: quote.selected.priceMicro,
         platformFeeMicro: quote.selected.platformFeeMicro,
         creatorPayoutMicro: quote.selected.creatorPayoutMicro,
+        settlementNetwork: quote.selected.settlementNetwork,
+        paymentAsset: quote.selected.paymentAsset,
+        payTo: quote.selected.payTo,
         idempotencyKey: quote.selected.idempotencyKey,
         expiresAt: quote.selected.quoteExpiresAt
       },
@@ -198,6 +242,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.status(200).json({
       serviceable: true,
       template: "social-commercial-v1",
+      settlementNetwork: quote.selected.settlementNetwork,
+      paymentAsset: quote.selected.paymentAsset,
+      payTo: quote.selected.payTo,
       quoteId: quote.selected.quoteId,
       asset: {
         assetId: quote.selected.assetId,
@@ -234,6 +281,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         legalTextHash: legalTextHash(),
         totalPrice: quote.selected.price,
         currency: "USDT",
+        settlementNetwork: quote.selected.settlementNetwork,
+        paymentAsset: quote.selected.paymentAsset,
+        payTo: quote.selected.payTo,
+        creatorPayoutMicro: quote.selected.creatorPayoutMicro,
+        platformFeeMicro: quote.selected.platformFeeMicro,
         // The buyer's signed intent must carry EXACTLY this expiry — it is part
         // of the quote's committed terms and is verified verbatim at acquire.
         expiresAt: quote.selected.quoteExpiresAt
@@ -264,20 +316,50 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     const rail = wantTestnet ? paymentTestnet! : payment;
     const environment: "sample" | "production" | "testnet" = wantTestnet ? "testnet" : rail.mode === "live" ? "production" : "sample";
 
-    const verified = await rail.verify(req);
-    if (!verified) {
-      const challenge = await rail.challenge(`${config.publicOrigin}/v1/acquire/social-commercial`);
-      for (const [k, v] of Object.entries(challenge.headers)) res.setHeader(k, v);
-      res.status(challenge.status).json(challenge.body);
-      return;
-    }
-
     // Two authorization modes share this endpoint:
     //  - SIGNED-INTENT (the site / integrators): body carries quoteCommitment +
     //    an EIP-712 PurchaseIntent — the strong two-signature binding.
     //  - DIRECT (OKX.AI A2MCP marketplace agents): one paid POST, no pre-flow.
     //    The x402 payment signature is the authorization; payer == licensee.
-    const isDirect = !req.body?.quoteCommitment || !req.body?.purchaseIntent;
+    // Half-present signed fields are an ERROR, never a silent fallback to
+    // direct mode (review §4) — a dropped field must not re-select the asset.
+    const hasCommitment = Boolean(req.body?.quoteCommitment);
+    const hasIntent = Boolean(req.body?.purchaseIntent);
+    if (hasCommitment !== hasIntent) {
+      res.status(400).json({
+        error: "INCOMPLETE_SIGNED_INTENT",
+        detail: "quoteCommitment and purchaseIntent must be sent together (signed-intent mode) or both omitted (direct mode)"
+      });
+      return;
+    }
+    const isDirect = !hasCommitment;
+
+    const verified = await rail.verify(req);
+    if (!verified) {
+      // Business preflight BEFORE the 402 challenge (review §9): a buyer is
+      // never asked to sign a payment for terms that would be rejected anyway.
+      if (!isDirect) {
+        const pre = validateSignedAcquire(
+          repo,
+          {
+            use: req.body?.use,
+            licenseeWallet: req.body?.licenseeWallet,
+            quoteCommitment: req.body?.quoteCommitment,
+            idempotencyKey: req.body?.idempotencyKey,
+            purchaseIntent: req.body?.purchaseIntent
+          },
+          now()
+        );
+        if (!pre.ok) {
+          res.status(pre.error.http).json({ error: pre.error.code, ...("detail" in pre.error ? { detail: pre.error.detail } : {}) });
+          return;
+        }
+      }
+      const challenge = await rail.challenge(`${config.publicOrigin}/v1/acquire/social-commercial`);
+      for (const [k, v] of Object.entries(challenge.headers)) res.setHeader(k, v);
+      res.status(challenge.status).json(challenge.body);
+      return;
+    }
     let prepared: ReturnType<typeof prepareDelivery>;
     if (isDirect) {
       // The marketplace caller may state the licensee — it must be the payer.
@@ -305,7 +387,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
             transformations: ["crop", "overlay_text"],
             maxBudget: "0.10"
           });
-      const q = buildQuote(catalogOffers(), use, verified.verifiedPayer, { nowSeconds: now() });
+      const railProfile = wantTestnet ? config.testnet! : mainnetProfile(config);
+      const q = buildQuote(catalogOffers(), use, verified.verifiedPayer, {
+        nowSeconds: now(),
+        rail: { settlementNetwork: railProfile.network, paymentAsset: railProfile.asset, payTo: config.payToAddress }
+      });
       if (!q.serviceable || !q.selected) {
         // Payment was VERIFIED but never settled — no funds moved; safe to refuse.
         res.status(409).json({ error: "NOT_SERVICEABLE", reasons: q.reasons ?? [], rejectedCandidates: q.rejectedCandidates });
@@ -323,6 +409,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
           priceMicro: q.selected.priceMicro,
           platformFeeMicro: q.selected.platformFeeMicro,
           creatorPayoutMicro: q.selected.creatorPayoutMicro,
+          settlementNetwork: q.selected.settlementNetwork,
+          paymentAsset: q.selected.paymentAsset,
+          payTo: q.selected.payTo,
           idempotencyKey: q.selected.idempotencyKey,
           expiresAt: q.selected.quoteExpiresAt
         },
@@ -333,6 +422,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         verifiedPayer: verified.verifiedPayer,
         buyerPaymentId: verified.buyerPaymentId,
         paymentAuthorizationDigest: verified.paymentAuthorizationDigest,
+        requestBodyHash: sha256Hex(JSON.stringify(req.body ?? {})),
         environment
       });
     } else {
@@ -421,6 +511,48 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       });
       return;
     }
+    // Direct A2MCP callers are plain x402 agents that expect a terminal answer
+    // in ONE request — poll the settle status for up to ~24s before giving up
+    // and falling back to the 202 + delivery-ticket flow (browsers handle that).
+    if (isDirect && (outcome.status === "pending" || outcome.status === "timeout") && outcome.tx && rail.settleStatus) {
+      for (let i = 0; i < 6; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        try {
+          const st = await rail.settleStatus(outcome.tx);
+          if (st.status === "success") {
+            onSettlementSuccess(repo, prepared.delivery.orderId, outcome.tx, { nowSeconds: now() });
+            await runPayoutWorker(repo, config, now, payoutSenders).catch(() => {});
+            const header = synthesizePaymentResponse(outcome.tx, wantTestnet ? config.testnet!.network : config.network, verified.verifiedPayer);
+            if (header) {
+              repo.setPaymentResponseHeader(prepared.delivery.orderId, header, now());
+              res.setHeader("PAYMENT-RESPONSE", header);
+            }
+            res.status(200).json({
+              orderId: prepared.delivery.orderId,
+              license: prepared.delivery.credential,
+              asset: {
+                assetId: prepared.delivery.assetId,
+                url: signedAssetUrl(config, prepared.delivery.assetId, now()),
+                displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
+                sha256: prepared.delivery.credential.assetSha256,
+                mimeType: "image/png"
+              },
+              settlement: { status: "SETTLED", buyerTx: outcome.tx },
+              statusUrl: prepared.delivery.credential.statusUrl
+            });
+            return;
+          }
+          if (st.status === "failed") {
+            onSettlementFailure(repo, prepared.delivery.orderId, st.detail ?? "settlement failed", { nowSeconds: now() });
+            res.status(402).json({ error: "SETTLEMENT_FAILED", detail: st.detail ?? "settlement failed" });
+            return;
+          }
+        } catch {
+          // transient poll error — keep waiting
+        }
+      }
+    }
+
     if (outcome.status === "pending") {
       // Persist the broadcast tx so the reconciler can poll it to a terminal state.
       repo.markSettlementPending(prepared.delivery.orderId, outcome.tx, "SETTLEMENT_PENDING", null, now());
@@ -478,15 +610,22 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     // reading a single field can't act on a PERMITTED scope over a REVOKED
     // credential. Unknown-to-issuer fails closed as INDETERMINATE.
     const scopeOk = result.decision === "PERMITTED" || result.decision === "PERMITTED_WITH_DUTIES";
+    // A TESTNET credential is real protocol execution over test-value money —
+    // it must NEVER read as a production permission (review §2). The credential
+    // itself carries credentialEnvironment, so this works fully offline too.
+    const credEnv = (req.body?.license as { credentialEnvironment?: string })?.credentialEnvironment;
+    if (credEnv === "testnet" && currentStatus === "ACTIVE") currentStatus = "TESTNET_ACTIVE";
     const statusOk = currentStatus === "ACTIVE" || currentStatus === "SAMPLE";
     const effectiveDecision =
-      scopeOk && statusOk
-        ? result.decision
-        : result.decision === "INVALID_CREDENTIAL"
-          ? "INVALID_CREDENTIAL"
-          : scopeOk && currentStatus === "UNKNOWN_TO_ISSUER"
-            ? "INDETERMINATE"
-            : "NOT_PERMITTED";
+      scopeOk && currentStatus === "TESTNET_ACTIVE"
+        ? "PERMITTED_TESTNET_ONLY"
+        : scopeOk && statusOk
+          ? result.decision
+          : result.decision === "INVALID_CREDENTIAL"
+            ? "INVALID_CREDENTIAL"
+            : scopeOk && currentStatus === "UNKNOWN_TO_ISSUER"
+              ? "INDETERMINATE"
+              : "NOT_PERMITTED";
 
     res.status(200).json({
       decision: result.decision,
@@ -522,6 +661,15 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     if (!credential) return void res.status(404).json({ error: "LICENSE_NOT_FOUND" });
     const offer = repo.listActiveOffers().find((o) => o.assetSha256 === credential.assetSha256);
     const assetId = offer?.assetId ?? "";
+    // The standard receipt accompanies delayed deliveries too (review §6). If the
+    // reconciler activated this order, synthesize + persist the header once.
+    let receipt = order.paymentResponseHeader;
+    if (!receipt && order.buyerSettleTx) {
+      const net = order.environment === "testnet" && config.testnet ? config.testnet.network : config.network;
+      receipt = synthesizePaymentResponse(order.buyerSettleTx, net, order.licenseeWallet);
+      if (receipt) repo.setPaymentResponseHeader(orderId, receipt, now());
+    }
+    if (receipt) res.setHeader("PAYMENT-RESPONSE", receipt);
     res.status(200).json({
       orderId,
       license: credential,
@@ -588,7 +736,15 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     const payout = repo.getPayout(order.orderId);
     res.status(200).json({
       generatedFor: order.orderId,
-      environment: config.paymentMode === "live" ? "production" : "sample",
+      environment: order.environment,
+      authorization:
+        (order.purchaseIntent as { mode?: string })?.mode === "x402_direct"
+          ? {
+              mode: "x402_direct",
+              note: "Authorized by the x402 EIP-3009 payment signature — no separate PurchaseIntent signature exists for direct purchases.",
+              record: order.purchaseIntent
+            }
+          : { mode: "eip712_purchase_intent", note: "Buyer-signed EIP-712 PurchaseIntent (recover the signer to verify)." },
       creatorOffer: offerRow?.offer ?? null,
       quote: quote
         ? { quoteId: quote.quoteId, quoteCommitment: quote.quoteCommitment, offerDigest: quote.offerDigest, useSpec: quote.useSpec, priceMicro: quote.priceMicro, platformFeeMicro: quote.platformFeeMicro, creatorPayoutMicro: quote.creatorPayoutMicro, expiresAt: quote.expiresAt }
@@ -706,7 +862,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return;
     }
     const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
-    if (!repo.reserveFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, now())) {
+    if (!repo.reserveFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, "testnet", now())) {
       res.status(200).json({ ok: true, alreadyClaimed: true, network: "testnet" });
       return;
     }
@@ -887,7 +1043,8 @@ function ledgerJson(db: AppDatabase): unknown {
     .prepare(
       `SELECT o.order_id, o.status, o.buyer_settle_tx, o.environment, o.created_at,
               CASE WHEN f.address IS NOT NULL THEN 1 ELSE 0 END AS sponsored
-         FROM orders o LEFT JOIN faucet_claims f ON f.address = o.licensee_wallet
+         FROM orders o LEFT JOIN faucet_claims f
+           ON f.address = o.licensee_wallet AND f.network = 'mainnet' AND o.environment = 'production'
          ORDER BY o.created_at DESC LIMIT 100`
     )
     .all();
@@ -911,7 +1068,8 @@ function ledgerJson(db: AppDatabase): unknown {
   // Qualified = production AND the buyer never drew faucet funds (self-funded).
   const qualified = db
     .prepare(
-      `SELECT COUNT(*) AS n FROM orders o LEFT JOIN faucet_claims f ON f.address = o.licensee_wallet
+      `SELECT COUNT(*) AS n FROM orders o
+         LEFT JOIN faucet_claims f ON f.address = o.licensee_wallet AND f.network = 'mainnet'
          WHERE o.environment = 'production' AND f.address IS NULL
            AND o.status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','CREATOR_PAID')`
     )

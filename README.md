@@ -1,78 +1,137 @@
-# LICENSE402
+# LICENSE402 — a file is not permission
 
-**Acquire the asset. Verify the scope. Audit the payment.**
+[![CI](https://github.com/a252937166/license402/actions/workflows/ci.yml/badge.svg)](https://github.com/a252937166/license402/actions/workflows/ci.yml)
 
-An agent-native service for acquiring content with signed, machine-checkable usage terms — built for the OKX.AI Genesis Hackathon. An AI agent (or a person) states an intended use, receives a rights-matched asset with a fixed price locked *before* payment, pays 0.10 USDT over x402 on X Layer, and gets back the asset plus a verifiable **License Credential**. Any downstream agent can then check "may I use this, this way?" and get a deterministic `PERMITTED` / `NOT_PERMITTED` / `INVALID` verdict — offline.
+An agent can download an image. **Using** it is a different question. LICENSE402 is an
+agent-native content-licensing service (an OKX.AI ASP): an agent buys a license for an
+original artwork, pays **0.10 USDT over x402 on X Layer**, and receives the asset plus a
+**signed, machine-checkable usage scope**. Any downstream agent can then ask, deterministically:
+*may I use this, this way?* → `PERMITTED / PERMITTED_WITH_DUTIES / NOT_PERMITTED /
+INVALID_CREDENTIAL / INDETERMINATE` (+ `PERMITTED_TESTNET_ONLY` for test credentials).
 
-Live: **https://license402.axiqo.xyz**
+- **Live site:** https://license402.axiqo.xyz (check `/version.json` and the
+  `X-License402-Build` header — every response carries the serving commit)
+- **OKX.AI listing:** ASP **#5089 "LICENSE402"**, service "Commercial image license"
+  (A2MCP, 0.1 USDT/call) — endpoint `POST /v1/acquire/social-commercial`
+- **Pages:** [`/market`](https://license402.axiqo.xyz/market) (signed catalog) ·
+  [`/buy`](https://license402.axiqo.xyz/buy) (wallet checkout, mainnet + free testnet) ·
+  [`/verify`](https://license402.axiqo.xyz/verify) (paste any credential → verdict)
 
-> LICENSE402 records signed rights declarations, payments, and machine-checkable scope. It does not adjudicate copyright ownership or infringement, and it is not DRM.
+## Three-minute judge flow
 
-## What makes it more than a paywall
+1. **No wallet:** open the home page — the *Interactive signed sample* is a real
+   creator-offer + buyer-intent + issuer credential (nothing written, no funds moved).
+   Click the hero buttons: publish → permitted, train → not permitted, tamper → invalid.
+2. **Zero cost, full loop:** `/buy` → select **Testnet** → connect OKX Wallet/MetaMask →
+   claim free test USDT → two signatures → REAL x402 settlement + REAL creator payout on
+   X Layer testnet, with OKLink links.
+3. **Real money:** `/buy` → **Mainnet** → fund your wallet with 0.10 USDT (X Layer) →
+   the identical flow settles a production license. (There is deliberately **no mainnet
+   faucet** — production purchases are self-funded, so qualified revenue stays honest.)
+4. **As an agent:** hire ASP #5089 on OKX.AI, or POST the endpoint yourself (below).
 
-Real content licensing is not one signature. LICENSE402 binds five things into one agent-native transaction:
+## Experience truth matrix
 
-1. **Signed creator offer** — the creator signs an immutable `CreatorOffer` (EIP-712): asset hash, payout wallet, legal-text hash, and a policy.
-2. **Payment-bound purchase intent** — the buyer signs an EIP-712 `PurchaseIntent` that names the exact asset, terms, and price. x402 proves *that* money moved; the intent proves *what it bought*. (EIP-3009 transfer authorizations carry no business binding — this closes that gap.)
-3. **x402 settlement on X Layer** — `syncSettle: true`, and a license is only activated when settlement status is `success`. Pending/timeout go to a reconciler, never a premature unlock.
-4. **Portable executable scope policy** — the terms are a projection of a versioned legal text; the legal text prevails on conflict.
-5. **Auditable credential** — a three-signature document (creator / buyer / issuer) with the payment record. Verifiable offline.
+| Mode | Signatures | Settlement | Credential | Counts as revenue |
+|---|---|---|---|---|
+| Signed sample | real | none | `credentialEnvironment: "sample"` | no |
+| Testnet loop | real | real (eip155:1952, test USDT) | `"testnet"` → verdicts read `PERMITTED_TESTNET_ONLY` | no |
+| Mainnet live | real | real (eip155:196, USDT) | `"production"` | yes (qualified) |
+| OKX.AI direct | x402 payment sig | real (USDT) | `"production"`, `authorizationMode: "x402_direct"` | yes (qualified) |
 
-The scope engine is deterministic — an LLM may draft a use request, but it has **no** authority over the verdict.
+Sponsored orders (buyer drew mainnet faucet funds — historical only) are labeled and
+**excluded** from qualified revenue.
 
-## The verdict states
+## The transaction, end to end
 
-| Verdict | Meaning |
-|---|---|
-| `PERMITTED` / `PERMITTED_WITH_DUTIES` | the use is inside the license scope (duties like attribution are surfaced) |
-| `NOT_PERMITTED` | the license does not grant this use — with a precise reason code |
-| `INVALID_CREDENTIAL` | the credential itself does not verify |
-| `INDETERMINATE` | missing context / current status unknown — fails closed |
+```
+POST /v1/quote {use, licenseeWallet, network?}     one exact asset+price+scope, pinned in a
+                                                   commitment that includes the settlement rail
+buyer signs PurchaseIntent (EIP-712)               binds asset, policy, legal text, price,
+                                                   network, token, payTo, and the exact split
+POST /v1/acquire/social-commercial                 → 402 + standard PAYMENT-REQUIRED header
+retry with PAYMENT-SIGNATURE                       official x402 client, EIP-3009, zero buyer gas
+                                                   → 200 + license + asset + PAYMENT-RESPONSE
+GET  /v1/orders/:id                                settlement truth; creator payout tx when PAID
+POST /v1/check-license-scope                       deterministic verdict + per-term evidence
+GET  /v1/orders/:id/bundle                         proof bundle (all signatures, re-verifiable)
+```
 
-The grant narrows the offer: buy a license for channel X and a LinkedIn post is `NOT_PERMITTED` (`CHANNEL_NOT_LICENSED`), even though the underlying offer allowed LinkedIn.
+**Two authorization modes**, both recorded in the credential (`authorizationMode`):
 
-## API
+- `eip712_purchase_intent` — the web/integrator flow above (two signatures).
+- `x402_direct` — OKX.AI marketplace agents send **one paid POST** (optionally with
+  `{brief}`); the EIP-3009 payment signature *is* the authorization, the verified payer
+  becomes the licensee, and no PurchaseIntent is fabricated — the credential carries a
+  digest of the canonical authorization record instead.
 
-| Endpoint | Price | Purpose |
-|---|---|---|
-| `POST /v1/quote` | free | rights-match the catalog, lock exact terms + price, return the purchase-intent fields to sign |
-| `POST /v1/acquire/social-commercial` | 0.10 USDT (x402) | pay → issue credential + deliver a short-lived signed asset URL |
-| `POST /v1/check-license-scope` | free | deterministic scope verdict for a credential + proposed use |
-| `GET /v1/orders/:orderId` | free | terminal settlement truth — buyer tx, creator payout, economics |
-| `POST /v1/demo/acquire` | free (DEV mode) | wallet-free judge experience: the server signs a demo buyer intent and runs the real logic with a simulated payment |
+Sending `quoteCommitment` without `purchaseIntent` (or vice versa) is a
+`400 INCOMPLETE_SIGNED_INTENT`, never a silent fallback.
 
-`GET /` serves the **Proof Studio** — a clearance console where you acquire a license, get a passport, and stamp scope checks live.
-
-## Run locally
+## Verify it yourself (no wallet needed)
 
 ```bash
-npm install
-cp .env.example .env.local      # fill in keys; PAYMENT_MODE=off for the wallet-free demo
-python3 scripts/gen_catalog.py  # generate the first-party art catalog
-npx tsx scripts/seed-catalog.ts # sign the CreatorOffers
-npm run dev                     # http://127.0.0.1:8799
-npm run check                   # typecheck + tests + build
+CRED=$(curl -s https://license402.axiqo.xyz/v1/samples/default | jq .credential)
+curl -s https://license402.axiqo.xyz/v1/check-license-scope \
+  -H 'content-type: application/json' \
+  -d "{\"license\": $CRED, \"action\": \"model_training\", \"licensee\": $(echo $CRED | jq .licenseeWallet)}"
+# → "effectiveDecision": "NOT_PERMITTED", reason MODEL_TRAINING_PROHIBITED
 ```
 
-`node:sqlite` (built into Node 22) is the datastore — **zero native dependencies**, so it deploys on any Node 22+ host.
+## Evidence (real transactions)
 
-## Layout
+| What | Tx |
+|---|---|
+| Facilitator interop self-test (mainnet, 0.10 self-transfer) | `0xd8cecdcc…34ca8` |
+| First production purchase (signed-intent, mainnet) | buyer `0x36c19b15…ccea` · payout `0x66d8754d…f199` |
+| External buyer purchase (mainnet) | buyer `0x98ab4a03…9173` · payout `0xd7f95342…e8b8` |
+| Testnet full loop (signed-intent) | buyer `0xa5eb8a69…684c` (eip155:1952) |
+| Testnet A2MCP direct purchase | order `ord-b9b65667fb3e77be`, delivered via ticket |
 
+See `docs/evidence/` and the public **Receipts** tabs (Production / Testnet / Samples).
+
+## Architecture
+
+- `src/server/license/` — deterministic core: zod types, explicit EIP-712
+  (differential-tested against viem), PolicyV1 evaluator (5-state), 14 quote hard gates
+  with Merkle evidence, commitments (offer digest / quote commitment v2 incl. rail),
+  issuer credential (authorization union).
+- `src/server/orders/` — `prepare` (preflight-before-402, signed + direct modes,
+  transactional settlement activation), read-only `sample`, dev `demo`.
+- `src/server/payment/` — official x402 v2 codecs, verify-before-prepare (payer
+  binding), settle with `syncSettle`, reconciler for pending/timeout.
+- `src/server/payout/` — creator payouts: nonce reserved *before* broadcast,
+  fixed-nonce retries, receipt-confirmed `PAID`, expired-lease recovery; serialized
+  per-chain nonce queue shared with the testnet faucet.
+- `src/web/x402-pay.ts` — the browser bundle **is the official x402 client**
+  (`x402Client` + `registerExactEvmScheme`, both rails) with a wallet adapter and a
+  business preflight that refuses to sign if the challenge differs from displayed terms.
+- `catalog/` — assets (sha-256-signed deliverables), previews/display/sample webp
+  renditions, **real rights attestations** (`catalog/attestations/*.md`, hashed into
+  each signed offer).
+
+The credential carries a **portable deterministic scope policy** that any downstream
+agent can evaluate — payments settle on X Layer; scope verdicts are deterministic
+engine calls (no LLM authority, no on-chain evaluator claimed).
+
+## Run it
+
+```bash
+npm ci
+python3 scripts/make_media.py     # webp renditions from catalog/assets/*.png
+npx tsx scripts/seed-catalog.ts   # sign the catalog (needs DEMO_CREATOR_PRIVATE_KEY)
+npm run dev                       # PAYMENT_MODE=off — full flow with simulated settlement
+npm run check                     # typecheck + 65 tests + build (CI also verifies the
+                                  # browser bundle has no drift and catalog integrity)
 ```
-src/server/
-  license/   deterministic core: EIP-712, policy engine, eligibility gates,
-             commitments, three-signature credential, scope check, quote
-  orders/    settlement state machine (only status="success" activates)
-  payment/   dev + live x402 adapters
-  payout/    creator payout worker (lease + nonce + intent-persist, no double-pay)
-  store/     node:sqlite (WAL) with anti-duplication constraints
-  catalog/   signed first-party offer registry loader
-public/      Proof Studio (self-contained, self-hosted fonts)
-scripts/     catalog art generation (Python + Pillow) and offer signing
-tests/       59 tests: EIP-712 (differential vs viem), policy, eligibility,
-             credential, commitments, sqlite invariants, HTTP end-to-end
-```
 
-## Honesty
+See `.env.example` for configuration. Live mode additionally requires the OKX
+facilitator credentials, `X402_ASSET`, and dedicated HMAC secrets (never the wallet key).
 
-Settled figures show only after a creator payout is `PAID` — otherwise `payable / PENDING`. Demo/dev transactions are labeled and excluded from real-revenue claims. The catalog is a first-party signed set of original generative art. Machine-readable licensing is not new (W3C ODRL, Story PIL, TollBit) — LICENSE402's contribution is combining signed offers, payment-bound intent, x402 settlement, a portable scope policy, and an auditable credential in one agent-native transaction on OKX.AI.
+## Honest limitations
+
+- First-party catalog (7 assets); external creators are a pilot goal, not yet onboarded.
+- Scope evaluation is server/local-deterministic, not an on-chain interpreter.
+- `buyer == licensee` (no third-party gifting) in this MVP.
+- The credential records a *contractual permission* from the controlling party — it does
+  not adjudicate copyright subsistence in AI-assisted work, and it is not DRM.

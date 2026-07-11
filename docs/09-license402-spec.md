@@ -1,3 +1,13 @@
+> **IMPLEMENTATION STATUS (2026-07-12).** This document is a historical design
+> plan. The SHIPPED system deliberately converged on a simpler, more trustworthy
+> core: the license scope is a **canonical PolicyV1 evaluated by a deterministic
+> TypeScript engine** (server + agent API), NOT an RVM bytecode / on-chain
+> interpreter — RVM-1 / RightsScopeOracle / "the chain runs the license" were cut
+> and are NOT claimed in the submission. X Layer carries what is real: x402
+> payments, settlements, and creator payouts. Accurate one-liner:
+> **"The credential carries a portable deterministic scope policy that any
+> downstream agent can evaluate."** See the repo root README for what runs.
+
 # LICENSE402 — frozen specification v4
 
 > Status: **FROZEN v4** for the OKX.AI Genesis Hackathon build. §0 below is **normative and overrides** any conflicting statement in the v2/v3 body or in `10-rights-vm.md` (now demoted to a future-compile-target reference). Changes after implementation starts must be recorded in the changelog.

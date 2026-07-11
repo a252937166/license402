@@ -9,7 +9,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://license402.axiqo.xyz/" />
 <meta property="og:title" content="LICENSE402 — A file is not permission" />
-<meta property="og:description" content="Acquire content with a signed usage scope. Publish to X → permitted. Train a model → not permitted. Every verdict is a deterministic, auditable call on X Layer." />
+<meta property="og:description" content="Acquire content with a signed usage scope. Publish to X → permitted. Train a model → not permitted. Payments settle on X Layer; every scope verdict is deterministic and auditable." />
 <meta property="og:image" content="https://license402.axiqo.xyz/v1/previews/asset-cyber-dragon" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="LICENSE402 — A file is not permission" />
@@ -386,10 +386,17 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
             Try the signed sample
           </a>
-          <a class="btn btn-ghost" id="ctaBuy" href="/buy">Buy live with your wallet · 0.10 USDT</a>
+          <a class="btn btn-ghost" id="ctaBuy" href="/buy">Run the full loop · mainnet 0.10 / testnet FREE</a>
           <a class="btn btn-ghost" id="ctaOkx" href="#" style="display:none" target="_blank" rel="noopener">Hire on OKX.AI ↗</a>
         </div>
-        <div class="cta-note" id="ctaNote">Free sample — no wallet, no funds moved. The live purchase settles for real on X Layer: two signatures, zero gas.</div>
+        <div class="cta-note" id="ctaNote">Free sample — no wallet, no funds moved. The wallet flow settles for REAL: mainnet 0.10 USDT self-funded, or the identical loop FREE on X Layer testnet (we fund your wallet). Two signatures, zero gas.</div>
+        <div style="margin-top:14px;overflow-x:auto"><table style="border-collapse:collapse;font-family:var(--mono);font-size:10.5px;color:var(--fog)">
+          <tr style="color:var(--fog-2);letter-spacing:.08em"><td style="padding:3px 14px 3px 0">MODE</td><td style="padding:3px 14px">SIGNATURES</td><td style="padding:3px 14px">SETTLEMENT</td><td style="padding:3px 14px">CREDENTIAL</td><td style="padding:3px 0">REVENUE</td></tr>
+          <tr><td style="padding:3px 14px 3px 0;color:var(--text)">Signed sample</td><td style="padding:3px 14px">real</td><td style="padding:3px 14px">none</td><td style="padding:3px 14px">SAMPLE-marked</td><td style="padding:3px 0">no</td></tr>
+          <tr><td style="padding:3px 14px 3px 0;color:var(--text)">Testnet loop</td><td style="padding:3px 14px">real</td><td style="padding:3px 14px">real · testnet</td><td style="padding:3px 14px">TESTNET-marked</td><td style="padding:3px 0">no</td></tr>
+          <tr><td style="padding:3px 14px 3px 0;color:var(--text)">Mainnet live</td><td style="padding:3px 14px">real</td><td style="padding:3px 14px">real · USDT</td><td style="padding:3px 14px">PRODUCTION</td><td style="padding:3px 0">yes</td></tr>
+          <tr><td style="padding:3px 14px 3px 0;color:var(--text)">OKX.AI direct</td><td style="padding:3px 14px">x402</td><td style="padding:3px 14px">real · USDT</td><td style="padding:3px 14px">PRODUCTION</td><td style="padding:3px 0">yes</td></tr>
+        </table></div>
       </div>
       <div class="specimen">
         <div class="specimen-label"><span>Interactive signed sample</span><span class="sample-note">no funds moved</span></div>
@@ -597,9 +604,10 @@
     </div>
     <div class="ledger-tabs">
       <button class="lt on" data-tab="production">Production</button>
-      <button class="lt" data-tab="demo">Demo</button>
+      <button class="lt" data-tab="testnet">Testnet</button>
+      <button class="lt" data-tab="sample">Samples</button>
     </div>
-    <div class="banner" id="demoBanner" style="display:none">Demo receipts — settlements are simulated, no funds moved. Production orders appear once the ASP is live and paid on X Layer.</div>
+    <div class="banner" id="demoBanner" style="display:none"></div>
     <div class="stats" id="stats"></div>
     <table class="ledger-table">
       <thead><tr><th>Order</th><th>Status</th><th>Buyer payment</th><th>Creator payout</th><th>Economics</th></tr></thead>
@@ -778,17 +786,23 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   // the deployment to live can never re-label historical simulated orders.
   let ledgerTab="production", lastLedger=null;
   function renderLedger(){
-    const L=lastLedger||{orders:[],activeLicenses:0,distinctBuyers:0,creatorPayoutsPaid:0,production:{licenses:0,distinctBuyers:0,creatorsPaid:0}};
+    const L=lastLedger||{orders:[],activeLicenses:0,distinctBuyers:0,creatorPayoutsPaid:0,production:{licenses:0,distinctBuyers:0,creatorsPaid:0,qualified:0,sponsored:0}};
     const settledStates=["LICENSE_ACTIVE","CREATOR_PAYOUT_PENDING","CREATOR_PAID","PAYOUT_RETRYING"];
     const settled=(L.orders||[]).filter(o=>settledStates.includes(o.status));
-    const prodRows=settled.filter(o=>o.environment==="production");
-    const demoRows=settled.filter(o=>o.environment!=="production");
-    const rows=ledgerTab==="production"?prodRows:demoRows;
-    $("#demoBanner").style.display=ledgerTab==="demo"?"flex":"none";
+    const rows=settled.filter(o=>ledgerTab==="production"?o.environment==="production":(ledgerTab==="testnet"?o.environment==="testnet":o.environment!=="production"&&o.environment!=="testnet"));
+    const banners={
+      testnet:"Testnet receipts — REAL x402 settlement and REAL creator payouts on X Layer testnet, test-value token. Not production revenue.",
+      sample:"Sample receipts — legacy simulated demo orders. The current signed sample writes nothing here."
+    };
+    $("#demoBanner").style.display=ledgerTab!=="production"?"flex":"none";
+    $("#demoBanner").textContent=banners[ledgerTab]||"";
     const stat=(l,n)=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
     if(ledgerTab==="production"){
-      const P=L.production||{licenses:0,distinctBuyers:0,creatorsPaid:0};
-      $("#stats").innerHTML=[stat("Production licenses",P.licenses),stat("Distinct buyers",P.distinctBuyers),stat("Creators paid",P.creatorsPaid),stat("Real revenue",(P.licenses*0.10).toFixed(2))].join("");
+      const P=L.production||{licenses:0,distinctBuyers:0,creatorsPaid:0,qualified:0,sponsored:0};
+      $("#stats").innerHTML=[stat("Production licenses",P.licenses),stat("Qualified revenue",((P.qualified||0)*0.10).toFixed(2)),stat("Sponsored (excluded)",P.sponsored||0),stat("Creators paid",P.creatorsPaid)].join("");
+    }else if(ledgerTab==="testnet"){
+      const tn=settled.filter(o=>o.environment==="testnet").length;
+      $("#stats").innerHTML=[stat("Testnet licenses",tn),stat("Real settlements",tn),stat("Real payouts",tn),stat("Production revenue","0.00")].join("");
     }else{
       $("#stats").innerHTML=[stat("Licenses issued",L.activeLicenses),stat("Distinct buyers",L.distinctBuyers),stat("Creators paid",L.creatorPayoutsPaid),stat("Scope checks",window._checks||0)].join("");
     }
@@ -798,9 +812,10 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     }
     $("#ledgerBody").innerHTML=rows.map(o=>{
       const paid=o.status==="CREATOR_PAID";
+      const explorer=o.environment==="testnet"?"https://www.oklink.com/x-layer-test/tx/":"https://www.oklink.com/x-layer/tx/";
       const tx=o.buyer_settle_tx
-        ? (o.environment==="production"
-            ? `<a href="https://www.oklink.com/x-layer/tx/${o.buyer_settle_tx}" target="_blank" rel="noopener" style="color:inherit">${short(o.buyer_settle_tx)} ↗</a>`
+        ? ((o.environment==="production"||o.environment==="testnet")
+            ? `<a href="${explorer}${o.buyer_settle_tx}" target="_blank" rel="noopener" style="color:inherit">${short(o.buyer_settle_tx)}${o.sponsored?" · SPONSORED":""} ↗</a>`
             : short(o.buyer_settle_tx))
         : "—";
       return `<tr><td>${short(o.order_id)}</td><td><span class="pill ${paid?"ok":"pend"}">${o.status.replace(/_/g," ").toLowerCase()}</span></td>
@@ -903,12 +918,12 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   // ---- permission lens ----
   let checks=0;
   function paintVerdict(decision,reasons,duties){
-    const map={PERMITTED:["CLEARED","v-cleared"],PERMITTED_WITH_DUTIES:["CLEARED","v-duty"],NOT_PERMITTED:["DENIED","v-denied"],INVALID_CREDENTIAL:["VOID","v-void"],INDETERMINATE:["HELD","v-void"]};
+    const map={PERMITTED:["PERMITTED","v-cleared"],PERMITTED_WITH_DUTIES:["PERMITTED","v-duty"],PERMITTED_TESTNET_ONLY:["TESTNET","v-duty"],NOT_PERMITTED:["DENIED","v-denied"],INVALID_CREDENTIAL:["VOID","v-void"],INDETERMINATE:["HELD","v-void"]};
     const [word,cls]=map[decision]||["HELD","v-void"];
     $("#verdictIdle").style.display="none";
     const sw=$("#lensStamp"); sw.classList.add("show"); sw.innerHTML=stampSVG(word,cls);
     const w=$("#verdictWord"); w.className="verdict-word show "+cls;
-    w.textContent=(decision==="PERMITTED_WITH_DUTIES")?"CLEARED — WITH DUTY":(decision==="NOT_PERMITTED"?"DENIED — BY LICENSE":(decision==="INVALID_CREDENTIAL"?"VOID — CREDENTIAL":(decision==="PERMITTED"?"CLEARED — BY LICENSE":"HELD")));
+    w.textContent=(decision==="PERMITTED_WITH_DUTIES")?"PERMITTED — WITH DUTY":(decision==="PERMITTED_TESTNET_ONLY"?"PERMITTED — TESTNET ONLY":(decision==="NOT_PERMITTED"?"NOT PERMITTED — BY LICENSE":(decision==="INVALID_CREDENTIAL"?"INVALID — CREDENTIAL":(decision==="PERMITTED"?"PERMITTED — BY LICENSE":"HELD"))));
     const r=$("#verdictReason"); r.className="verdict-reason show"; r.textContent=(reasons||[]).join(" · ");
     const d=$("#verdictDuty"); if(duties&&duties.length){d.className="verdict-duty show";d.textContent="DUTY · "+duties.map(x=>x.text||x.type).join("; ");}else{d.className="verdict-duty";}
   }

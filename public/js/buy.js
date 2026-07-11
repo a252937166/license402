@@ -137,6 +137,7 @@
     err(1, ""); $("#btnQuote").disabled = true;
     try {
       const body = { use: USE($("#brief").value), licenseeWallet: ACC || "0x0000000000000000000000000000000000000001" };
+      if (RAIL === "testnet") body.network = "testnet";
       if (PIN_OFFER) body.requestedOfferId = PIN_OFFER;
       const r = await api("/v1/quote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       if (!(r.json && r.json.serviceable)) {
@@ -185,11 +186,11 @@
       }
       const f2 = QUOTE.purchaseIntentFields;
       const nonce = randNonce();
-      const message = { quoteId: f2.quoteId, quoteCommitment: f2.quoteCommitment, buyer: ACC, licensee: ACC, assetSha256: f2.assetSha256, offerDigest: f2.offerDigest, policyAstHash: f2.policyAstHash, legalTextHash: f2.legalTextHash, totalPriceMicro: "100000", currency: "USDT", expiresAt: f2.expiresAt, nonce };
+      const message = { quoteId: f2.quoteId, quoteCommitment: f2.quoteCommitment, buyer: ACC, licensee: ACC, assetSha256: f2.assetSha256, offerDigest: f2.offerDigest, policyAstHash: f2.policyAstHash, legalTextHash: f2.legalTextHash, totalPriceMicro: "100000", currency: "USDT", settlementNetwork: f2.settlementNetwork, paymentAsset: f2.paymentAsset, payTo: f2.payTo, creatorPayoutMicro: String(f2.creatorPayoutMicro), platformFeeMicro: String(f2.platformFeeMicro), expiresAt: f2.expiresAt, nonce };
       btn.textContent = "Signature 1/2 — terms…";
       const sig = await eth.request({ method: "eth_signTypedData_v4", params: [ACC, JSON.stringify({ domain: td.domain, types: td.types, primaryType: "PurchaseIntent", message })] });
       $("#sigIntentTxt").textContent = short(sig) + " ✓"; $("#sigIntentTxt").classList.add("ok");
-      const intent = { quoteId: f2.quoteId, quoteCommitment: f2.quoteCommitment, buyer: ACC.toLowerCase(), licensee: ACC.toLowerCase(), assetSha256: f2.assetSha256, offerDigest: f2.offerDigest, policyAstHash: f2.policyAstHash, legalTextHash: f2.legalTextHash, totalPrice: f2.totalPrice, currency: "USDT", expiresAt: f2.expiresAt, nonce, signature: sig };
+      const intent = { quoteId: f2.quoteId, quoteCommitment: f2.quoteCommitment, buyer: ACC.toLowerCase(), licensee: ACC.toLowerCase(), assetSha256: f2.assetSha256, offerDigest: f2.offerDigest, policyAstHash: f2.policyAstHash, legalTextHash: f2.legalTextHash, totalPrice: f2.totalPrice, currency: "USDT", settlementNetwork: f2.settlementNetwork, paymentAsset: f2.paymentAsset, payTo: f2.payTo, creatorPayoutMicro: f2.creatorPayoutMicro, platformFeeMicro: f2.platformFeeMicro, expiresAt: f2.expiresAt, nonce, signature: sig };
 
       const bodyObj = { use: USE($("#brief").value), licenseeWallet: ACC, quoteCommitment: QUOTE.quoteCommitment, idempotencyKey: QUOTE.idempotencyKey, purchaseIntent: intent };
       if (RAIL === "testnet") bodyObj.network = "testnet";
@@ -264,7 +265,9 @@
   async function liveChecks() {
     if (!RESULT || !RESULT.license) return;
     const chk = async (action) => { const r = await api("/v1/check-license-scope", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ license: RESULT.license, action, channel: "x", licensee: ACC }) }); return (r.json && (r.json.effectiveDecision || r.json.decision)) || "—"; };
-    setText("#rChkPost", await chk("commercial_social_post")); $("#rChkPost").classList.add("ok");
+    const post = await chk("commercial_social_post");
+    setText("#rChkPost", post);
+    if (post === "PERMITTED" || post === "PERMITTED_WITH_DUTIES" || post === "PERMITTED_TESTNET_ONLY") $("#rChkPost").classList.add("ok");
     setText("#rChkTrain", await chk("model_training"));
   }
   async function pollPayout() {

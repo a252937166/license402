@@ -7,6 +7,7 @@ import type { CatalogOffer } from "../license/quote.js";
 import { PurchaseIntentSchema, UseSpecSchema } from "../license/types.js";
 import type { LicenseCredential, UseSpec } from "../license/types.js";
 import type { AppConfig } from "../config.js";
+import { mainnetProfile } from "../config.js";
 
 export interface SampleEnvelope {
   environment: "sample";
@@ -55,7 +56,9 @@ export function buildSampleEnvelope(config: AppConfig, catalog: CatalogOffer[], 
   if (!config.demoBuyerPrivateKey) throw new Error("SAMPLE_UNAVAILABLE");
 
   const buyer = privateKeyToAddress(config.demoBuyerPrivateKey);
-  const quote = buildQuote(catalog, SAMPLE_USE, buyer, { nowSeconds });
+  const profile = mainnetProfile(config);
+  const rail = { settlementNetwork: profile.network, paymentAsset: profile.asset, payTo: config.payToAddress };
+  const quote = buildQuote(catalog, SAMPLE_USE, buyer, { nowSeconds, rail });
   if (!quote.serviceable || !quote.selected) throw new Error("SAMPLE_NOT_SERVICEABLE");
   const sel = quote.selected;
 
@@ -70,6 +73,11 @@ export function buildSampleEnvelope(config: AppConfig, catalog: CatalogOffer[], 
     legalTextHash: legalTextHash(),
     totalPrice: sel.price,
     currency: "USDT" as const,
+    settlementNetwork: sel.settlementNetwork,
+    paymentAsset: sel.paymentAsset,
+    payTo: sel.payTo,
+    creatorPayoutMicro: sel.creatorPayoutMicro,
+    platformFeeMicro: sel.platformFeeMicro,
     expiresAt: sel.quoteExpiresAt,
     nonce: sha256Hex(`sample-${buyer}-${sel.quoteId}`)
   };
@@ -81,7 +89,10 @@ export function buildSampleEnvelope(config: AppConfig, catalog: CatalogOffer[], 
   const credential = issueCredential({
     offer,
     use: SAMPLE_USE,
-    purchaseIntent: intent,
+    authorization: { mode: "eip712_purchase_intent", purchaseIntent: intent },
+    environment: "sample",
+    settlementNetwork: sel.settlementNetwork,
+    paymentAsset: sel.paymentAsset,
     orderId,
     buyerPaymentId: `sample-${sha256Hex(orderId).slice(2, 14)}`,
     paymentAuthorizationDigest: sha256Hex(`sample-no-payment-${orderId}`),

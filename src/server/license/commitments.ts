@@ -28,6 +28,12 @@ export interface QuoteCommitmentInput {
   priceMicro: number;
   platformFeeMicro: number;
   creatorPayoutMicro: number;
+  // Settlement rail is part of the committed terms (v2): a testnet quote and a
+  // mainnet quote for the same use are DIFFERENT commitments — different
+  // orders, different credentials, no cross-rail collision.
+  settlementNetwork: string;
+  paymentAsset: string;
+  payTo: string;
   quoteExpiresAt: number;
   idempotencyKey: string;
 }
@@ -37,5 +43,5 @@ export interface QuoteCommitmentInput {
  * 409 TERMS_COMMITMENT_CHANGED before a 402 challenge is generated (spec v4).
  */
 export function quoteCommitment(input: QuoteCommitmentInput): string {
-  return canonicalHash(input, "L402:QUOTE:v1");
+  return canonicalHash(input, "L402:QUOTE:v2");
 }

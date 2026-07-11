@@ -119,6 +119,11 @@ export function makeIntent(offer: CreatorOffer, options: MakeIntentOptions = {})
     legalTextHash: offer.legalTextHash,
     totalPrice: "0.10",
     currency: "USDT" as const,
+    settlementNetwork: "eip155:196",
+    paymentAsset: "0x779ded0c9e1022225f8e0630b35a9b54be713736",
+    payTo: "0x0000000000000000000000000000000000000402",
+    creatorPayoutMicro: 70_000,
+    platformFeeMicro: 30_000,
     expiresAt: NOW + 900,
     nonce: sha256Hex("intent-nonce-1"),
     ...options.intent

@@ -116,6 +116,11 @@ async function acquire(port: number, buyerKey: string, buyer: string): Promise<{
     legalTextHash: f.legalTextHash,
     totalPrice: "0.10",
     currency: "USDT" as const,
+    settlementNetwork: f.settlementNetwork,
+    paymentAsset: f.paymentAsset,
+    payTo: f.payTo,
+    creatorPayoutMicro: f.creatorPayoutMicro,
+    platformFeeMicro: f.platformFeeMicro,
     expiresAt: f.expiresAt,
     nonce: sha256Hex(`nonce-${buyer}`)
   };

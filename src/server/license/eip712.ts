@@ -66,6 +66,15 @@ export const EIP712_TYPES: Record<string, readonly FieldDef[]> = {
     { name: "legalTextHash", type: "bytes32" },
     { name: "totalPriceMicro", type: "uint256" },
     { name: "currency", type: "string" },
+    // Payment-rail binding: chain, token, recipient, and the exact split are
+    // part of what the buyer signs. (The EIP-712 domain stays the SERVICE
+    // identity — LICENSE402/1/196 — the rail is a message field, so one wallet
+    // signature scheme covers both networks without domain ambiguity.)
+    { name: "settlementNetwork", type: "string" },
+    { name: "paymentAsset", type: "address" },
+    { name: "payTo", type: "address" },
+    { name: "creatorPayoutMicro", type: "uint256" },
+    { name: "platformFeeMicro", type: "uint256" },
     { name: "expiresAt", type: "uint64" },
     { name: "nonce", type: "bytes32" }
   ]
@@ -230,6 +239,11 @@ export function purchaseIntentToTypedMessage(intent: UnsignedPurchaseIntent): Ty
     legalTextHash: intent.legalTextHash,
     totalPriceMicro: BigInt(parseUsdtToMicro(intent.totalPrice)),
     currency: intent.currency,
+    settlementNetwork: intent.settlementNetwork,
+    paymentAsset: intent.paymentAsset,
+    payTo: intent.payTo,
+    creatorPayoutMicro: BigInt(intent.creatorPayoutMicro),
+    platformFeeMicro: BigInt(intent.platformFeeMicro),
     expiresAt: intent.expiresAt,
     nonce: intent.nonce
   };
