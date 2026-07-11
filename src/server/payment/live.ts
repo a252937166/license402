@@ -1,31 +1,56 @@
 import type { Request } from "express";
 import { sha256Hex } from "../domain/index.js";
 import { parseUsdtToMicro } from "../license/money.js";
-import type { PaymentAdapter, SettleOutcome, SettleStatus, VerifiedPayment } from "./adapter.js";
+import type { Challenge, PaymentAdapter, SettleOutcome, SettleStatus, VerifiedPayment } from "./adapter.js";
 import type { AppConfig } from "../config.js";
 
 /**
- * Live OKX x402 adapter. Security-critical rule (spec v4 §0.1, verified from SDK
- * source): the middleware treats settle status "pending" as a releasable success,
- * so we set syncSettle:true and additionally gate license activation on
- * status === "success" ourselves. "pending"/"timeout"/errors never activate here;
- * a reconciler polls GET /settle/status.
+ * Live OKX x402 adapter — standard x402 v2 wire format end-to-end:
  *
- * The exact payment-header wire format is finalized against a real buyer request
- * when the buyer wallet is funded; the settlement-status gate below is the part
- * that must be correct regardless, and it is.
+ *   402 challenge   = official PaymentRequired shape + PAYMENT-REQUIRED header
+ *                     (encodePaymentRequiredHeader)
+ *   payment header  = PAYMENT-SIGNATURE, decoded with decodePaymentSignatureHeader
+ *   verify          = facilitator /verify — recovers the payer WITHOUT moving funds,
+ *                     before prepareDelivery (payer==buyer==licensee binding)
+ *   settle          = facilitator /settle with syncSettle:true; ONLY status==="success"
+ *                     activates; pending/timeout carry the tx to the reconciler
+ *   success reply   = PAYMENT-RESPONSE header (encodePaymentResponseHeader)
+ *
+ * Wire format proven against the real facilitator on 2026-07-11:
+ * getSupported lists (exact, eip155:196, v2); a real EIP-3009 authorization for
+ * USDT0 (domain name "USD₮0", version "1") verified with isValid:true and the
+ * exact payer recovered (scripts/x402-selftest.ts).
  */
 export class LivePaymentAdapter implements PaymentAdapter {
   readonly mode = "live" as const;
   private facilitator: unknown;
+  private codecs:
+    | {
+        decodePaymentSignatureHeader: (h: string) => Record<string, unknown>;
+        encodePaymentRequiredHeader: (pr: unknown) => string;
+        encodePaymentResponseHeader: (sr: unknown) => string;
+      }
+    | undefined;
+  private readonly asset: string;
+  private readonly assetName: string;
+  private readonly assetVersion: string;
 
   constructor(private readonly config: AppConfig) {
     if (!config.okx) throw new Error("Live payment requires OKX credentials");
+    const asset = process.env.X402_ASSET?.trim();
+    // Refuse to boot live without the settlement asset — an empty asset string
+    // would produce challenges no wallet could pay against.
+    if (!asset) throw new Error("X402_ASSET (settlement token contract) is required in live mode");
+    this.asset = asset;
+    // EIP-712 domain of the settlement token. Verified on-chain for USDT0 on
+    // X Layer: name()="USD₮0", DOMAIN_SEPARATOR matches {name,version:"1",chainId:196}.
+    this.assetName = process.env.X402_ASSET_NAME?.trim() || "USD₮0";
+    this.assetVersion = process.env.X402_ASSET_VERSION?.trim() || "1";
   }
 
   private async facilitatorClient(): Promise<{
     verify: (payload: unknown, req: unknown) => Promise<{ isValid: boolean; payer?: string; invalidReason?: string }>;
-    settle: (payload: unknown, req: unknown) => Promise<{ success: boolean; status?: string; transaction: string; payer?: string; errorReason?: string }>;
+    settle: (payload: unknown, req: unknown) => Promise<{ success: boolean; status?: string; transaction: string; payer?: string; errorReason?: string; network?: string }>;
     getSettleStatus: (txHash: string) => Promise<{ success: boolean; status?: string; transaction?: string; errorReason?: string }>;
   }> {
     if (!this.facilitator) {
@@ -40,38 +65,57 @@ export class LivePaymentAdapter implements PaymentAdapter {
     return this.facilitator as never;
   }
 
-  private requirements(): Record<string, unknown> {
+  private async httpCodecs() {
+    if (!this.codecs) {
+      this.codecs = (await import("@okxweb3/x402-core/http")) as never;
+    }
+    return this.codecs!;
+  }
+
+  requirements(): Record<string, unknown> {
     const priceMicro = parseUsdtToMicro(this.config.priceUsd.replace(/^\$/, ""));
     return {
       scheme: "exact",
       network: this.config.network,
-      asset: process.env.X402_ASSET ?? "",
+      asset: this.asset,
       amount: String(priceMicro),
       payTo: this.config.payToAddress,
       maxTimeoutSeconds: 120,
-      extra: {}
+      // Required by the official exact-EVM client: EIP-712 domain of the token.
+      // Without name/version the wallet-side createPaymentPayload throws.
+      extra: { name: this.assetName, version: this.assetVersion }
     };
   }
 
-  challenge(priceUsd: string, network: string, payTo: string): { status: 402; headers: Record<string, string>; body: unknown } {
-    const body = { x402Version: 1, accepts: [{ scheme: "exact", network, payTo, price: priceUsd }] };
-    return { status: 402, headers: { "PAYMENT-REQUIRED": Buffer.from(JSON.stringify(body)).toString("base64") }, body };
+  async challenge(resourceUrl: string): Promise<Challenge> {
+    const { encodePaymentRequiredHeader } = await this.httpCodecs();
+    const body = {
+      x402Version: 2,
+      resource: {
+        url: resourceUrl,
+        description: "LICENSE402 · social-commercial content license (signed scope credential included)",
+        mimeType: "application/json"
+      },
+      accepts: [this.requirements()],
+      error: "payment required"
+    };
+    return { status: 402, headers: { "PAYMENT-REQUIRED": encodePaymentRequiredHeader(body) }, body };
   }
 
   async verify(req: Request): Promise<VerifiedPayment | null> {
     const header = req.header("payment-signature") || req.header("x-payment") || req.header("payment");
     if (!header) return null; // no payment attached → 402 challenge
-    let payload: unknown;
+    let payload: Record<string, unknown>;
     try {
-      payload = JSON.parse(Buffer.from(header, "base64").toString("utf8"));
+      const { decodePaymentSignatureHeader } = await this.httpCodecs();
+      payload = decodePaymentSignatureHeader(header);
     } catch {
-      console.warn("[x402] verify: unparseable payment header");
+      console.warn("[x402] verify: undecodable PAYMENT-SIGNATURE header");
       return null;
     }
     // Facilitator verify recovers the payer WITHOUT moving funds. Doing it here —
-    // before prepareDelivery — is what lets the payer==buyer==licensee binding be
-    // checked before a credential is issued or settlement is attempted (fixes the
-    // former empty-payer bug where prepareDelivery always failed PAYER_MISMATCH).
+    // before prepareDelivery — lets the payer==buyer==licensee binding be checked
+    // before a credential is issued or settlement is attempted.
     try {
       const client = await this.facilitatorClient();
       const v = await client.verify(payload, this.requirements());
@@ -93,21 +137,22 @@ export class LivePaymentAdapter implements PaymentAdapter {
 
   async settle(payment: VerifiedPayment): Promise<SettleOutcome> {
     const client = await this.facilitatorClient();
-    let payload: unknown;
+    const { decodePaymentSignatureHeader, encodePaymentResponseHeader } = await this.httpCodecs();
+    let payload: Record<string, unknown>;
     try {
-      payload = JSON.parse(Buffer.from(payment.paymentHeaderRaw, "base64").toString("utf8"));
+      payload = decodePaymentSignatureHeader(payment.paymentHeaderRaw);
     } catch {
-      return { status: "failed", detail: "unparseable payment payload" };
+      return { status: "failed", detail: "undecodable payment payload" };
     }
 
-    // The payment was already verified in verify(); settle broadcasts the transfer.
-    // syncSettle:true means the facilitator may return status "pending" (it trusts
-    // the seller and releases) — we gate activation on status==="success" ourselves
-    // and route pending/timeout to the reconciler (getSettleStatus).
+    // syncSettle:true — the facilitator may still return "pending"/"timeout";
+    // we gate activation on status==="success" and reconcile the rest.
     const settled = await client.settle(payload, this.requirements());
     if (settled.payer) payment.verifiedPayer = settled.payer.toLowerCase();
 
-    if (settled.success && settled.status === "success") return { status: "success", tx: settled.transaction };
+    if (settled.success && settled.status === "success") {
+      return { status: "success", tx: settled.transaction, responseHeader: encodePaymentResponseHeader(settled) };
+    }
     if (settled.status === "pending") return { status: "pending", tx: settled.transaction };
     if (settled.status === "timeout") return { status: "timeout", tx: settled.transaction, detail: "settlement timeout" };
     return { status: "failed", detail: settled.errorReason ?? "settle failed" };

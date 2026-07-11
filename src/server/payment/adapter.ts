@@ -15,8 +15,14 @@ export interface VerifiedPayment {
   paymentHeaderRaw: string;
 }
 
+export interface Challenge {
+  status: 402;
+  headers: Record<string, string>;
+  body: unknown;
+}
+
 export type SettleOutcome =
-  | { status: "success"; tx: string | null }
+  | { status: "success"; tx: string | null; responseHeader?: string }
   | { status: "pending"; tx: string | null }
   | { status: "timeout"; tx: string | null; detail: string }
   | { status: "failed"; detail: string };
@@ -30,8 +36,12 @@ export interface SettleStatus {
 
 export interface PaymentAdapter {
   readonly mode: "dev" | "live";
-  /** Present a challenge (returns a 402 body/headers) when no valid payment is attached. */
-  challenge(priceUsd: string, network: string, payTo: string): { status: 402; headers: Record<string, string>; body: unknown };
+  /**
+   * Present a standard x402 v2 challenge (PaymentRequired body + PAYMENT-REQUIRED
+   * header) when no valid payment is attached. resourceUrl identifies the
+   * protected resource in the challenge.
+   */
+  challenge(resourceUrl: string): Promise<Challenge>;
   /**
    * Extract & verify the attached payment WITHOUT moving funds. Returns null when
    * absent or invalid → caller issues a 402 challenge. For live x402 this calls the
@@ -39,7 +49,10 @@ export interface PaymentAdapter {
    * payer; the payer is known here, before any credential is issued or funds move.
    */
   verify(req: Request): Promise<VerifiedPayment | null>;
-  /** Settle the verified payment on-chain. spec v4: only "success" activates the license. */
+  /**
+   * Settle the verified payment on-chain. spec v4: only "success" activates the
+   * license. On success the outcome carries the encoded PAYMENT-RESPONSE header.
+   */
   settle(payment: VerifiedPayment): Promise<SettleOutcome>;
   /**
    * Poll settlement status by tx hash (live only). Used by the reconciler to
@@ -57,11 +70,24 @@ export interface PaymentAdapter {
 export class DevPaymentAdapter implements PaymentAdapter {
   readonly mode = "dev" as const;
 
-  challenge(priceUsd: string, network: string, payTo: string): { status: 402; headers: Record<string, string>; body: unknown } {
+  async challenge(resourceUrl: string): Promise<Challenge> {
+    // Same v2 PaymentRequired shape as live so clients exercise one format; the
+    // note makes the simulation explicit.
     const body = {
-      x402Version: 1,
-      accepts: [{ scheme: "exact", network, payTo, price: priceUsd }],
-      note: "DEV MODE — attach X-Dev-Payer and X-Dev-Payment-Id headers to simulate settlement. Not a real payment."
+      x402Version: 2,
+      resource: { url: resourceUrl, description: "LICENSE402 (dev mode — simulated settlement)", mimeType: "application/json" },
+      accepts: [
+        {
+          scheme: "exact",
+          network: "eip155:196",
+          asset: process.env.X402_ASSET ?? "0x0000000000000000000000000000000000000000",
+          amount: "100000",
+          payTo: "0x0000000000000000000000000000000000000000",
+          maxTimeoutSeconds: 120,
+          extra: { note: "DEV MODE — attach X-Dev-Payer and X-Dev-Payment-Id headers to simulate settlement. Not a real payment." }
+        }
+      ],
+      error: "payment required"
     };
     return { status: 402, headers: { "PAYMENT-REQUIRED": Buffer.from(JSON.stringify(body)).toString("base64") }, body };
   }

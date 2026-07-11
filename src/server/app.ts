@@ -179,7 +179,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   app.post("/v1/acquire/social-commercial", async (req: Request, res: Response) => {
     const verified = await payment.verify(req);
     if (!verified) {
-      const challenge = payment.challenge(config.priceUsd, config.network, config.payToAddress);
+      const challenge = await payment.challenge(`${config.publicOrigin}/v1/acquire/social-commercial`);
       for (const [k, v] of Object.entries(challenge.headers)) res.setHeader(k, v);
       res.status(challenge.status).json(challenge.body);
       return;
@@ -215,6 +215,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     if (outcome.status === "success") {
       onSettlementSuccess(repo, prepared.delivery.orderId, outcome.tx, { nowSeconds: now() });
       await runPayoutWorker(repo, config, now).catch((e) => console.warn("[payout] inline:", e));
+      // Standard x402 v2 receipt: the settle response, base64-encoded.
+      if (outcome.responseHeader) res.setHeader("PAYMENT-RESPONSE", outcome.responseHeader);
       res.status(200).json({
         orderId: prepared.delivery.orderId,
         license: prepared.delivery.credential,
@@ -451,8 +453,17 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   });
   // Reconcile settlements the facilitator left pending/timeout, then drain payouts.
   // Idempotent and side-effect-safe (never moves new buyer funds); also runs on a
-  // live-mode interval below. Exposed for ops/manual drain and for tests.
-  app.post("/internal/reconcile", async (_req, res) => {
+  // live-mode interval below. In live mode this endpoint requires ADMIN_TOKEN —
+  // it triggers facilitator API calls and payout broadcasts, so it must not be
+  // publicly drivable.
+  app.post("/internal/reconcile", async (req, res) => {
+    if (config.paymentMode === "live") {
+      const adminToken = process.env.ADMIN_TOKEN?.trim();
+      if (!adminToken || req.header("x-admin-token") !== adminToken) {
+        res.status(401).json({ error: "UNAUTHORIZED" });
+        return;
+      }
+    }
     try {
       const settled = await reconcileSettlements(repo, payment, now);
       const payouts = await runPayoutWorker(repo, config, now);

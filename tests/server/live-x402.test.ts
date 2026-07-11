@@ -40,14 +40,14 @@ const baseConfig = {
 class FakeLiveAdapter implements PaymentAdapter {
   readonly mode = "live" as const;
   payer = BUYER;
-  settleResult: SettleOutcome = { status: "success", tx: "0xsettledtx" };
+  settleResult: SettleOutcome = { status: "success", tx: "0xsettledtx", responseHeader: "ZmFrZS1yZWNlaXB0" };
   statusResult: SettleStatus = { status: "success", transaction: "0xpendingtx" };
 
-  challenge(priceUsd: string, network: string, payTo: string) {
+  async challenge(resourceUrl: string) {
     return {
       status: 402 as const,
-      headers: {},
-      body: { x402Version: 1, accepts: [{ scheme: "exact", network, payTo, price: priceUsd }] }
+      headers: { "PAYMENT-REQUIRED": "fake" },
+      body: { x402Version: 2, resource: { url: resourceUrl }, accepts: [], error: "payment required" }
     };
   }
   async verify(req: Request): Promise<VerifiedPayment | null> {
@@ -76,13 +76,13 @@ async function boot(payment: PaymentAdapter): Promise<{ base: string; port: numb
   return { base: `http://127.0.0.1:${port}`, port, server };
 }
 
-function http(port: number, method: string, path: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: any }> {
+function http(port: number, method: string, path: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: any; headers: Record<string, string | string[] | undefined> }> {
   return new Promise((resolve, reject) => {
     const payload = body === undefined ? undefined : JSON.stringify(body);
     const req = request({ host: "127.0.0.1", port, path, method, headers: { "content-type": "application/json", ...headers } }, (res) => {
       let text = "";
       res.on("data", (c) => (text += c));
-      res.on("end", () => resolve({ status: res.statusCode ?? 0, json: text ? JSON.parse(text) : null }));
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, json: text ? JSON.parse(text) : null, headers: res.headers }));
     });
     req.on("error", reject);
     if (payload) req.write(payload);
@@ -101,7 +101,7 @@ const USE = {
 };
 
 /** Quote → sign intent → POST acquire with an x402 payment header (buyer == licensee). */
-async function acquire(port: number, buyerKey: string, buyer: string): Promise<{ status: number; json: any; orderId?: string }> {
+async function acquire(port: number, buyerKey: string, buyer: string): Promise<{ status: number; json: any; headers: Record<string, string | string[] | undefined>; orderId?: string }> {
   const quote = await http(port, "POST", "/v1/quote", { use: USE, licenseeWallet: buyer });
   expect(quote.json.serviceable).toBe(true);
   const f = quote.json.purchaseIntentFields;
@@ -135,13 +135,15 @@ async function acquire(port: number, buyerKey: string, buyer: string): Promise<{
 describe("live x402 correctness (P0-1 payer binding, P0-5 reconciler)", () => {
   it("P0-1: a facilitator-verified payer flows into prepareDelivery and the license issues (immediate success)", async () => {
     const adapter = new FakeLiveAdapter();
-    adapter.settleResult = { status: "success", tx: "0xsuccesstx" };
+    adapter.settleResult = { status: "success", tx: "0xsuccesstx", responseHeader: "ZmFrZS1yZWNlaXB0" };
     const { port, server } = await boot(adapter);
     try {
       const res = await acquire(port, BUYER_KEY, BUYER);
       expect(res.status).toBe(200);
       expect(res.json.license.licenseeWallet).toBe(BUYER);
       expect(res.json.settlement).toEqual({ status: "SETTLED", buyerTx: "0xsuccesstx" });
+      // Standard x402 v2 receipt header accompanies the delivery.
+      expect(res.headers["payment-response"]).toBe("ZmFrZS1yZWNlaXB0");
       // The license is active and the scope engine will honor it.
       const order = await http(port, "GET", `/v1/orders/${res.orderId}`, undefined);
       expect(["LICENSE_ACTIVE", "CREATOR_PAYOUT_PENDING", "CREATOR_PAID"]).toContain(order.json.status);
