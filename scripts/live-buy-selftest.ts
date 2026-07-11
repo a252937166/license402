@@ -23,6 +23,9 @@ const PORT = Number(process.env.PORT ?? 8799);
 const buyerKey = process.env.DEMO_BUYER_PRIVATE_KEY;
 if (!buyerKey) throw new Error("DEMO_BUYER_PRIVATE_KEY missing");
 const BUYER = privateKeyToAddress(buyerKey);
+// SELFTEST_NETWORK=testnet runs the identical loop on the free X Layer testnet rail.
+const NETWORK = process.env.SELFTEST_NETWORK === "testnet" ? "testnet" : "mainnet";
+const EXPLORER = NETWORK === "testnet" ? "https://www.oklink.com/x-layer-test/tx/" : "https://www.oklink.com/x-layer/tx/";
 
 function http(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: any; headers: Record<string, string | string[] | undefined> }> {
   return new Promise((resolve, reject) => {
@@ -77,7 +80,7 @@ async function main(): Promise<void> {
   const intent = { ...unsigned, signature };
   console.log("2 intent signed:", signature.slice(0, 18) + "…");
 
-  const body = { use: USE, licenseeWallet: BUYER, quoteCommitment: quote.json.quoteCommitment, idempotencyKey: quote.json.idempotencyKey, purchaseIntent: intent };
+  const body = { use: USE, licenseeWallet: BUYER, quoteCommitment: quote.json.quoteCommitment, idempotencyKey: quote.json.idempotencyKey, purchaseIntent: intent, ...(NETWORK === "testnet" ? { network: "testnet" } : {}) };
 
   // 3 · 402 challenge
   const challenge = await http("POST", "/v1/acquire/social-commercial", body);
@@ -94,7 +97,7 @@ async function main(): Promise<void> {
   const { x402Client, x402HTTPClient } = await import("@okxweb3/x402-core/client");
   const { registerExactEvmScheme } = await import("@okxweb3/x402-evm/exact/client");
   const client = new x402Client();
-  registerExactEvmScheme(client, { signer: signer as never, networks: ["eip155:196"] });
+  registerExactEvmScheme(client, { signer: signer as never, networks: ["eip155:196", "eip155:1952"] });
   const httpClient = new x402HTTPClient(client);
   const payload = await httpClient.createPaymentPayload(challenge.json);
   const payHeaders = httpClient.encodePaymentSignatureHeader(payload);
@@ -106,7 +109,7 @@ async function main(): Promise<void> {
   if (settled.status === 200) {
     console.log("   buyerTx:", settled.json.settlement.buyerTx);
     console.log("   licenseId:", settled.json.license.licenseId);
-    console.log("   explorer: https://www.oklink.com/x-layer/tx/" + settled.json.settlement.buyerTx);
+    console.log("   explorer: " + EXPLORER + settled.json.settlement.buyerTx);
   } else if (settled.status === 202) {
     console.log("   pending — deliveryUrl:", settled.json.deliveryUrl);
   } else {
@@ -121,7 +124,7 @@ async function main(): Promise<void> {
     const payout = order.json?.creatorPayout;
     console.log(`6 order ${st} · payout ${payout?.state ?? "—"}${payout?.confirmedTx ? " · " + payout.confirmedTx : ""}`);
     if (st === "CREATOR_PAID") {
-      console.log("   payout explorer: https://www.oklink.com/x-layer/tx/" + payout.confirmedTx);
+      console.log("   payout explorer: " + EXPLORER + payout.confirmedTx);
       break;
     }
     await new Promise((r) => setTimeout(r, 4000));

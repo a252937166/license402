@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "okx-agent-payments-protocol": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-agent-payments-protocol/SKILL.md",
+      "computedHash": "5fd895c336c5b6ceef388e42397b61574e6a01e3b994fabbc994d380ac38d268"
+    },
+    "okx-agentic-wallet": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-agentic-wallet/SKILL.md",
+      "computedHash": "63df167ef7fd96286e8c73ee9a20c046ccae8165742152d80eab60a79adcee88"
+    },
+    "okx-ai": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-ai/SKILL.md",
+      "computedHash": "89eac349a080c52feed6ffa6230aa9344a113e5331d160b5437ed9d1226ebd29"
+    },
+    "okx-dapp-discovery": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-dapp-discovery/SKILL.md",
+      "computedHash": "19067118f012ed4ae2b37ae78e0b46838b151c493a6f5d1209cfb0f98a701b58"
+    },
+    "okx-defi": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-defi/SKILL.md",
+      "computedHash": "f92c1cf94f270cba863bc3010c48adc47516643a68f76485eb751fb606ae9971"
+    },
+    "okx-dex-market": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-dex-market/SKILL.md",
+      "computedHash": "d751d73e4f7ed514a82136f9432a94d13b5456cdde0077d081dc75085828bf60"
+    },
+    "okx-growth-competition": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-growth-competition/SKILL.md",
+      "computedHash": "45d728307e3db688d10bc31a497a8594b663c2f1bd877d5122e10d6216f945ce"
+    },
+    "okx-guide": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-guide/SKILL.md",
+      "computedHash": "b86ea7d7bb2988bce6a7b63400c513c651110198f7d618f3216103719a92f5fa"
+    }
+  }
+}
