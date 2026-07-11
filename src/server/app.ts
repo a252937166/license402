@@ -851,7 +851,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   // There is NO mainnet faucet: the real-money experience is self-funded (bring
   // your own 0.10 USDT on X Layer). The testnet rail hands out test USDT freely
   // so anyone can run the full loop at zero cost. One claim per address ever.
-  const FAUCET_AMOUNT_MICRO = 10_000_000; // 10 test USDT per claim (test-value; unlimited claims, 60s cooldown)
+  // 10 test USDT per claim, adapting DOWN to what the pool can afford so a low
+  // pool degrades gracefully instead of failing. Purchases replenish the pool
+  // (0.10 in, 0.07 payout → net +0.03/order), so it self-sustains.
+  const FAUCET_TARGET_MICRO = 10_000_000;
+  const FAUCET_MIN_MICRO = 200_000; // always enough for two purchases
   const FAUCET_GLOBAL_CAP = Number(process.env.FAUCET_CAP ?? 5000);
   app.post("/v1/faucet", async (req: Request, res: Response) => {
     if (config.paymentMode !== "live" || !chainTest || !config.testnet) {
@@ -877,9 +881,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       res.status(429).json({ error: "COOLDOWN", detail: "wait a minute between claims" });
       return;
     }
+    let amountMicro = FAUCET_TARGET_MICRO;
     try {
-      const pool = await chainTest.usdtBalance(chainTest.address);
-      if (pool < BigInt(FAUCET_AMOUNT_MICRO)) {
+      const pool = Number(await chainTest.usdtBalance(chainTest.address));
+      amountMicro = Math.min(FAUCET_TARGET_MICRO, Math.max(0, pool - 100_000));
+      if (amountMicro < FAUCET_MIN_MICRO) {
         res.status(503).json({ error: "FAUCET_POOL_LOW", detail: "the test-token pool is being refilled — try again shortly" });
         return;
       }
@@ -888,11 +894,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return;
     }
     const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
-    repo.upsertFaucetClaim(address, ip, FAUCET_AMOUNT_MICRO, "testnet", now());
+    repo.upsertFaucetClaim(address, ip, amountMicro, "testnet", now());
     try {
-      const tx = await chainTest.transferUsdt(address, FAUCET_AMOUNT_MICRO);
+      const tx = await chainTest.transferUsdt(address, amountMicro);
       repo.recordFaucetTx(address, "testnet", tx);
-      res.status(200).json({ ok: true, network: "testnet", tx, amount: "10", explorer: `${config.testnet.explorerTx}${tx}` });
+      res.status(200).json({ ok: true, network: "testnet", tx, amount: (amountMicro / 1e6).toFixed(2), explorer: `${config.testnet.explorerTx}${tx}` });
     } catch (e) {
       res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
     }

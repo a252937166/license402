@@ -153,7 +153,7 @@
       b.textContent = "Requesting grant…";
       const r = await api("/v1/faucet", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: ACC }) }, 60000);
       if (r.json && r.json.ok) {
-        toast("10 test USDT sent — confirming on-chain");
+        toast((r.json.amount || "10") + " test USDT sent — confirming on-chain");
         b.textContent = "Waiting for confirmation…";
         for (let i = 0; i < 10; i++) { const bal = await refreshBalance(); if (bal >= 100000n) { toast("Funded ✓"); break; } await new Promise((r2) => setTimeout(r2, 3000)); }
       } else err(2, (r.json && (r.json.detail || r.json.error)) || "Faucet unavailable");
