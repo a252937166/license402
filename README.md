@@ -86,7 +86,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
 | Facilitator interop self-test (mainnet, 0.10 self-transfer) | `0xd8cecdcc…34ca8` |
 | First production purchase (signed-intent, mainnet) | buyer `0x36c19b15…ccea` · payout `0x66d8754d…f199` |
 | External buyer purchase (mainnet) | buyer `0x98ab4a03…9173` · payout `0xd7f95342…e8b8` |
-| **Mainnet v2 purchase** (signed-intent, credential v2, domain v2, self-funded) | `ord-4e3462ce14fa85cc` · buyer `0xa1a766bb…3edda` · payout `0x06ffb294…b2c6e` |
+| **Mainnet v2 purchase** (signed-intent, credential v2, domain v2, self-funded, snapshot payout) | `ord-4a7b6da832660485` · buyer `0xca5f4a1e…3ae6a` · payout `0x03f49537…c4b30` |
 | Testnet full loop (signed-intent, **v2 credential**) | `ord-7612c61775e24993` · payout `0x4e271e49…b728d` |
 | Testnet A2MCP direct purchase (**v2**, single request → 200 + PAYMENT-RESPONSE) | `ord-32d3f53b9a0cd3bd` · buyer `0xfa2c8a44…c24051` · payout `0xc1ed4826…c462d` |
 | Live NEEDS_RECONCILIATION drill (real nonce collision → parked → verified on-chain → explicit release → paid once) | `ord-32d3f53b9a0cd3bd` payout above |

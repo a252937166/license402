@@ -161,7 +161,8 @@
     "creatorPayout": {
         "state": "PAID",
         "amountMicro": 70000,
-        "confirmedTx": "0x4e271e4981646a82199a6e9a1aacc140b01f12abf03c0fa089c93586d99b728d"
+        "confirmedTx": "0x4e271e4981646a82199a6e9a1aacc140b01f12abf03c0fa089c93586d99b728d",
+        "payoutSender": "0x055335dd87638796c33d1f08c05d39f322f41d1f"
     },
     "notes": "Verify: recover CreatorOffer + PurchaseIntent signers (EIP-712), recompute quoteCommitment, recover the credential issuer signature, and re-run check-license-scope. Sample environment = simulated settlement, no funds moved."
 }

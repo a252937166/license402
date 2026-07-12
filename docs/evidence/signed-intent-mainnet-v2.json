@@ -1,5 +1,5 @@
 {
-    "generatedFor": "ord-4e3462ce14fa85cc",
+    "generatedFor": "ord-4a7b6da832660485",
     "environment": "production",
     "authorization": {
         "mode": "eip712_purchase_intent",
@@ -47,8 +47,8 @@
     },
     "legalTextUrl": "https://license402.axiqo.xyz/v1/legal/0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
     "quote": {
-        "quoteId": "quote-fea4eddadc3d3f97",
-        "quoteCommitment": "0x52d912383bae3cb23052d16fcc984f79c3276aedf4ef88febd2251e736f4b77a",
+        "quoteId": "quote-78950d242b7655e8",
+        "quoteCommitment": "0xfbe0789104711895dc17b09de46d51bb0bd9c7f0744a9b86f7de4db8d3c16c35",
         "offerDigest": "0x4c2b7513b46541a2665f0d38f70b84acc38d22592a65fb526b885454c48c2276",
         "useSpec": {
             "brief": "cyberpunk dragon hero image for a commercial X campaign",
@@ -71,12 +71,12 @@
         "settlementNetwork": "eip155:196",
         "paymentAsset": "0x779ded0c9e1022225f8e0630b35a9b54be713736",
         "payTo": "0x055335dd87638796c33d1f08c05d39f322f41d1f",
-        "idempotencyKey": "quote-fea4eddadc3d3f97",
-        "expiresAt": 1783842300
+        "idempotencyKey": "quote-78950d242b7655e8",
+        "expiresAt": 1783853100
     },
     "purchaseIntent": {
-        "quoteId": "quote-fea4eddadc3d3f97",
-        "quoteCommitment": "0x52d912383bae3cb23052d16fcc984f79c3276aedf4ef88febd2251e736f4b77a",
+        "quoteId": "quote-78950d242b7655e8",
+        "quoteCommitment": "0xfbe0789104711895dc17b09de46d51bb0bd9c7f0744a9b86f7de4db8d3c16c35",
         "buyer": "0x959d73ed302be6e2955668fdeb7382c5a726d4f6",
         "licensee": "0x959d73ed302be6e2955668fdeb7382c5a726d4f6",
         "assetSha256": "0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf",
@@ -90,9 +90,9 @@
         "payTo": "0x055335dd87638796c33d1f08c05d39f322f41d1f",
         "creatorPayoutMicro": 70000,
         "platformFeeMicro": 30000,
-        "expiresAt": 1783842300,
-        "nonce": "0x943e7598d852a193df816eae058cc361cd67584135ebd1d5759ba139aedc775a",
-        "signature": "0xc58a1e5e9b7b57d65ff6f56f83bc547d5fcadfabb97245979025523cec33cae365981629c79e0833354857bc9cad140b4a28cdc97487f36aaa0b1b0369e140df1b"
+        "expiresAt": 1783853100,
+        "nonce": "0x2461f1e08e692d9e84527811394f9629767897bbbc1133e0d5b10f51e91671d3",
+        "signature": "0xd3901ce6f89a44028befa764194fb3d75e7582e1631c3b91afcb6da1d0c530564f93c5f313a9bed66d3b6ea1308db0badc9c1f69ca6766bdc38af0d82fd5ef601c"
     },
     "licenseCredential": {
         "credentialVersion": "2",
@@ -132,36 +132,37 @@
                 "overlay_text"
             ],
             "territory": "worldwide",
-            "issuedAt": 1783840693,
-            "expiresAt": 1785050293
+            "issuedAt": 1783851828,
+            "expiresAt": 1785061428
         },
         "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
         "policyAstHash": "0x0f7f495269c80d8634dd59eab340f0a62644576b3406ddd0596aeceb95631dc8",
         "offerDigest": "0x4c2b7513b46541a2665f0d38f70b84acc38d22592a65fb526b885454c48c2276",
-        "purchaseIntentDigest": "0x84f03fef2b215d8526e142ce62440c026317e9de7fd1eb34fc2e34b40c6725a2",
-        "paymentAuthorizationDigest": "0x749b5c0d1fa05e1e566994147642cfa9650efd45e5999f1824fc60b92b235a58",
-        "orderId": "ord-4e3462ce14fa85cc",
-        "buyerPaymentId": "749b5c0d1fa05e1e566994147642cfa9",
+        "purchaseIntentDigest": "0x85871ad0e5057c656ef87a7222dacfea98cf66a640af1e1076d781676a704b59",
+        "paymentAuthorizationDigest": "0xf5698c8859c7bb81299182ef389d077c025280cf159810f50da81fd31ea2b551",
+        "orderId": "ord-4a7b6da832660485",
+        "buyerPaymentId": "f5698c8859c7bb81299182ef389d077c",
         "credentialEnvironment": "production",
         "settlementNetwork": "eip155:196",
         "paymentAsset": "0x779ded0c9e1022225f8e0630b35a9b54be713736",
         "authorizationMode": "eip712_purchase_intent",
-        "buyerAuthorizationDigest": "0x84f03fef2b215d8526e142ce62440c026317e9de7fd1eb34fc2e34b40c6725a2",
-        "licenseId": "lic-b6e17acb4dc01e76",
-        "statusUrl": "https://license402.axiqo.xyz/v1/orders/ord-4e3462ce14fa85cc",
-        "issuerSignature": "0x0d42b083f34c08f8d25eaffd533b847e26eafef63dbfe11fea9a717f76c4106c145931e4da6bdae16253cefeb11b91871cb0ce0f6d9b1f0245c3f18efae886e51b"
+        "buyerAuthorizationDigest": "0x85871ad0e5057c656ef87a7222dacfea98cf66a640af1e1076d781676a704b59",
+        "licenseId": "lic-56306766865ad06d",
+        "statusUrl": "https://license402.axiqo.xyz/v1/orders/ord-4a7b6da832660485",
+        "issuerSignature": "0x2bda3370e86c92c33d091b1be33e578bfee721a4dd061c6aa9c65ec623ede3d624deb0b1f1c24865d6af42d43f15842823b0e19647f268b3104bcb2d8687690c1c"
     },
     "order": {
-        "orderId": "ord-4e3462ce14fa85cc",
+        "orderId": "ord-4a7b6da832660485",
         "status": "CREATOR_PAID",
-        "buyerPaymentId": "749b5c0d1fa05e1e566994147642cfa9",
-        "buyerSettleTx": "0xa1a766bbae9c370c78e4e78d58ad80cea6e7b055ca8515743ff8b2fd81b3edda",
-        "paymentAuthorizationDigest": "0x749b5c0d1fa05e1e566994147642cfa9650efd45e5999f1824fc60b92b235a58"
+        "buyerPaymentId": "f5698c8859c7bb81299182ef389d077c",
+        "buyerSettleTx": "0xca5f4a1e0b4f91b2aee3e4a9161f928e8c746a146b152984e5ac89fa7b23ae6a",
+        "paymentAuthorizationDigest": "0xf5698c8859c7bb81299182ef389d077c025280cf159810f50da81fd31ea2b551"
     },
     "creatorPayout": {
         "state": "PAID",
         "amountMicro": 70000,
-        "confirmedTx": "0x06ffb2941a4e1ef2dbfcad2c6c6ec46889a9042388ff9e95bbfeecc1e23b2c6e"
+        "confirmedTx": "0x03f49537f5222defe8ec0e1b10b51d255acee469db6f9bc8418324d7d69c4b30",
+        "payoutSender": "0x055335dd87638796c33d1f08c05d39f322f41d1f"
     },
     "notes": "Verify: recover CreatorOffer + PurchaseIntent signers (EIP-712), recompute quoteCommitment, recover the credential issuer signature, and re-run check-license-scope. Sample environment = simulated settlement, no funds moved."
 }
