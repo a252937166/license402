@@ -147,6 +147,20 @@ export class Repo {
     };
   }
 
+  /** Content-addressed asset archive: sha256 → the exact bytes' path, forever. */
+  archiveAssetVersion(assetSha256: string, assetId: string, filePath: string, mimeType: string, nowSeconds: number): void {
+    this.db
+      .prepare(`INSERT INTO asset_versions (asset_sha256, asset_id, file_path, mime_type, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(asset_sha256) DO NOTHING`)
+      .run(assetSha256, assetId, filePath, mimeType, nowSeconds);
+  }
+
+  getAssetVersionBySha(assetSha256: string): { assetId: string; filePath: string; mimeType: string } | undefined {
+    const row = this.db.prepare(`SELECT asset_id, file_path, mime_type FROM asset_versions WHERE asset_sha256 = ?`).get(assetSha256) as
+      | { asset_id: string; file_path: string; mime_type: string }
+      | undefined;
+    return row ? { assetId: row.asset_id, filePath: row.file_path, mimeType: row.mime_type } : undefined;
+  }
+
   /** Append a signed offer version (no-op if this exact digest is already archived). */
   archiveOfferVersion(offerDigest: string, offerId: string, offer: CreatorOffer, nowSeconds: number): void {
     this.db
@@ -563,6 +577,48 @@ export class Repo {
       )
       .run(address.toLowerCase(), ip, amountMicro, network, nowSeconds, cooldownSeconds);
     return Number(r.changes) === 1;
+  }
+
+  /**
+   * ATOMIC quota take (round-11 anti-abuse): per-address/day, per-IP/day and
+   * global/hour limits are counted AND the event inserted inside ONE
+   * transaction, so a parallel burst from fresh addresses cannot overshoot.
+   * A failed send deletes its event — quota is only spent on delivery.
+   */
+  tryTakeFaucetQuota(
+    address: string,
+    ip: string,
+    network: string,
+    amountMicro: number,
+    nowSeconds: number,
+    limits: { perAddressDay: number; perIpDay: number; globalHour: number }
+  ): { ok: true; eventId: number } | { ok: false; error: string; detail: string } {
+    const run = this.db.transaction((): { ok: true; eventId: number } | { ok: false; error: string; detail: string } => {
+      const day = nowSeconds - 86_400;
+      const hour = nowSeconds - 3_600;
+      const g = (this.db.prepare(`SELECT COUNT(*) AS n FROM faucet_claim_events WHERE network = ? AND created_at > ?`).get(network, hour) as { n: number }).n;
+      if (g >= limits.globalHour) return { ok: false, error: "RATE_LIMITED", detail: "faucet is busy — try again later or use the official faucet" };
+      const a = (this.db.prepare(`SELECT COUNT(*) AS n FROM faucet_claim_events WHERE address = ? AND network = ? AND created_at > ?`).get(address.toLowerCase(), network, day) as { n: number }).n;
+      if (a >= limits.perAddressDay) return { ok: false, error: "ADDRESS_DAILY_LIMIT", detail: `${limits.perAddressDay} claims per address per day — the official faucet has no such limit` };
+      if (ip) {
+        const i = (this.db.prepare(`SELECT COUNT(*) AS n FROM faucet_claim_events WHERE ip = ? AND network = ? AND created_at > ?`).get(ip, network, day) as { n: number }).n;
+        if (i >= limits.perIpDay) return { ok: false, error: "IP_DAILY_LIMIT", detail: `${limits.perIpDay} claims per IP per day — the official faucet has no such limit` };
+      }
+      const r = this.db
+        .prepare(`INSERT INTO faucet_claim_events (address, ip, network, amount_micro, created_at) VALUES (?, ?, ?, ?, ?)`)
+        .run(address.toLowerCase(), ip, network, amountMicro, nowSeconds);
+      return { ok: true, eventId: Number(r.lastInsertRowid) };
+    });
+    return run();
+  }
+
+  recordFaucetEventTx(eventId: number, tx: string): void {
+    this.db.prepare(`UPDATE faucet_claim_events SET tx = ? WHERE id = ?`).run(tx, eventId);
+  }
+
+  /** Failed send: refund the quota (nothing was delivered). */
+  deleteFaucetEvent(eventId: number): void {
+    this.db.prepare(`DELETE FROM faucet_claim_events WHERE id = ?`).run(eventId);
   }
 
   /**

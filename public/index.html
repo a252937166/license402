@@ -787,7 +787,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   let ledgerTab="production", lastLedger=null;
   function renderLedger(){
     const L=lastLedger||{orders:[],activeLicenses:0,distinctBuyers:0,creatorPayoutsPaid:0,production:{licenses:0,distinctBuyers:0,creatorsPaid:0,qualified:0,sponsored:0}};
-    const settledStates=["LICENSE_ACTIVE","CREATOR_PAYOUT_PENDING","CREATOR_PAID","PAYOUT_RETRYING"];
+    const settledStates=["LICENSE_ACTIVE","CREATOR_PAYOUT_PENDING","CREATOR_PAID","PAYOUT_RETRYING","PAYOUT_NEEDS_RECONCILIATION"];
     const settled=(L.orders||[]).filter(o=>settledStates.includes(o.status));
     const rows=settled.filter(o=>ledgerTab==="production"?o.environment==="production":(ledgerTab==="testnet"?o.environment==="testnet":o.environment!=="production"&&o.environment!=="testnet"));
     const banners={
@@ -799,7 +799,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     const stat=(l,n)=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
     if(ledgerTab==="production"){
       const P=L.production||{licenses:0,distinctBuyers:0,creatorsPaid:0,qualified:0,sponsored:0};
-      $("#stats").innerHTML=[stat("Production licenses",P.licenses),stat("Self-funded production GMV",((P.qualified||0)*0.10).toFixed(2)+" USDT"),stat("Sponsored (excluded)",P.sponsored||0),stat("Creators paid",P.creatorsPaid)].join("");
+      $("#stats").innerHTML=[stat("Production licenses",P.licenses),stat("External production orders",P.external||0),stat("Self-funded production GMV",((P.qualified||0)*0.10).toFixed(2)+" USDT"),stat("Creators paid",P.creatorsPaid)].join("");
     }else if(ledgerTab==="testnet"){
       const T=L.testnet||{settled:settled.filter(o=>o.environment==="testnet").length,payoutsPaid:0};
       $("#stats").innerHTML=[stat("Testnet licenses",T.settled),stat("Real settlements",T.settled),stat("Creator payouts paid",T.payoutsPaid),stat("Production revenue","0.00")].join("");
@@ -897,7 +897,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     fillGrant();
     // Honest state: signatures (offer/quote/intent/credential) are real even in
     // the sample; only settlement + payout are simulated when funds are off.
-    $("#ppStamp").innerHTML=stampSVG(sample?"SAMPLE":"LICENSED",sample?"v-duty":"v-cleared");
+    $("#ppStamp").innerHTML=stampSVG(sample?"SAMPLE":"PERMITTED BY LICENSE",sample?"v-duty":"v-cleared");
     $("#ppStatusWrap").classList.toggle("sample",sample);
     $("#ppStatus").textContent=sample?"Signed end-to-end · sample, no funds moved":"License active";
     if(sample){
@@ -1032,7 +1032,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
     else if(k==="quote") openModal("Exact asset & price locked","terms commitment",[["quote commitment",c.quoteCommitment||"(in bundle)"],["asset sha-256",c.assetSha256,true],["price","0.10 USDT"],["creator payout","0.07 USDT"],["platform fee","0.03 USDT"],["drift guard","mismatch → 409 before the 402 challenge"]]);
     else if(k==="intent") openModal("Buyer accepted the terms","EIP-712 PurchaseIntent",[["purchase intent digest",c.purchaseIntentDigest],["licensee",c.licenseeWallet],["binds","asset + offer + policy + legal text + price"],["rule","payer == buyer == licensee"],["verify","recover EIP-712 signer == buyer (in proof bundle)"]]);
     else if(k==="pay") openModal(isSample?"Payment step · simulated":"Payment settled","402 · X Layer ("+env+")",[["network","eip155:196 · X Layer"],["settlement token","USDT (USD₮0) · 0x779d…3736"],["payment auth digest",c.paymentAuthorizationDigest||"(in order)"],["buyer payment id",c.buyerPaymentId],["settlement","only status===success activates the license"],["environment",env]]);
-    else if(k==="cred") openModal("License issued","issuer-signed credential",[["license id",c.licenseId,true],["issuer",c.issuer],["issuer signature",short(c.issuerSignature)],["evidence root",c.evidenceRoot||"—"],["receipt hash",c.receiptHash||"—"],["download","use “Download proof bundle” for the full envelope"]]);
+    else if(k==="cred") openModal("License issued","issuer-signed credential",[["license id",c.licenseId,true],["issuer",c.issuer],["issuer signature",short(c.issuerSignature)],["credential version",c.credentialVersion||"1"],["authorization",c.authorizationMode||"eip712_purchase_intent"],["download","use “Download proof bundle” for the full envelope"]]);
     else if(k==="payout") openModal(isSample?"Creator payout · simulated":"Creator paid","creator net price",[["payout wallet",c.licensorWallet],["amount","0.07 USDT"],["order status","see “View payment record”"],["rule","payout is a liability once the buyer settles; retried, never dropped"],["environment",env]]);
   }
   $$('#rail .step').forEach(s=>s.addEventListener("click",()=>railEvidence(s.dataset.k)));

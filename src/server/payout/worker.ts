@@ -21,8 +21,12 @@ export interface PayoutSender {
   reserveNonce(): Promise<number>;
   /** Send `amountMicro` USDT to `payoutWallet` with a fixed nonce. Returns the tx hash. */
   send(orderId: string, payoutWallet: string, amountMicro: number, nonce: number): Promise<string>;
-  /** Receipt check for a broadcast tx. */
-  confirm(tx: string): Promise<"confirmed" | "reverted" | "pending">;
+  /**
+   * Receipt check for a broadcast tx AGAINST THE OBLIGATION: only a receipt
+   * whose Transfer log matches (service → payoutWallet, exact amount) may
+   * answer "confirmed". "mismatch" = successful-but-unrelated tx.
+   */
+  confirm(tx: string, expect: { payoutWallet: string; amountMicro: number }): Promise<"confirmed" | "reverted" | "pending" | "mismatch">;
 }
 
 class DevPayoutSender implements PayoutSender {
@@ -47,8 +51,8 @@ export class LivePayoutSender implements PayoutSender {
   send(_orderId: string, payoutWallet: string, amountMicro: number, nonce: number): Promise<string> {
     return this.chain.sendUsdt(payoutWallet, amountMicro, nonce);
   }
-  confirm(tx: string): Promise<"confirmed" | "reverted" | "pending"> {
-    return this.chain.receiptStatus(tx);
+  confirm(tx: string, expect: { payoutWallet: string; amountMicro: number }): Promise<"confirmed" | "reverted" | "pending" | "mismatch"> {
+    return this.chain.verifyUsdtTransfer(tx, expect.payoutWallet, expect.amountMicro);
   }
 }
 
@@ -98,14 +102,19 @@ export async function runPayoutWorker(
       // assume: confirmed → PAID; reverted → receipt proves no value moved, so
       // (and only then) the nonce is released for a fresh retry; pending →
       // fast-requeue so the receipt is re-checked in seconds, not a full lease.
+      const obligation = { payoutWallet: payout.payout_wallet as string, amountMicro: payout.amount_micro as number };
       if (payout.state === "BROADCAST" && payout.broadcast_tx) {
-        const status = await sender.confirm(payout.broadcast_tx as string);
+        const status = await sender.confirm(payout.broadcast_tx as string, obligation);
         if (status === "confirmed") {
           repo.markPayoutPaid(orderId, payout.broadcast_tx as string, now());
           processed += 1;
         } else if (status === "reverted") {
           repo.clearPayoutNonceAfterRevert(orderId, now());
           repo.markPayoutFailed(orderId, "payout tx reverted", now() + 60, false, now());
+        } else if (status === "mismatch") {
+          // The recorded/attached tx succeeded but does NOT pay this obligation
+          // — never PAID, never auto-retried; a human must look.
+          repo.markPayoutNeedsReconciliation(orderId, `tx ${payout.broadcast_tx} succeeded but is not a ${obligation.amountMicro}µ transfer to ${obligation.payoutWallet}`, now());
         } else {
           repo.requeuePayoutJob(orderId, now() + 8, now());
         }
@@ -140,10 +149,12 @@ export async function runPayoutWorker(
         throw e;
       }
       repo.recordPayoutBroadcast(orderId, nonce, tx, now());
-      const status = await sender.confirm(tx);
+      const status = await sender.confirm(tx, obligation);
       if (status === "confirmed") {
         repo.markPayoutPaid(orderId, tx, now());
         processed += 1;
+      } else if (status === "mismatch") {
+        repo.markPayoutNeedsReconciliation(orderId, `broadcast ${tx} succeeded but its Transfer log does not match the obligation`, now());
       } else {
         // Receipt not yet visible → re-check in seconds (state BROADCAST).
         repo.requeuePayoutJob(orderId, now() + 8, now());

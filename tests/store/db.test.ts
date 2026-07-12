@@ -149,3 +149,35 @@ describe("faucet atomic cooldown (round-10)", () => {
     expect(repo.tryTakeFaucetSlot("0xCD", "ip", 500000, "testnet", 1002, 60)).toBe(false);
   });
 });
+
+describe("faucet anti-abuse quotas (round-11)", () => {
+  it("per-address, per-IP and global limits are enforced atomically; failed sends refund", async () => {
+    const { Repo } = await import("../../src/server/store/repo.js");
+    const repo = new Repo(openDatabase(":memory:"));
+    const limits = { perAddressDay: 2, perIpDay: 5, globalHour: 20 };
+    const take = (addr: string, ip: string, t: number) => repo.tryTakeFaucetQuota(addr, ip, "testnet", 500000, t, limits);
+
+    expect(take("0xA1", "ip1", 1000).ok).toBe(true);
+    expect(take("0xA1", "ip1", 2000).ok).toBe(true);
+    const third = take("0xA1", "ip1", 3000);
+    expect(third.ok).toBe(false);
+    expect((third as { error: string }).error).toBe("ADDRESS_DAILY_LIMIT");
+
+    // Fresh addresses from the SAME IP: 3 more allowed (5 total), 6th blocked.
+    expect(take("0xA2", "ip1", 3100).ok).toBe(true);
+    expect(take("0xA3", "ip1", 3200).ok).toBe(true);
+    expect(take("0xA4", "ip1", 3300).ok).toBe(true);
+    const ipBlocked = take("0xA5", "ip1", 3400);
+    expect(ipBlocked.ok).toBe(false);
+    expect((ipBlocked as { error: string }).error).toBe("IP_DAILY_LIMIT");
+
+    // Failed send refunds: delete the event → the same address can retry.
+    const ok = take("0xA5", "ip2", 3500);
+    expect(ok.ok).toBe(true);
+    repo.deleteFaucetEvent((ok as { eventId: number }).eventId);
+    expect(take("0xA5", "ip2", 3600).ok).toBe(true);
+
+    // A day later the address limit resets.
+    expect(take("0xA1", "ip9", 1000 + 86_500).ok).toBe(true);
+  });
+});

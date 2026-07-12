@@ -43,3 +43,19 @@ describe("historical materials survive re-signs and version bumps", () => {
     expect(repo.getLegalText(head!.offer.legalTextHash)).toContain("Version: 2");
   });
 });
+
+describe("round-11: content-addressed assets", () => {
+  it("loader archives every asset sha into by-hash storage and the row survives a head re-upload", async () => {
+    const repo = new Repo(openDatabase(":memory:"));
+    loadCatalog(repo, 1_783_900_800);
+    const head = repo.getOffer("off-cyber-dragon")!;
+    const v = repo.getAssetVersionBySha(head.assetSha256);
+    expect(v?.assetId).toBe("asset-cyber-dragon");
+    expect(v?.filePath).toContain("by-hash/");
+    expect(v?.filePath).toContain(head.assetSha256.replace(/^0x/, ""));
+    // Simulate a future re-upload: head asset row now points at different bytes.
+    repo.upsertAsset({ assetId: "asset-cyber-dragon", sha256: "0x" + "ab".repeat(32), mimeType: "image/png", filePath: "catalog/assets/replaced.png", previewPath: "x", title: "t", creatorDisplay: "c", tags: [] }, 2);
+    // The sold license's sha still resolves to the ORIGINAL bytes' path.
+    expect(repo.getAssetVersionBySha(head.assetSha256)?.filePath).toContain(head.assetSha256.replace(/^0x/, ""));
+  });
+});

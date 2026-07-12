@@ -310,6 +310,10 @@ export function prepareDirectDelivery(
 function credentialAssetId(repo: Repo, orderId: string): string {
   const credential = repo.getLicenseByOrder(orderId);
   if (!credential) return "";
+  // Archive-first: the credential's exact bytes always resolve, even after
+  // the head asset was replaced (round-11 immutable assets).
+  const archived = repo.getAssetVersionBySha(credential.assetSha256);
+  if (archived) return archived.assetId;
   const offer = repo.listActiveOffers().find((o) => o.assetSha256 === credential.assetSha256);
   return offer?.assetId ?? "";
 }
@@ -324,6 +328,9 @@ export const SETTLED_STATES = new Set([
   "CREATOR_PAYOUT_PENDING",
   "PAYOUT_RETRYING",
   "PAYOUT_FAILED",
+  // Buyer settled + license active; only the CREATOR side is in manual
+  // reconciliation. The buyer's delivery must never regress because of it.
+  "PAYOUT_NEEDS_RECONCILIATION",
   "CREATOR_PAID"
 ]);
 
@@ -349,9 +356,13 @@ export function onSettlementSuccess(
     repo.updateOrderStatus(orderId, "LICENSE_ACTIVE", ctx.nowSeconds);
     repo.setLicenseStatus(orderId, "ACTIVE");
 
-    const offer = repo.getOffer(orderIdToOfferId(repo, orderId));
+    // REAL MONEY resolves from the HISTORICAL signed offer this quote bound —
+    // a creator who re-signs with a new payoutWallet between quote and payment
+    // must be paid at the wallet the BUYER's terms named, never the new head.
     const quote = repo.getQuoteById(order.quoteId);
-    const payoutWallet = offer?.payoutWallet ?? credential.licensorWallet;
+    const signedOffer = quote ? repo.getOfferByDigest(quote.offerDigest) : undefined;
+    const headOffer = quote ? repo.getOffer(quote.offerId) : undefined;
+    const payoutWallet = signedOffer?.payoutWallet ?? headOffer?.payoutWallet ?? credential.licensorWallet;
     const payoutMicro = quote?.creatorPayoutMicro ?? 70_000;
     repo.enqueuePayout(orderId, payoutWallet, payoutMicro, ctx.nowSeconds);
     repo.updateOrderStatus(orderId, "CREATOR_PAYOUT_PENDING", ctx.nowSeconds);

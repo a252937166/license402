@@ -122,8 +122,7 @@ export type AuthorizationMode = "eip712_purchase_intent" | "x402_direct";
  * and buyer-signed purchase-intent digest. No settlement tx hashes in here;
  * final settlement truth lives at statusUrl (`GET /v1/orders/:orderId`).
  */
-export const LicenseCredentialSchema = z.strictObject({
-  credentialVersion: z.enum(CREDENTIAL_VERSIONS),
+const credentialCommonFields = {
   licenseId: id,
   templateId: z.literal(TEMPLATE_ID),
   issuer: address,
@@ -146,18 +145,40 @@ export const LicenseCredentialSchema = z.strictObject({
   orderId: id,
   buyerPaymentId: z.string().min(1).max(128),
   statusUrl: z.string().url().max(512),
-  // Environment & rail semantics live IN the signed credential (review §2/§7):
-  // a testnet credential is distinguishable from a production one even fully
-  // offline. Optional for backward compatibility with already-issued credentials
-  // (absent ⇒ pre-rail credential, treated as its order's environment).
+  issuerSignature: signature
+} as const;
+
+/** v1: pre-rail credentials — environment/rail/authorization fields optional
+ *  (some late-v1 credentials carry them, early ones don't; both verify). */
+export const LicenseCredentialV1Schema = z.strictObject({
+  ...credentialCommonFields,
+  credentialVersion: z.literal("1"),
   credentialEnvironment: z.enum(["production", "testnet", "sample"]).optional(),
   settlementNetwork: z.string().regex(/^eip155:\d+$/).optional(),
   paymentAsset: address.optional(),
-  // How the buyer authorized: a signed EIP-712 PurchaseIntent, or an x402
-  // direct purchase where the EIP-3009 payment signature IS the authorization.
   authorizationMode: z.enum(["eip712_purchase_intent", "x402_direct"]).optional(),
-  buyerAuthorizationDigest: hash32.optional(),
-  issuerSignature: signature
+  buyerAuthorizationDigest: hash32.optional()
 });
+
+/** v2: environment, rail and authorization semantics are REQUIRED — a v2
+ *  credential that omits them is invalid, not "defaulted" (round-11 §8.3). */
+export const LicenseCredentialV2Schema = z.strictObject({
+  ...credentialCommonFields,
+  credentialVersion: z.literal("2"),
+  credentialEnvironment: z.enum(["production", "testnet", "sample"]),
+  settlementNetwork: z.string().regex(/^eip155:\d+$/),
+  paymentAsset: address,
+  authorizationMode: z.enum(["eip712_purchase_intent", "x402_direct"]),
+  buyerAuthorizationDigest: hash32
+});
+
+export const LicenseCredentialSchema = z.discriminatedUnion("credentialVersion", [
+  LicenseCredentialV1Schema,
+  LicenseCredentialV2Schema
+]);
 export type LicenseCredential = z.infer<typeof LicenseCredentialSchema>;
-export type UnsignedLicenseCredential = Omit<LicenseCredential, "issuerSignature">;
+// Distribute Omit over the version union (plain Omit would collapse it).
+type OmitSig<T> = T extends unknown ? Omit<T, "issuerSignature"> : never;
+export type UnsignedLicenseCredential = OmitSig<LicenseCredential>;
+export type LicenseCredentialV2 = z.infer<typeof LicenseCredentialV2Schema>;
+export type UnsignedLicenseCredentialV2 = Omit<LicenseCredentialV2, "issuerSignature">;

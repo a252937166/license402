@@ -17,6 +17,20 @@ export interface ScopeCheckRequest {
   nowSeconds: number;
 }
 
+/**
+ * The single field a downstream agent may act on. Extends the static scope
+ * decisions with status-aware verdicts: PERMITTED_TESTNET_ONLY (real protocol
+ * execution, test-value money — never a production permission) and
+ * INDETERMINATE (issuer unknown / status unresolvable — fail closed).
+ */
+export type EffectiveDecision =
+  | "PERMITTED"
+  | "PERMITTED_WITH_DUTIES"
+  | "PERMITTED_TESTNET_ONLY"
+  | "NOT_PERMITTED"
+  | "INVALID_CREDENTIAL"
+  | "INDETERMINATE";
+
 export interface ScopeCheckResult {
   decision: ScopeDecision;
   staticScope: ScopeDecision;

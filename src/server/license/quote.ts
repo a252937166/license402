@@ -50,6 +50,7 @@ export interface QuoteResult {
     creatorDisplay: string;
     policy: PolicyV1;
     policyAstHash: string;
+    legalTextHash: string;
     effectiveGrant: {
       channels: string[];
       transformations: string[];
@@ -193,6 +194,9 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
       creatorDisplay,
       policy: offer.policy,
       policyAstHash: astHash,
+      // The legal hash the buyer signs is the SELECTED OFFER's — never a
+      // global file that may drift out of sync with what the creator signed.
+      legalTextHash: offer.legalTextHash,
       effectiveGrant: {
         channels: [use.channel],
         transformations: [...use.transformations],

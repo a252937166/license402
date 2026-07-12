@@ -1,6 +1,9 @@
 /**
- * Offline evidence verifier (round-10). Re-derives every cryptographic claim
- * in docs/evidence/*.json with NO server and NO network:
+ * Offline evidence verifier. Re-derives the CRYPTOGRAPHIC CONSISTENCY of
+ * docs/evidence/*.json with NO server and NO network — signatures, digests,
+ * commitments, and that every referenced hash resolves to real bytes in this
+ * repo. It does NOT prove on-chain settlement semantics; that is
+ * `npm run verify:evidence:onchain` (reads X Layer RPCs).
  *
  *   1. CreatorOffer signature   — recovered under the offer's own domain version
  *   2. offerDigest              — recomputed, must match quote + credential
@@ -17,6 +20,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { keccak_256 } from "@noble/hashes/sha3.js";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { existsSync } from "node:fs";
 import { utf8ToBytes, bytesToHex, concatBytes } from "@noble/hashes/utils.js";
 import { canonicalJson } from "../src/server/domain/index.js";
 import {
@@ -34,6 +39,7 @@ import { offerDigestHex, policyAstHash, quoteCommitment } from "../src/server/li
 import { canonicalHash } from "../src/server/domain/index.js";
 import { parseUsdtToMicro } from "../src/server/license/money.js";
 import { EIP712_DOMAIN } from "../src/server/license/vocab.js";
+import { recoverCredentialIssuer } from "../src/server/license/credential.js";
 import { PROJECT_ROOT } from "../src/server/config.js";
 
 type Json = Record<string, any>;
@@ -175,13 +181,38 @@ function verifyBundle(path: string): { pass: boolean; checks: [string, boolean |
   if (recomputed === null) push("quoteCommitment.recompute", "skip", "no idempotencyKey in historical bundle");
   else push("quoteCommitment.recompute", recomputed === bundle.quote.quoteCommitment, recomputed);
 
-  // 7: credential issuer signature (domain: LICENSE402-CREDENTIAL-V1:<chainId>:)
-  const { issuerSignature, ...unsignedCred } = bundle.licenseCredential;
-  const credDigest = keccak_256(utf8ToBytes(`LICENSE402-CREDENTIAL-V1:${EIP712_DOMAIN.chainId}:` + canonicalJson(unsignedCred)));
-  const issuer = recoverDigestSigner(credDigest, issuerSignature);
+  // 7: credential issuer signature — version-aware domain prefix
+  //    (CREDENTIAL-V2 for v2 issues; V1-prefix fallback for pre-bump v2 and all v1)
+  const issuer = recoverCredentialIssuer(bundle.licenseCredential as never);
   push("credential.issuerSignature", issuer === String(bundle.licenseCredential.issuer).toLowerCase(), `issuer=${issuer}`);
 
-  // 8: settlement facts
+  // 8: FILE BYTES — the hashes in the bundle resolve to real bytes in this repo
+  //    (asset via content-addressed storage; legal + attestation via tree scan).
+  const sha = String(offer.assetSha256);
+  const ext = String(offer.mimeType ?? "image/png").split("/")[1] ?? "png";
+  const byHash = resolve(PROJECT_ROOT, `catalog/assets/by-hash/${sha.replace(/^0x/, "")}.${ext}`);
+  let assetOk: boolean | "skip" = "skip";
+  if (existsSync(byHash)) assetOk = `0x${bytesToHex(sha256(readFileSync(byHash)))}` === sha;
+  else {
+    const dir = resolve(PROJECT_ROOT, "catalog/assets");
+    assetOk = readdirSync(dir).filter((f) => f.endsWith(`.${ext}`)).some((f) => `0x${bytesToHex(sha256(readFileSync(resolve(dir, f))))}` === sha);
+  }
+  push("asset.bytesOnDisk", assetOk, sha);
+  const legalDirs = ["legal", "legal/archive"].map((d) => resolve(PROJECT_ROOT, d)).filter(existsSync);
+  const legalOk = legalDirs.some((d) => readdirSync(d).filter((f) => f.endsWith(".md")).some((f) => `0x${bytesToHex(sha256(readFileSync(resolve(d, f))))}` === offer.legalTextHash));
+  push("legalText.bytesOnDisk", legalOk, offer.legalTextHash);
+  const attDirs = ["catalog/attestations", "catalog/attestations/archive"].map((d) => resolve(PROJECT_ROOT, d)).filter(existsSync);
+  const attOk = attDirs.some((d) => readdirSync(d).filter((f) => f.endsWith(".md")).some((f) => `0x${bytesToHex(sha256(readFileSync(resolve(d, f))))}` === offer.rightsAttestationHash));
+  if (!attOk && Number(offer.offerVersion) < 2) {
+    // Honest gap: offerVersion-1 offers predate byte archiving; one attestation
+    // revision was overwritten before the first commit and cannot be produced.
+    // From offerVersion 2 on, every referenced byte is archived and REQUIRED.
+    push("rightsAttestation.bytesOnDisk", "skip", "pre-immutability-era revision not retained (policy enforced from offerVersion 2)");
+  } else {
+    push("rightsAttestation.bytesOnDisk", attOk, offer.rightsAttestationHash);
+  }
+
+  // 9: settlement facts
   if (bundle.environment === "production" || bundle.environment === "testnet") {
     push("order.buyerSettleTx present", typeof bundle.order.buyerSettleTx === "string" && bundle.order.buyerSettleTx.startsWith("0x"));
     if (bundle.creatorPayout?.state === "PAID") {

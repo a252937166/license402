@@ -15,7 +15,7 @@ import { buildQuote } from "./license/quote.js";
 import type { CatalogOffer } from "./license/quote.js";
 import { useSpecHash } from "./license/commitments.js";
 import { checkLicenseScope } from "./license/scopeCheck.js";
-import { EIP712_TYPES } from "./license/eip712.js";
+import { EIP712_TYPES, privateKeyToAddress } from "./license/eip712.js";
 import { CREDENTIAL_VERSION, EIP712_DOMAIN } from "./license/vocab.js";
 import { formatMicroUsdt, CREATOR_PAYOUT_MICRO, PLATFORM_FEE_MICRO, SALE_PRICE_MICRO } from "./license/money.js";
 import { UseSpecSchema } from "./license/types.js";
@@ -59,10 +59,14 @@ function deliveryTicketSecret(config: AppConfig): string {
   return "dev-delivery-ticket-secret";
 }
 
-function signedAssetUrl(config: AppConfig, assetId: string, nowSeconds: number): string {
+function signedAssetUrl(config: AppConfig, assetId: string, nowSeconds: number, assetSha256?: string): string {
   const exp = nowSeconds + SIGNED_URL_TTL;
-  const sig = createHmac("sha256", assetUrlSecret(config)).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
-  return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}?exp=${exp}&sig=${sig}`;
+  // With a sha the credential's EXACT bytes are part of the signed preimage —
+  // the URL can only ever serve the version the buyer licensed (round-11).
+  const preimage = assetSha256 ? `${assetId}.${assetSha256}.${exp}` : `${assetId}.${exp}`;
+  const sig = createHmac("sha256", assetUrlSecret(config)).update(preimage).digest("hex").slice(0, 32);
+  const shaParam = assetSha256 ? `&sha=${encodeURIComponent(assetSha256)}` : "";
+  return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}?exp=${exp}${shaParam}&sig=${sig}`;
 }
 
 /** Same signature/expiry as the download URL, but serves the fast webp display rendition. */
@@ -98,9 +102,10 @@ function synthesizePaymentResponse(tx: string, network: string, payer: string): 
   }
 }
 
-function verifyAssetSig(config: AppConfig, assetId: string, exp: number, sig: string, nowSeconds: number): boolean {
+function verifyAssetSig(config: AppConfig, assetId: string, exp: number, sig: string, nowSeconds: number, assetSha256?: string): boolean {
   if (!Number.isFinite(exp) || exp < nowSeconds) return false;
-  const expected = createHmac("sha256", assetUrlSecret(config)).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
+  const preimage = assetSha256 ? `${assetId}.${assetSha256}.${exp}` : `${assetId}.${exp}`;
+  const expected = createHmac("sha256", assetUrlSecret(config)).update(preimage).digest("hex").slice(0, 32);
   return expected === sig;
 }
 
@@ -277,8 +282,10 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         title: quote.selected.title,
         creator: quote.selected.creatorDisplay
       },
-      legalTextHash: legalTextHash(),
-      legalTextVersion: "social-commercial-v1:v1",
+      legalTextHash: quote.selected.legalTextHash,
+      // No handwritten version tag (it drifted once) — the hash IS the version;
+      // the URL serves the exact bytes it names.
+      legalTextUrl: `${config.publicOrigin}/v1/legal/${quote.selected.legalTextHash}`,
       effectiveGrant: quote.selected.effectiveGrant,
       policyAstHash: quote.selected.policyAstHash,
       price: quote.selected.price,
@@ -299,7 +306,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         assetSha256: quote.selected.assetSha256,
         offerDigest: quote.selected.offerDigest,
         policyAstHash: quote.selected.policyAstHash,
-        legalTextHash: legalTextHash(),
+        legalTextHash: quote.selected.legalTextHash,
         totalPrice: quote.selected.price,
         currency: "USDT",
         settlementNetwork: quote.selected.settlementNetwork,
@@ -374,10 +381,65 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       }
     }
 
+    // DIRECT SKU (round-11): direct mode sells a PINNED offer — the default
+    // marketplace SKU or an explicit body.offerId — resolved on the FIRST,
+    // unpaid request. The 402 challenge body names the exact assetSha256 /
+    // offerDigest / legalTextHash the payment will buy, and the paid replay
+    // pins the same offer, so selection can never drift after authorization.
+    const directOfferId =
+      typeof req.body?.offerId === "string" && /^off-[a-z0-9-]{1,64}$/.test(req.body.offerId)
+        ? req.body.offerId
+        : process.env.OKX_DIRECT_OFFER_ID?.trim() || "off-cyber-dragon";
+
     const verified = await rail.verify(req);
     if (!verified) {
       // Business preflight BEFORE the 402 challenge (review §9): a buyer is
       // never asked to sign a payment for terms that would be rejected anyway.
+      if (isDirect) {
+        const previewUse = UseSpecSchema.safeParse(req.body?.use);
+        const previewRail = wantTestnet ? config.testnet! : mainnetProfile(config);
+        const preview = buildQuote(
+          catalogOffers(),
+          previewUse.success
+            ? previewUse.data
+            : UseSpecSchema.parse({
+                brief: "commercial social campaign image",
+                channel: "x",
+                commercial: true,
+                durationDays: 14,
+                territory: "worldwide",
+                transformations: ["crop", "overlay_text"],
+                maxBudget: "0.10"
+              }),
+          "0x0000000000000000000000000000000000000001", // identity-free preview
+          { nowSeconds: now(), pinOfferId: directOfferId, rail: { settlementNetwork: previewRail.network, paymentAsset: previewRail.asset, payTo: config.payToAddress } }
+        );
+        if (!preview.serviceable || !preview.selected) {
+          // The agent learns BEFORE signing any payment authorization.
+          res.status(409).json({ error: "NOT_SERVICEABLE", offerId: directOfferId, reasons: preview.reasons ?? [], rejectedCandidates: preview.rejectedCandidates });
+          return;
+        }
+        const sel = preview.selected;
+        const selOffer = catalogOffers().find((c) => c.offer.offerId === sel.offerId)?.offer;
+        const challenge = await rail.challenge(`${config.publicOrigin}/v1/acquire/social-commercial`);
+        for (const [k, v] of Object.entries(challenge.headers)) res.setHeader(k, v);
+        res.status(challenge.status).json({
+          ...(challenge.body as Record<string, unknown>),
+          // Exact-goods disclosure: what this payment buys, fixed before payment.
+          directSku: {
+            offerId: sel.offerId,
+            assetSha256: sel.assetSha256,
+            offerDigest: sel.offerDigest,
+            legalTextHash: selOffer?.legalTextHash ?? null,
+            policyAstHash: sel.policyAstHash,
+            priceMicro: sel.priceMicro,
+            settlementNetwork: sel.settlementNetwork,
+            scope: "commercial social post (x), 14 days, worldwide, crop/overlay_text; no training, no resale",
+            note: "The paid replay is pinned to this offer — selection cannot change after you authorize payment."
+          }
+        });
+        return;
+      }
       if (!isDirect) {
         const pre = validateSignedAcquire(
           repo,
@@ -432,6 +494,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       const railProfile = wantTestnet ? config.testnet! : mainnetProfile(config);
       const q = buildQuote(catalogOffers(), use, verified.verifiedPayer, {
         nowSeconds: now(),
+        // Same pin as the unpaid challenge — the paid replay can never
+        // re-select a different asset than the 402 disclosed.
+        pinOfferId: directOfferId,
         rail: { settlementNetwork: railProfile.network, paymentAsset: railProfile.asset, payTo: config.payToAddress }
       });
       if (!q.serviceable || !q.selected) {
@@ -508,7 +573,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         license: prepared.delivery.credential,
         asset: {
           assetId: prepared.delivery.assetId,
-          url: signedAssetUrl(config, prepared.delivery.assetId, now()),
+          url: signedAssetUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
           displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
           sha256: prepared.delivery.credential.assetSha256,
           mimeType: "image/png"
@@ -546,7 +611,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         license: prepared.delivery.credential,
         asset: {
           assetId: prepared.delivery.assetId,
-          url: signedAssetUrl(config, prepared.delivery.assetId, now()),
+          url: signedAssetUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
           displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
           sha256: prepared.delivery.credential.assetSha256,
           mimeType: "image/png"
@@ -577,7 +642,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
               license: prepared.delivery.credential,
               asset: {
                 assetId: prepared.delivery.assetId,
-                url: signedAssetUrl(config, prepared.delivery.assetId, now()),
+                url: signedAssetUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
                 displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
                 sha256: prepared.delivery.credential.assetSha256,
                 mimeType: "image/png"
@@ -661,7 +726,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     const credEnv = (req.body?.license as { credentialEnvironment?: string })?.credentialEnvironment;
     if (credEnv === "testnet" && currentStatus === "ACTIVE") currentStatus = "TESTNET_ACTIVE";
     const statusOk = currentStatus === "ACTIVE" || currentStatus === "SAMPLE";
-    const effectiveDecision =
+    const effectiveDecision: import("./license/scopeCheck.js").EffectiveDecision =
       scopeOk && currentStatus === "TESTNET_ACTIVE"
         ? "PERMITTED_TESTNET_ONLY"
         : scopeOk && statusOk
@@ -697,15 +762,18 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
     const order = repo.getOrder(orderId);
     if (!order) return void res.status(404).json({ error: "ORDER_NOT_FOUND" });
-    const activeStates = ["LICENSE_ACTIVE", "CREATOR_PAYOUT_PENDING", "PAYOUT_RETRYING", "PAYOUT_FAILED", "CREATOR_PAID"];
+    const activeStates = ["LICENSE_ACTIVE", "CREATOR_PAYOUT_PENDING", "PAYOUT_RETRYING", "PAYOUT_FAILED", "PAYOUT_NEEDS_RECONCILIATION", "CREATOR_PAID"];
     if (!activeStates.includes(order.status)) {
       res.status(409).json({ error: "NOT_SETTLED_YET", status: order.status, statusUrl: `${config.publicOrigin}/v1/orders/${orderId}` });
       return;
     }
     const credential = repo.getLicenseByOrder(orderId);
     if (!credential) return void res.status(404).json({ error: "LICENSE_NOT_FOUND" });
+    // Resolve by the CREDENTIAL's sha via the content-addressed archive first —
+    // an asset re-upload must never orphan a sold license's download.
+    const archived = repo.getAssetVersionBySha(credential.assetSha256);
     const offer = repo.listActiveOffers().find((o) => o.assetSha256 === credential.assetSha256);
-    const assetId = offer?.assetId ?? "";
+    const assetId = archived?.assetId ?? offer?.assetId ?? "";
     // The standard receipt accompanies delayed deliveries too (review §6). If the
     // reconciler activated this order, synthesize + persist the header once.
     let receipt = order.paymentResponseHeader;
@@ -720,7 +788,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       license: credential,
       asset: {
         assetId,
-        url: signedAssetUrl(config, assetId, now()),
+        url: signedAssetUrl(config, assetId, now(), credential.assetSha256),
         displayUrl: signedDisplayUrl(config, assetId, now()),
         sha256: credential.assetSha256,
         mimeType: "image/png"
@@ -738,12 +806,19 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
     const payout = repo.getPayout(order.orderId);
     const licenseStatus = repo.getLicenseStatus(order.orderId);
-    const settledStates = ["LICENSE_ACTIVE", "CREATOR_PAYOUT_PENDING", "CREATOR_PAID", "PAYOUT_RETRYING", "PAYOUT_FAILED"];
+    const settledStates = ["LICENSE_ACTIVE", "CREATOR_PAYOUT_PENDING", "CREATOR_PAID", "PAYOUT_RETRYING", "PAYOUT_FAILED", "PAYOUT_NEEDS_RECONCILIATION"];
     const settled = settledStates.includes(order.status);
+    // Economics come from THIS order's quote — the recorded terms — not from
+    // global constants that may describe a different (future) SKU (round-11).
+    const oq = repo.getQuoteById(order.quoteId);
+    const priceMicro = oq?.priceMicro ?? SALE_PRICE_MICRO;
+    const creatorMicro = (payout?.amount_micro as number | undefined) ?? oq?.creatorPayoutMicro ?? CREATOR_PAYOUT_MICRO;
+    const feeMicro = oq ? oq.platformFeeMicro : PLATFORM_FEE_MICRO;
     res.status(200).json({
       orderId: order.orderId,
       status: order.status,
       licenseStatus,
+      environment: order.environment,
       buyerSettleTx: order.buyerSettleTx,
       creatorPayout: payout
         ? {
@@ -756,13 +831,13 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       economics:
         settled && payout?.state === "PAID"
           ? {
-              buyerSettled: formatMicroUsdt(SALE_PRICE_MICRO),
-              creatorPaid: formatMicroUsdt(CREATOR_PAYOUT_MICRO),
-              platformFee: formatMicroUsdt(PLATFORM_FEE_MICRO)
+              buyerSettled: formatMicroUsdt(priceMicro),
+              creatorPaid: formatMicroUsdt(creatorMicro),
+              platformFee: formatMicroUsdt(feeMicro)
             }
           : {
-              price: formatMicroUsdt(SALE_PRICE_MICRO),
-              creatorPayoutPayable: formatMicroUsdt(CREATOR_PAYOUT_MICRO),
+              price: formatMicroUsdt(priceMicro),
+              creatorPayoutPayable: formatMicroUsdt(creatorMicro),
               payoutStatus: (payout?.state as string) ?? "PENDING"
             }
     });
@@ -895,8 +970,25 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   app.get("/v1/assets/:assetId", (req: Request, res: Response) => {
     const exp = Number(req.query.exp);
     const sig = String(req.query.sig ?? "");
-    if (!verifyAssetSig(config, String(req.params.assetId), exp, sig, now())) {
+    const sha = typeof req.query.sha === "string" && /^0x[0-9a-f]{64}$/.test(req.query.sha) ? req.query.sha : undefined;
+    if (!verifyAssetSig(config, String(req.params.assetId), exp, sig, now(), sha)) {
       return void res.status(403).json({ error: "INVALID_OR_EXPIRED_URL" });
+    }
+    // sha-pinned URL (every post-round-11 credential) → the content-addressed
+    // archive serves the EXACT bytes the license binds, even if the catalog
+    // head was re-uploaded since. Re-hashed before sending: a corrupted or
+    // tampered archive file fails closed instead of shipping wrong bytes.
+    if (sha) {
+      const version = repo.getAssetVersionBySha(sha);
+      if (!version) return void res.status(404).json({ error: "ASSET_VERSION_NOT_FOUND" });
+      const vpath = resolve(PROJECT_ROOT, version.filePath);
+      if (!existsSync(vpath)) return void res.status(404).json({ error: "ASSET_BYTES_MISSING" });
+      const bytes = readFileSync(vpath);
+      if (sha256Hex(bytes) !== sha) return void res.status(500).json({ error: "ASSET_BYTES_CORRUPTED" });
+      res.setHeader("Content-Type", version.mimeType);
+      res.setHeader("Content-Disposition", `attachment; filename="${version.assetId}-${sha.slice(2, 10)}.png"`);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      return void res.send(bytes);
     }
     const asset = repo.getAsset(String(req.params.assetId));
     if (!asset) return void res.status(404).json({ error: "NOT_FOUND" });
@@ -972,19 +1064,34 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       res.status(502).json({ error: "CHAIN_UNAVAILABLE" });
       return;
     }
+    // ANTI-ABUSE (round-11): per-address 2/day + per-IP 5/day + global 20/hour,
+    // counted and reserved ATOMICALLY — a burst of fresh addresses cannot
+    // drain the pool. Failed sends refund the quota.
+    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "").split(",")[0].trim();
+    const quota = repo.tryTakeFaucetQuota(address, ip, "testnet", FAUCET_AMOUNT_MICRO, now(), {
+      perAddressDay: Number(process.env.FAUCET_PER_ADDRESS_DAY ?? 2),
+      perIpDay: Number(process.env.FAUCET_PER_IP_DAY ?? 5),
+      globalHour: Number(process.env.FAUCET_GLOBAL_HOUR ?? 20)
+    });
+    if (!quota.ok) {
+      res.status(429).json({ error: quota.error, detail: quota.detail, officialFaucet: "https://web3.okx.com/xlayer/faucet" });
+      return;
+    }
     // ATOMIC cooldown (round-10): check-and-take is ONE sql statement — two
     // concurrent claims for the same address can never both pass.
-    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "");
     if (!repo.tryTakeFaucetSlot(address, ip, FAUCET_AMOUNT_MICRO, "testnet", now(), 60)) {
+      repo.deleteFaucetEvent(quota.eventId);
       res.status(429).json({ error: "COOLDOWN", detail: "wait a minute between claims" });
       return;
     }
     try {
       const tx = await chainTest.transferUsdt(address, FAUCET_AMOUNT_MICRO);
       repo.recordFaucetTx(address, "testnet", tx);
+      repo.recordFaucetEventTx(quota.eventId, tx);
       res.status(200).json({ ok: true, network: "testnet", tx, amount: "0.5", explorer: `${config.testnet.explorerTx}${tx}` });
     } catch (e) {
-      // Nothing was delivered — reopen the slot so the retry isn't punished.
+      // Nothing was delivered — refund quota + reopen the cooldown slot.
+      repo.deleteFaucetEvent(quota.eventId);
       repo.reopenFaucetSlot(address, "testnet");
       res.status(502).json({ error: "FAUCET_SEND_FAILED", detail: e instanceof Error ? e.message : "send failed" });
     }
@@ -1020,8 +1127,17 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   });
 
   // --- public data + Proof Studio SPA ----------------------------------------
+  // Buyer classification (round-11 §12): wallets the TEAM controls are
+  // "internal" — external order counts exclude them, on top of the existing
+  // sponsored (faucet-funded) exclusion. Judges decide what counts as
+  // qualified; we publish the split.
+  const internalWallets = new Set(
+    [config.serviceAddress, config.payToAddress, config.demoBuyerPrivateKey ? privateKeyToAddress(config.demoBuyerPrivateKey) : null]
+      .filter((a): a is string => Boolean(a))
+      .map((a) => a.toLowerCase())
+  );
   app.get("/v1/ledger", (_req, res) => {
-    res.json(ledgerJson(db));
+    res.json(ledgerJson(db, internalWallets));
   });
   app.get("/v1/catalog", (_req, res) => {
     res.json({
@@ -1039,6 +1155,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         // creator hashed into it — both linkable from the market cards.
         offerUrl: `${config.publicOrigin}/v1/offers/${c.offer.offerId}`,
         attestationUrl: `${config.publicOrigin}/v1/attestations/${c.offer.offerId.replace(/^off-/, "")}`,
+        legalTextUrl: `${config.publicOrigin}/v1/legal/${c.offer.legalTextHash}`,
         tags: c.tags ?? []
       }))
     });
@@ -1187,7 +1304,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   return app;
 }
 
-function ledgerJson(db: AppDatabase): unknown {
+function ledgerJson(db: AppDatabase, internalWallets: Set<string> = new Set()): unknown {
   // sponsored = the buyer wallet drew onboarding funds from OUR faucet. Those
   // orders prove the pipeline but are excluded from qualified revenue.
   const orders = db
@@ -1204,13 +1321,13 @@ function ledgerJson(db: AppDatabase): unknown {
     .all();
   const paid = db.prepare(`SELECT COUNT(*) AS n FROM creator_payouts WHERE state = 'PAID'`).get() as { n: number };
   const active = db.prepare(`SELECT COUNT(*) AS n FROM licenses WHERE status = 'ACTIVE'`).get() as { n: number };
-  const buyers = db.prepare(`SELECT COUNT(DISTINCT licensee_wallet) AS n FROM orders WHERE status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','CREATOR_PAID')`).get() as { n: number };
+  const buyers = db.prepare(`SELECT COUNT(DISTINCT licensee_wallet) AS n FROM orders WHERE status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','PAYOUT_NEEDS_RECONCILIATION','CREATOR_PAID')`).get() as { n: number };
   // Production figures count ONLY environment='production' rows — flipping the
   // deployment to live can never re-label historical simulated orders.
   const prodSettled = db
     .prepare(
       `SELECT COUNT(*) AS n, COUNT(DISTINCT licensee_wallet) AS buyers FROM orders
-         WHERE environment = 'production' AND status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','CREATOR_PAID')`
+         WHERE environment = 'production' AND status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','PAYOUT_NEEDS_RECONCILIATION','CREATOR_PAID')`
     )
     .get() as { n: number; buyers: number };
   const prodPaid = db
@@ -1223,7 +1340,7 @@ function ledgerJson(db: AppDatabase): unknown {
   const testnetSettled = db
     .prepare(
       `SELECT COUNT(*) AS n FROM orders
-         WHERE environment = 'testnet' AND status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','CREATOR_PAID')`
+         WHERE environment = 'testnet' AND status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','PAYOUT_NEEDS_RECONCILIATION','CREATOR_PAID')`
     )
     .get() as { n: number };
   const testnetPaid = db
@@ -1238,9 +1355,19 @@ function ledgerJson(db: AppDatabase): unknown {
       `SELECT COUNT(*) AS n FROM orders o
          LEFT JOIN faucet_claims f ON f.address = o.licensee_wallet AND f.network = 'mainnet'
          WHERE o.environment = 'production' AND f.address IS NULL
-           AND o.status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','CREATOR_PAID')`
+           AND o.status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','PAYOUT_NEEDS_RECONCILIATION','CREATOR_PAID')`
     )
     .get() as { n: number };
+  // External = production settled AND buyer not team-controlled AND not faucet-sponsored.
+  const prodBuyers = db
+    .prepare(
+      `SELECT o.licensee_wallet AS w, CASE WHEN f.address IS NOT NULL THEN 1 ELSE 0 END AS sponsored FROM orders o
+         LEFT JOIN faucet_claims f ON f.address = o.licensee_wallet AND f.network = 'mainnet'
+         WHERE o.environment = 'production'
+           AND o.status IN ('LICENSE_ACTIVE','CREATOR_PAYOUT_PENDING','PAYOUT_RETRYING','PAYOUT_FAILED','PAYOUT_NEEDS_RECONCILIATION','CREATOR_PAID')`
+    )
+    .all() as { w: string; sponsored: number }[];
+  const external = prodBuyers.filter((r) => !internalWallets.has(r.w.toLowerCase()) && r.sponsored === 0).length;
   return {
     activeLicenses: active.n,
     creatorPayoutsPaid: paid.n,
@@ -1250,6 +1377,7 @@ function ledgerJson(db: AppDatabase): unknown {
       distinctBuyers: prodSettled.buyers,
       creatorsPaid: prodPaid.n,
       qualified: qualified.n,
+      external,
       sponsored: prodSettled.n - qualified.n
     },
     testnet: { settled: testnetSettled.n, payoutsPaid: testnetPaid.n },

@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { sha256Hex } from "../domain/index.js";
 import { CreatorOfferSchema } from "../license/types.js";
@@ -69,9 +69,23 @@ export function loadCatalog(repo: Repo, nowSeconds: number, manifestPath?: strin
       },
       nowSeconds
     );
-    // Append-only archive FIRST: this exact signed version is preserved forever,
-    // even after later re-signs overwrite the head row below.
+    // Append-only archives FIRST: the signed offer version AND the exact asset
+    // bytes are preserved forever, even after later re-signs/re-uploads move
+    // the head. Assets are content-addressed on disk (by-hash/<sha256>.<ext>)
+    // so replacing catalog/assets/<slug>.png can never orphan a sold license.
     repo.archiveOfferVersion(offerDigestHex(unsigned), offer.offerId, offer, nowSeconds);
+    try {
+      const ext = offer.mimeType === "image/png" ? "png" : offer.mimeType.split("/")[1] ?? "bin";
+      const byHashRel = `catalog/assets/by-hash/${offer.assetSha256.replace(/^0x/, "")}.${ext}`;
+      const byHashAbs = resolve(PROJECT_ROOT, byHashRel);
+      if (!existsSync(byHashAbs)) {
+        mkdirSync(resolve(PROJECT_ROOT, "catalog/assets/by-hash"), { recursive: true });
+        copyFileSync(assetPath, byHashAbs);
+      }
+      repo.archiveAssetVersion(offer.assetSha256, offer.assetId, byHashRel, offer.mimeType, nowSeconds);
+    } catch (e) {
+      skipped.push(`${offer.offerId}: asset archive failed (${e instanceof Error ? e.message : "?"})`);
+    }
     repo.upsertOffer(
       {
         offerId: offer.offerId,

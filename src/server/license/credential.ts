@@ -9,14 +9,23 @@ import type {
   LicenseCredential,
   PurchaseIntent,
   UnsignedLicenseCredential,
+  UnsignedLicenseCredentialV2,
   UseSpec
 } from "./types.js";
 
-const ISSUER_DIGEST_DOMAIN = `LICENSE402-CREDENTIAL-V1:${EIP712_DOMAIN.chainId}:`;
+const ISSUER_DIGEST_DOMAIN_V1 = `LICENSE402-CREDENTIAL-V1:${EIP712_DOMAIN.chainId}:`;
+const ISSUER_DIGEST_DOMAIN_V2 = `LICENSE402-CREDENTIAL-V2:${EIP712_DOMAIN.chainId}:`;
 
-/** Domain-prefixed keccak digest over canonical credential JSON (issuer signature target). */
-export function credentialDigest(unsigned: UnsignedLicenseCredential): Uint8Array {
-  return keccak_256(utf8ToBytes(ISSUER_DIGEST_DOMAIN + canonicalJson(unsigned)));
+/**
+ * Domain-prefixed keccak digest over canonical credential JSON (issuer
+ * signature target). The prefix matches the credential's OWN version — new v2
+ * issues sign under CREDENTIAL-V2; already-issued v2 credentials that predate
+ * the prefix bump (signed under the V1 prefix) stay verifiable via the
+ * fallback in recoverCredentialIssuer.
+ */
+export function credentialDigest(unsigned: UnsignedLicenseCredential, domainPrefix?: string): Uint8Array {
+  const prefix = domainPrefix ?? (unsigned.credentialVersion === "2" ? ISSUER_DIGEST_DOMAIN_V2 : ISSUER_DIGEST_DOMAIN_V1);
+  return keccak_256(utf8ToBytes(prefix + canonicalJson(unsigned)));
 }
 
 /**
@@ -105,8 +114,8 @@ export function issueCredential(input: IssueCredentialInput): LicenseCredential 
 
   const issuer = normalizeAddress(privateKeyToAddress(input.issuerPrivateKey));
 
-  const core: Omit<UnsignedLicenseCredential, "licenseId" | "statusUrl"> = {
-    credentialVersion: CREDENTIAL_VERSION,
+  const core: Omit<UnsignedLicenseCredentialV2, "licenseId" | "statusUrl"> = {
+    credentialVersion: "2",
     templateId: TEMPLATE_ID,
     issuer,
     licensorWallet: normalizeAddress(offer.licensorWallet),
@@ -135,7 +144,7 @@ export function issueCredential(input: IssueCredentialInput): LicenseCredential 
   };
 
   const licenseId = `lic-${sha256Hex(canonicalJson({ orderId: input.orderId, offerDigest, intentDigest })).slice(2, 18)}`;
-  const unsigned: UnsignedLicenseCredential = {
+  const unsigned: UnsignedLicenseCredentialV2 = {
     ...core,
     licenseId,
     statusUrl: `${input.statusBaseUrl.replace(/\/$/, "")}/v1/orders/${input.orderId}`
@@ -146,5 +155,13 @@ export function issueCredential(input: IssueCredentialInput): LicenseCredential 
 
 export function recoverCredentialIssuer(credential: LicenseCredential): string | null {
   const { issuerSignature, ...unsigned } = credential;
-  return recoverDigestSigner(credentialDigest(unsigned), issuerSignature);
+  const primary = recoverDigestSigner(credentialDigest(unsigned as UnsignedLicenseCredential), issuerSignature);
+  if (primary && primary === credential.issuer.toLowerCase()) return primary;
+  // Transition fallback: v2 credentials issued before the prefix bump were
+  // signed under the V1 prefix — still authentic, still recoverable.
+  if (unsigned.credentialVersion === "2") {
+    const legacy = recoverDigestSigner(credentialDigest(unsigned as UnsignedLicenseCredential, ISSUER_DIGEST_DOMAIN_V1), issuerSignature);
+    if (legacy && legacy === credential.issuer.toLowerCase()) return legacy;
+  }
+  return primary;
 }

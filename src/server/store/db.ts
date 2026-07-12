@@ -60,6 +60,14 @@ CREATE TABLE IF NOT EXISTS assets (
 -- or legal text is NEVER updated in place. Heads (the mutable current catalog)
 -- live in the offers table; every version ever seen lives here forever, so
 -- historical proof bundles re-verify byte-for-byte.
+CREATE TABLE IF NOT EXISTS asset_versions (
+  asset_sha256 TEXT PRIMARY KEY,
+  asset_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS offer_versions (
   offer_digest TEXT PRIMARY KEY,
   offer_id TEXT NOT NULL,
@@ -148,6 +156,16 @@ CREATE TABLE IF NOT EXISTS faucet_claims (
   PRIMARY KEY (address, network)
 );
 
+CREATE TABLE IF NOT EXISTS faucet_claim_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  address TEXT NOT NULL,
+  ip TEXT,
+  network TEXT NOT NULL,
+  amount_micro INTEGER NOT NULL,
+  tx TEXT,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS outbox_jobs (
   job_id INTEGER PRIMARY KEY AUTOINCREMENT,
   kind TEXT NOT NULL,
@@ -163,6 +181,8 @@ CREATE TABLE IF NOT EXISTS outbox_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_jobs(state, run_after);
+CREATE INDEX IF NOT EXISTS idx_faucet_events_addr ON faucet_claim_events(address, created_at);
+CREATE INDEX IF NOT EXISTS idx_faucet_events_ip ON faucet_claim_events(ip, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_orders_intent_digest ON orders(purchase_intent_digest);
 `;
 

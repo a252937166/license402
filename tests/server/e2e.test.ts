@@ -427,3 +427,43 @@ describe("direct mode terms discipline (round-10)", () => {
     expect(res.status).toBe(402); // proceeds to the payment challenge
   });
 });
+
+describe("direct mode pre-402 asset lock (round-11)", () => {
+  let base: string;
+  let server: Server;
+  beforeAll(async () => {
+    const app = await createApp({ config: testConfig, now: () => FIXED_NOW });
+    const started = await listen(app);
+    base = started.base; server = started.server; PORT = started.port;
+    return () => server.close();
+  });
+
+  it("the unpaid 402 already names the exact asset the payment will buy", async () => {
+    const res = await post(base, "/v1/acquire/social-commercial", { brief: "poster" });
+    expect(res.status).toBe(402);
+    expect(res.json.directSku.offerId).toBe("off-cyber-dragon");
+    expect(res.json.directSku.assetSha256).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(res.json.directSku.offerDigest).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(res.json.directSku.legalTextHash).toMatch(/^0x[0-9a-f]{64}$/);
+  });
+
+  it("an explicit offerId is honored and an unserviceable one is refused BEFORE payment", async () => {
+    const ok = await post(base, "/v1/acquire/social-commercial", { offerId: "off-aurora-koi" });
+    expect(ok.status).toBe(402);
+    expect(ok.json.directSku.offerId).toBe("off-aurora-koi");
+
+    const bad = await post(base, "/v1/acquire/social-commercial", { offerId: "off-editorial-only" });
+    expect(bad.status).toBe(409); // non-commercial SKU refused pre-payment
+    expect(bad.json.error).toBe("NOT_SERVICEABLE");
+  });
+
+  it("the paid replay delivers exactly the disclosed asset", async () => {
+    const challenge = await post(base, "/v1/acquire/social-commercial", { brief: "poster" });
+    const disclosed = challenge.json.directSku.assetSha256;
+    const paid = await post(base, "/v1/acquire/social-commercial", { brief: "poster" },
+      { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-direct-lock-1" });
+    expect(paid.status).toBe(200);
+    expect(paid.json.license.assetSha256).toBe(disclosed);
+    expect(paid.json.license.authorizationMode).toBe("x402_direct");
+  });
+});

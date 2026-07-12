@@ -13,16 +13,15 @@
  * exactly what was licensed. Exit 0 = authentic + well-formed.
  */
 import { readFileSync } from "node:fs";
-import { keccak_256 } from "@noble/hashes/sha3.js";
-import { utf8ToBytes } from "@noble/hashes/utils.js";
-import { canonicalJson } from "../src/server/domain/index.js";
-import { recoverDigestSigner } from "../src/server/license/eip712.js";
 import { LicenseCredentialSchema } from "../src/server/license/types.js";
-import { EIP712_DOMAIN } from "../src/server/license/vocab.js";
+import { recoverCredentialIssuer } from "../src/server/license/credential.js";
 
-const path = process.argv[2];
+const argv = process.argv.slice(2);
+const envFlagIdx = argv.indexOf("--require-environment");
+const requiredEnv = envFlagIdx >= 0 ? argv[envFlagIdx + 1] : undefined;
+const path = argv.filter((a, i) => i !== envFlagIdx && (envFlagIdx < 0 || i !== envFlagIdx + 1))[0];
 if (!path) {
-  console.error("usage: tsx scripts/verify-credential.ts <credential.json | bundle.json>");
+  console.error("usage: tsx scripts/verify-credential.ts <credential.json | bundle.json> [--require-environment production|testnet]");
   process.exit(2);
 }
 const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
@@ -36,9 +35,7 @@ if (!parsed.success) {
 }
 const cred = parsed.data;
 
-const { issuerSignature, ...unsigned } = cred;
-const digest = keccak_256(utf8ToBytes(`LICENSE402-CREDENTIAL-V1:${EIP712_DOMAIN.chainId}:` + canonicalJson(unsigned)));
-const signer = recoverDigestSigner(digest, issuerSignature);
+const signer = recoverCredentialIssuer(cred);
 const authentic = signer !== null && signer === cred.issuer.toLowerCase();
 
 const nowSeconds = Math.floor(Date.now() / 1000);
@@ -54,5 +51,14 @@ console.log(`  authorization ${cred.authorizationMode ?? "eip712_purchase_intent
 if (cred.credentialEnvironment) console.log(`  environment ${cred.credentialEnvironment} · rail ${cred.settlementNetwork ?? "-"}`);
 console.log(`  legalText  ${cred.legalTextHash}  (fetch: /v1/legal/${cred.legalTextHash})`);
 console.log(`  status     ${cred.statusUrl} (online revocation/settlement check)`);
-console.log(authentic && !expired ? "\nAUTHENTIC" : "\nNOT VALID");
-process.exit(authentic && !expired ? 0 : 1);
+// Graded verdict (round-11): authenticity ≠ production usability. A testnet
+// credential is genuinely issued by this system — and still not a production
+// license. Revocation/settlement is an ONLINE property (statusUrl).
+const env = cred.credentialEnvironment ?? "production";
+const envOk = !requiredEnv || env === requiredEnv;
+const label = !authentic || expired ? "NOT VALID" : `AUTHENTIC ${env.toUpperCase()} CREDENTIAL`;
+console.log(`\n${label}`);
+console.log("  static scope: evaluate offline via check-license-scope semantics");
+console.log("  current status: UNKNOWN OFFLINE — poll statusUrl for revocation/settlement truth");
+if (requiredEnv && !envOk) console.log(`  ✗ REQUIREMENT FAILED: environment is '${env}', required '${requiredEnv}'`);
+process.exit(authentic && !expired && envOk ? 0 : 1);

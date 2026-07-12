@@ -76,6 +76,11 @@
 <script>
 (async()=>{
   const grid=document.getElementById("grid");
+  // First-party catalog today, external creators tomorrow: every catalog
+  // string is HTML-escaped and URLs are same-origin-validated before they
+  // touch innerHTML (stored-XSS hardening, round-11 §15).
+  const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const safeUrl=u=>{try{const x=new URL(u,location.origin);return (x.origin===location.origin&&(x.protocol==="https:"||x.protocol==="http:"))?x.href:"";}catch(e){return "";}};
   try{
     const cat=await (await fetch("/v1/catalog")).json();
     const offers=cat.offers||[];
@@ -89,13 +94,14 @@
       const cta=eligible
         ?`<span class="price"><b>0.10</b> USDT</span><a class="go" href="/buy?offerId=${encodeURIComponent(offerId)}">BUY THIS →</a>`
         :`<span class="why">${o.commercialUse===false?"COMMERCIAL_USE_PROHIBITED":"OFFER_EXPIRED"}</span><a class="go" href="/#console">SEE THE REJECT →</a>`;
-      const prov=(o.offerUrl?`<a href="${o.offerUrl}" target="_blank" rel="noopener">Signed offer ↗</a>`:"")
-        +(o.attestationUrl?` · <a href="${o.attestationUrl}" target="_blank" rel="noopener">Rights attestation ↗</a>`:"");
+      const prov=(o.offerUrl?`<a href="${safeUrl(o.offerUrl)}" target="_blank" rel="noopener">Signed offer ↗</a>`:"")
+        +(o.attestationUrl?` · <a href="${safeUrl(o.attestationUrl)}" target="_blank" rel="noopener">Rights attestation ↗</a>`:"")
+        +(o.legalTextUrl?` · <a href="${safeUrl(o.legalTextUrl)}" target="_blank" rel="noopener">Legal text ↗</a>`:"");
       return `<div class="card">
-        <div class="imgwrap"><img loading="lazy" decoding="async" src="${o.previewUrl}" alt="${o.title}">${badge}</div>
+        <div class="imgwrap"><img loading="lazy" decoding="async" src="${safeUrl(o.previewUrl)}" alt="${esc(o.title)}">${badge}</div>
         <div class="in">
-          <div class="t">${o.title}</div>
-          <div class="c">by ${o.creator||"Genesis Studio"} · ${o.assetId}</div>
+          <div class="t">${esc(o.title)}</div>
+          <div class="c">by ${esc(o.creator||"Genesis Studio")} · ${esc(o.assetId)}</div>
           <div class="chips">${chips}</div>
           <div class="prov">${prov}</div>
           <div class="row">${cta}</div>

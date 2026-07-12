@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, defineChain, encodeFunctionData, http } from "viem";
+import { createPublicClient, createWalletClient, defineChain, encodeFunctionData, http, parseAbiItem, decodeEventLog } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { AppConfig, NetworkProfile } from "./config.js";
 import { mainnetProfile } from "./config.js";
@@ -126,5 +126,41 @@ export class XLayerService {
     } catch {
       return "pending";
     }
+  }
+
+  /**
+   * SEMANTIC receipt verification (round-11): a payout may be marked PAID only
+   * by a receipt whose Transfer log proves the exact obligation — OUR token
+   * contract emitted Transfer(from=SERVICE wallet, to=the signed payout
+   * wallet, value=the owed amount). A merely-successful but unrelated tx
+   * (admin typo in attach_tx, nonce consumed by something else) returns
+   * "mismatch" and must never settle the obligation.
+   */
+  async verifyUsdtTransfer(tx: string, expectTo: string, expectAmountMicro: number): Promise<"confirmed" | "reverted" | "pending" | "mismatch"> {
+    let receipt;
+    try {
+      receipt = await this.pub.getTransactionReceipt({ hash: tx as `0x${string}` });
+    } catch {
+      return "pending";
+    }
+    if (receipt.status !== "success") return "reverted";
+    const transferEvent = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== this.token.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: [transferEvent], data: log.data, topics: log.topics });
+        const a = dec.args as { from: string; to: string; value: bigint };
+        if (
+          a.from.toLowerCase() === this.account.address.toLowerCase() &&
+          a.to.toLowerCase() === expectTo.toLowerCase() &&
+          a.value === BigInt(expectAmountMicro)
+        ) {
+          return "confirmed";
+        }
+      } catch {
+        // not a Transfer log — keep scanning
+      }
+    }
+    return "mismatch";
   }
 }

@@ -23,7 +23,8 @@ INVALID_CREDENTIAL / INDETERMINATE` (+ `PERMITTED_TESTNET_ONLY` for test credent
    creator-offer + buyer-intent + issuer credential (nothing written, no funds moved).
    Click the hero buttons: publish → permitted, train → not permitted, tamper → invalid.
 2. **Zero cost, full loop:** `/buy` → select **Testnet** → connect OKX Wallet/MetaMask →
-   grab free test USDT from the official X Layer faucet → two signatures → REAL x402 settlement + REAL creator payout on
+   grab free test USDT (built-in faucet: 0.5/claim, rate-limited — or the official
+   X Layer faucet for 10/claim) → two signatures → REAL x402 settlement + REAL creator payout on
    X Layer testnet, with OKLink links.
 3. **Real money:** `/buy` → **Mainnet** → fund your wallet with 0.10 USDT (X Layer) →
    the identical flow settles a production license. (There is deliberately **no mainnet
@@ -89,10 +90,15 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
 | Testnet A2MCP direct purchase (**v2**, single request → 200 + PAYMENT-RESPONSE) | `ord-32d3f53b9a0cd3bd` · buyer `0xfa2c8a44…c24051` · payout `0xc1ed4826…c462d` |
 | Live NEEDS_RECONCILIATION drill (real nonce collision → parked → verified on-chain → explicit release → paid once) | `ord-32d3f53b9a0cd3bd` payout above |
 
-Every bundle in `docs/evidence/` verifies **offline**: `npm run verify:evidence`
-(signatures, digests, commitments — v1 and v2 materials; runs in CI). Single
-credentials: `tsx scripts/verify-credential.ts <credential.json>`. Public
-**Receipts** tabs (Production / Testnet / Samples) link each row's txs.
+Every bundle in `docs/evidence/` passes **offline cryptographic consistency
+verification**: `npm run verify:evidence` re-derives signatures, digests,
+commitments, and that every referenced hash resolves to real bytes in this
+repo (v1 and v2 materials; runs in CI). Settlement semantics are proven
+separately against live RPCs: `npm run verify:evidence:onchain` checks each
+buyer settlement and creator payout is a real Transfer of the exact amount to
+the exact wallet on the settlement token. Single credentials:
+`tsx scripts/verify-credential.ts <credential.json>`. Public **Receipts** tabs
+(Production / Testnet / Samples) link each row's txs.
 
 ## Architecture
 
