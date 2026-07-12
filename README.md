@@ -37,11 +37,11 @@ INVALID_CREDENTIAL / INDETERMINATE` (+ `PERMITTED_TESTNET_ONLY` for test credent
 |---|---|---|---|---|
 | Signed sample | real | none | `credentialEnvironment: "sample"` | no |
 | Testnet loop | real | real (eip155:1952, test USDT) | `"testnet"` → verdicts read `PERMITTED_TESTNET_ONLY` | no |
-| Mainnet live | real | real (eip155:196, USDT) | `"production"` | yes (qualified) |
-| OKX.AI direct | x402 payment sig | real (USDT) | `"production"`, `authorizationMode: "x402_direct"` | yes (qualified) |
+| Mainnet live | real | real (eip155:196, USDT) | `"production"` | candidate (organizer decides) |
+| OKX.AI direct | x402 payment sig | real (USDT) | `"production"`, `authorizationMode: "x402_direct"` | candidate (organizer decides) |
 
 Sponsored orders (buyer drew mainnet faucet funds — historical only) are labeled and
-**excluded** from qualified revenue.
+**excluded** from candidate qualified revenue; the organizer makes the final qualification call.
 
 ## The transaction, end to end
 
@@ -113,11 +113,14 @@ the exact wallet on the settlement token. Single credentials:
   binding), settle with `syncSettle`, reconciler for pending/timeout.
 - `src/server/payout/` — creator payouts: nonce reserved *before* broadcast,
   receipt-confirmed `PAID`, expired-lease recovery; serialized per-chain nonce
-  queue shared with the testnet faucet. Double-pay is structurally impossible:
+  queue shared with the testnet faucet. Automatic retries cannot double-pay:
   a payout that ever persisted a nonce only ever retries with that SAME nonce,
-  a "nonce already consumed" answer parks it in `NEEDS_RECONCILIATION` (admin
-  attaches the explorer-found tx or explicitly releases a fresh nonce — never
-  automatic), and only a receipt-proven revert unpins a nonce.
+  and ambiguous nonce consumption parks in `NEEDS_RECONCILIATION` for explicit,
+  auditable reconciliation. Both admin exits are machine-checked on-chain:
+  `attach_tx` verifies the tx IS the owed Transfer (token, sender, recipient,
+  amount); `fresh_nonce` requires the tx that consumed the nonce and verifies
+  it is NOT the owed transfer before releasing. Only a receipt-proven revert
+  unpins a nonce automatically.
 - `src/web/x402-pay.ts` — the browser bundle **is the official x402 client**
   (`x402Client` + `registerExactEvmScheme`, both rails) with a wallet adapter and a
   business preflight that refuses to sign if the challenge differs from displayed terms.

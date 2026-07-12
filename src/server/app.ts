@@ -70,10 +70,12 @@ function signedAssetUrl(config: AppConfig, assetId: string, nowSeconds: number, 
 }
 
 /** Same signature/expiry as the download URL, but serves the fast webp display rendition. */
-function signedDisplayUrl(config: AppConfig, assetId: string, nowSeconds: number): string {
+function signedDisplayUrl(config: AppConfig, assetId: string, nowSeconds: number, assetSha256?: string): string {
   const exp = nowSeconds + SIGNED_URL_TTL;
-  const sig = createHmac("sha256", assetUrlSecret(config)).update(`${assetId}.${exp}`).digest("hex").slice(0, 32);
-  return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}/display?exp=${exp}&sig=${sig}`;
+  const preimage = assetSha256 ? `${assetId}.${assetSha256}.${exp}` : `${assetId}.${exp}`;
+  const sig = createHmac("sha256", assetUrlSecret(config)).update(preimage).digest("hex").slice(0, 32);
+  const shaParam = assetSha256 ? `&sha=${encodeURIComponent(assetSha256)}` : "";
+  return `${config.publicOrigin}/v1/assets/${encodeURIComponent(assetId)}/display?exp=${exp}${shaParam}&sig=${sig}`;
 }
 
 /**
@@ -122,8 +124,15 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   const payment: PaymentAdapter = options.payment ?? (config.paymentMode === "live" ? new LivePaymentAdapter(config) : new DevPaymentAdapter());
   // Optional second rail: X Layer TESTNET — the free judge experience. Same code
   // path, same facilitator, test-value token. Orders are stamped 'testnet'.
-  const paymentTestnet: PaymentAdapter | undefined =
-    config.paymentMode === "live" && config.testnet && !options.payment ? new LivePaymentAdapter(config, config.testnet) : undefined;
+  const paymentTestnet: PaymentAdapter | undefined = options.payment
+    ? undefined
+    : config.paymentMode === "live"
+      ? config.testnet
+        ? new LivePaymentAdapter(config, config.testnet)
+        : undefined
+      : config.testnet
+        ? new DevPaymentAdapter() // dev parity: a testnet quote exercises the same rail routing
+        : undefined;
   // Live mode gains real on-chain capability: creator payouts + the testnet faucet.
   let chainMain: XLayerService | undefined;
   let chainTest: XLayerService | undefined;
@@ -136,6 +145,29 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       payoutSenders.testnet = new LivePayoutSender(chainTest);
     }
   }
+
+  // DIRECT SKU pinned BY DIGEST at boot (round-12 P0): both the 402 disclosure
+  // and the paid replay resolve this exact signed version — a catalog re-sign
+  // between the two requests cannot change what the payment buys. Env override
+  // OKX_DIRECT_OFFER_DIGEST for explicit control; default = boot head digest.
+  const directOfferIdDefault = process.env.OKX_DIRECT_OFFER_ID?.trim() || "off-cyber-dragon";
+  const directOfferDigest = process.env.OKX_DIRECT_OFFER_DIGEST?.trim() || repo.getOffer(directOfferIdDefault)?.offerDigest || "";
+  const directCatalogEntry = (): CatalogOffer | null => {
+    const offer = repo.getOfferByDigest(directOfferDigest);
+    if (!offer) return null;
+    // Content-addressed truth: serviceable only if THIS version's exact bytes
+    // are archived (they are, from boot) — a missing archive fails closed.
+    const archived = repo.getAssetVersionBySha(offer.assetSha256);
+    const asset = repo.getAsset(offer.assetId);
+    return {
+      offer,
+      storedAssetSha256: archived ? offer.assetSha256 : (asset?.sha256 ?? "0xmissing"),
+      previewUrl: `${config.publicOrigin}/v1/previews/${offer.assetId}`,
+      title: asset?.title ?? offer.assetId,
+      creatorDisplay: asset?.creatorDisplay ?? "creator",
+      tags: asset?.tags ?? []
+    };
+  };
 
   /** Resolve the settlement rail for a request ("testnet" opt-in, mainnet default). */
   const railFor = (networkParam: unknown): { key: "mainnet" | "testnet"; profile: ReturnType<typeof mainnetProfile> } | null => {
@@ -200,7 +232,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     }
     checks.catalog = catalogOffers().length > 0;
     checks.mainnetRail = Boolean(payment);
-    checks.testnetRail = Boolean(paymentTestnet);
+    // Testnet is OPTIONAL: only counts against readiness when configured.
+    checks.testnetRail = !config.testnet || Boolean(paymentTestnet);
     if (config.paymentMode === "live") {
       checks.assetUrlSecret = Boolean(process.env.ASSET_URL_HMAC_SECRET?.trim());
       checks.deliveryTicketSecret = Boolean(process.env.DELIVERY_TICKET_HMAC_SECRET?.trim());
@@ -259,6 +292,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         settlementNetwork: quote.selected.settlementNetwork,
         paymentAsset: quote.selected.paymentAsset,
         payTo: quote.selected.payTo,
+        payoutWallet: quote.selected.payoutWallet,
         idempotencyKey: quote.selected.idempotencyKey,
         expiresAt: quote.selected.quoteExpiresAt
       },
@@ -333,17 +367,12 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   });
 
   // --- POST /v1/acquire/social-commercial (x402-protected) -------------------
-  // body.network selects the settlement rail: "mainnet" (default, real 0.10
-  // USDT) or "testnet" (X Layer 1952, free test-value experience).
+  // Settlement rail selection (round-12 P0): in SIGNED-INTENT mode the rail is
+  // a SIGNED FACT — derived from the stored quote the commitment names, never
+  // from an unsigned body field. body.network may only CONFIRM it. In DIRECT
+  // mode body.network is a strict enum; any unknown value is an error, never a
+  // silent mainnet.
   app.post("/v1/acquire/social-commercial", async (req: Request, res: Response) => {
-    const wantTestnet = req.body?.network === "testnet";
-    if (wantTestnet && !paymentTestnet) {
-      res.status(503).json({ error: "TESTNET_DISABLED", detail: "testnet rail is not enabled on this deployment" });
-      return;
-    }
-    const rail = wantTestnet ? paymentTestnet! : payment;
-    const environment: "sample" | "production" | "testnet" = wantTestnet ? "testnet" : rail.mode === "live" ? "production" : "sample";
-
     // Two authorization modes share this endpoint:
     //  - SIGNED-INTENT (the site / integrators): body carries quoteCommitment +
     //    an EIP-712 PurchaseIntent — the strong two-signature binding.
@@ -361,6 +390,47 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return;
     }
     const isDirect = !hasCommitment;
+
+    const netParam = req.body?.network;
+    if (netParam !== undefined && netParam !== "mainnet" && netParam !== "testnet") {
+      res.status(400).json({ error: "INVALID_NETWORK", detail: 'network must be "mainnet" or "testnet" (or omitted)' });
+      return;
+    }
+
+    let wantTestnet: boolean;
+    if (isDirect) {
+      wantTestnet = netParam === "testnet";
+    } else {
+      // Resolve the quote FIRST — its settlementNetwork decides the rail. A
+      // buyer who signed testnet terms but forgot body.network must never be
+      // handed a mainnet challenge (and vice versa).
+      const licenseeRaw = typeof req.body?.licenseeWallet === "string" ? req.body.licenseeWallet.toLowerCase() : "";
+      const idemRaw = typeof req.body?.idempotencyKey === "string" ? req.body.idempotencyKey : "";
+      const railQuote = licenseeRaw && idemRaw ? repo.getQuoteByCommitment(String(req.body.quoteCommitment), licenseeRaw, idemRaw) : undefined;
+      if (!railQuote) {
+        res.status(404).json({ error: "QUOTE_NOT_FOUND" });
+        return;
+      }
+      let quoteRail: "mainnet" | "testnet";
+      if (railQuote.settlementNetwork === config.network) quoteRail = "mainnet";
+      else if (config.testnet && railQuote.settlementNetwork === config.testnet.network) quoteRail = "testnet";
+      else {
+        res.status(400).json({ error: "UNKNOWN_RAIL", detail: `quote settles on ${railQuote.settlementNetwork}, which this deployment does not serve` });
+        return;
+      }
+      if (netParam !== undefined && netParam !== quoteRail) {
+        res.status(400).json({ error: "RAIL_MISMATCH", detail: `the signed quote settles on ${quoteRail}; body.network says ${netParam}` });
+        return;
+      }
+      wantTestnet = quoteRail === "testnet";
+    }
+
+    if (wantTestnet && !paymentTestnet) {
+      res.status(503).json({ error: "TESTNET_DISABLED", detail: "testnet rail is not enabled on this deployment" });
+      return;
+    }
+    const rail = wantTestnet ? paymentTestnet! : payment;
+    const environment: "sample" | "production" | "testnet" = wantTestnet ? "testnet" : rail.mode === "live" ? "production" : "sample";
 
     // Direct-mode terms (round-10): an x402 payment signature binds the MONEY,
     // not the terms — so direct mode sells exactly ONE fixed marketplace SKU
@@ -381,15 +451,36 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       }
     }
 
-    // DIRECT SKU (round-11): direct mode sells a PINNED offer — the default
-    // marketplace SKU or an explicit body.offerId — resolved on the FIRST,
-    // unpaid request. The 402 challenge body names the exact assetSha256 /
-    // offerDigest / legalTextHash the payment will buy, and the paid replay
-    // pins the same offer, so selection can never drift after authorization.
-    const directOfferId =
-      typeof req.body?.offerId === "string" && /^off-[a-z0-9-]{1,64}$/.test(req.body.offerId)
-        ? req.body.offerId
-        : process.env.OKX_DIRECT_OFFER_ID?.trim() || "off-cyber-dragon";
+    // DIRECT SKU (round-11/12): direct mode sells a PINNED offer. The default
+    // marketplace SKU is pinned BY DIGEST (boot-resolved) — immune to head
+    // re-signs between the 402 and the paid replay. An explicit body.offerId
+    // is a deliberate selection of that listing's CURRENT version; a
+    // malformed or unknown offerId is an ERROR, never a silent default.
+    let directList: CatalogOffer[] = [];
+    let directPin = "";
+    if (isDirect) {
+      const rawOfferId = req.body?.offerId;
+      if (rawOfferId !== undefined) {
+        if (typeof rawOfferId !== "string" || !/^off-[a-z0-9-]{1,64}$/.test(rawOfferId)) {
+          res.status(400).json({ error: "INVALID_OFFER_ID", detail: "offerId must look like off-<slug>" });
+          return;
+        }
+        if (!repo.getOffer(rawOfferId)) {
+          res.status(404).json({ error: "OFFER_NOT_FOUND", offerId: rawOfferId });
+          return;
+        }
+        directList = catalogOffers();
+        directPin = rawOfferId;
+      } else {
+        const pinnedEntry = directCatalogEntry();
+        if (!pinnedEntry) {
+          res.status(503).json({ error: "DIRECT_SKU_UNAVAILABLE", detail: "the pinned marketplace SKU is not resolvable on this deployment" });
+          return;
+        }
+        directList = [pinnedEntry];
+        directPin = pinnedEntry.offer.offerId;
+      }
+    }
 
     const verified = await rail.verify(req);
     if (!verified) {
@@ -399,7 +490,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         const previewUse = UseSpecSchema.safeParse(req.body?.use);
         const previewRail = wantTestnet ? config.testnet! : mainnetProfile(config);
         const preview = buildQuote(
-          catalogOffers(),
+          directList,
           previewUse.success
             ? previewUse.data
             : UseSpecSchema.parse({
@@ -412,15 +503,15 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
                 maxBudget: "0.10"
               }),
           "0x0000000000000000000000000000000000000001", // identity-free preview
-          { nowSeconds: now(), pinOfferId: directOfferId, rail: { settlementNetwork: previewRail.network, paymentAsset: previewRail.asset, payTo: config.payToAddress } }
+          { nowSeconds: now(), pinOfferId: directPin, rail: { settlementNetwork: previewRail.network, paymentAsset: previewRail.asset, payTo: config.payToAddress } }
         );
         if (!preview.serviceable || !preview.selected) {
           // The agent learns BEFORE signing any payment authorization.
-          res.status(409).json({ error: "NOT_SERVICEABLE", offerId: directOfferId, reasons: preview.reasons ?? [], rejectedCandidates: preview.rejectedCandidates });
+          res.status(409).json({ error: "NOT_SERVICEABLE", offerId: directPin, reasons: preview.reasons ?? [], rejectedCandidates: preview.rejectedCandidates });
           return;
         }
         const sel = preview.selected;
-        const selOffer = catalogOffers().find((c) => c.offer.offerId === sel.offerId)?.offer;
+        const selOffer = directList.find((c) => c.offer.offerId === sel.offerId)?.offer;
         const challenge = await rail.challenge(`${config.publicOrigin}/v1/acquire/social-commercial`);
         for (const [k, v] of Object.entries(challenge.headers)) res.setHeader(k, v);
         res.status(challenge.status).json({
@@ -492,11 +583,11 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
             maxBudget: "0.10"
           });
       const railProfile = wantTestnet ? config.testnet! : mainnetProfile(config);
-      const q = buildQuote(catalogOffers(), use, verified.verifiedPayer, {
+      const q = buildQuote(directList, use, verified.verifiedPayer, {
         nowSeconds: now(),
-        // Same pin as the unpaid challenge — the paid replay can never
-        // re-select a different asset than the 402 disclosed.
-        pinOfferId: directOfferId,
+        // Same digest-pinned list as the unpaid challenge — the paid replay
+        // can never re-select a different signed version than the 402 disclosed.
+        pinOfferId: directPin,
         rail: { settlementNetwork: railProfile.network, paymentAsset: railProfile.asset, payTo: config.payToAddress }
       });
       if (!q.serviceable || !q.selected) {
@@ -519,6 +610,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
           settlementNetwork: q.selected.settlementNetwork,
           paymentAsset: q.selected.paymentAsset,
           payTo: q.selected.payTo,
+          payoutWallet: q.selected.payoutWallet,
           idempotencyKey: q.selected.idempotencyKey,
           expiresAt: q.selected.quoteExpiresAt
         },
@@ -574,7 +666,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         asset: {
           assetId: prepared.delivery.assetId,
           url: signedAssetUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
-          displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
+          displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
           sha256: prepared.delivery.credential.assetSha256,
           mimeType: "image/png"
         },
@@ -612,7 +704,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         asset: {
           assetId: prepared.delivery.assetId,
           url: signedAssetUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
-          displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
+          displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
           sha256: prepared.delivery.credential.assetSha256,
           mimeType: "image/png"
         },
@@ -643,7 +735,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
               asset: {
                 assetId: prepared.delivery.assetId,
                 url: signedAssetUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
-                displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now()),
+                displayUrl: signedDisplayUrl(config, prepared.delivery.assetId, now(), prepared.delivery.credential.assetSha256),
                 sha256: prepared.delivery.credential.assetSha256,
                 mimeType: "image/png"
               },
@@ -789,7 +881,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       asset: {
         assetId,
         url: signedAssetUrl(config, assetId, now(), credential.assetSha256),
-        displayUrl: signedDisplayUrl(config, assetId, now()),
+        displayUrl: signedDisplayUrl(config, assetId, now(), credential.assetSha256),
         sha256: credential.assetSha256,
         mimeType: "image/png"
       },
@@ -926,7 +1018,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       purchaseIntent: order.purchaseIntent,
       licenseCredential: credential ?? null,
       order: { orderId: order.orderId, status: order.status, buyerPaymentId: order.buyerPaymentId, buyerSettleTx: order.buyerSettleTx, paymentAuthorizationDigest: order.paymentAuthorizationDigest },
-      creatorPayout: payout ? { state: payout.state, amountMicro: payout.amount_micro, confirmedTx: payout.confirmed_tx ?? null } : null,
+      creatorPayout: payout
+        ? { state: payout.state, amountMicro: payout.amount_micro, confirmedTx: payout.confirmed_tx ?? null, payoutSender: config.serviceAddress }
+        : null,
       notes: "Verify: recover CreatorOffer + PurchaseIntent signers (EIP-712), recompute quoteCommitment, recover the credential issuer signature, and re-run check-license-scope. Sample environment = simulated settlement, no funds moved."
     });
   });
@@ -954,8 +1048,20 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     const exp = Number(req.query.exp);
     const sig = String(req.query.sig ?? "");
     const assetId = String(req.params.assetId);
-    if (!verifyAssetSig(config, assetId, exp, sig, now())) {
+    const dsha = typeof req.query.sha === "string" && /^0x[0-9a-f]{64}$/.test(req.query.sha) ? req.query.sha : undefined;
+    if (!verifyAssetSig(config, assetId, exp, sig, now(), dsha)) {
       return void res.status(403).json({ error: "INVALID_OR_EXPIRED_URL" });
+    }
+    // sha-pinned display: the passport shows the SAME version the license binds.
+    if (dsha) {
+      const byHash = resolve(PROJECT_ROOT, `catalog/display/by-hash/${dsha.replace(/^0x/, "")}.webp`);
+      if (existsSync(byHash)) {
+        res.setHeader("Content-Type", "image/webp");
+        res.setHeader("Cache-Control", "private, max-age=86400");
+        return void res.send(readFileSync(byHash));
+      }
+      // fall through to head rendition only as display-quality fallback —
+      // the DOWNLOAD path stays strictly content-addressed.
     }
     const asset = repo.getAsset(assetId);
     if (!asset) return void res.status(404).json({ error: "NOT_FOUND" });
@@ -1132,7 +1238,13 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   // sponsored (faucet-funded) exclusion. Judges decide what counts as
   // qualified; we publish the split.
   const internalWallets = new Set(
-    [config.serviceAddress, config.payToAddress, config.demoBuyerPrivateKey ? privateKeyToAddress(config.demoBuyerPrivateKey) : null]
+    [
+      config.serviceAddress,
+      config.payToAddress,
+      config.demoBuyerPrivateKey ? privateKeyToAddress(config.demoBuyerPrivateKey) : null,
+      // Any further team-controlled wallets, comma-separated.
+      ...(process.env.INTERNAL_WALLETS ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+    ]
       .filter((a): a is string => Boolean(a))
       .map((a) => a.toLowerCase())
   );
@@ -1217,7 +1329,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   //   {action:"attach_tx", tx}   — the broadcast DID land; worker confirms → PAID
   //   {action:"fresh_nonce"}     — nonce went to an unrelated tx; retry fresh
   // There is deliberately NO automatic path out of this state (round-10 P0).
-  app.post("/internal/payouts/:orderId/reconcile", express.json(), (req, res) => {
+  app.post("/internal/payouts/:orderId/reconcile", express.json(), async (req, res) => {
     if (config.paymentMode === "live") {
       const adminToken = process.env.ADMIN_TOKEN?.trim();
       if (!adminToken || req.header("x-admin-token") !== adminToken) {
@@ -1236,6 +1348,35 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       return void res.json({ ok: true, orderId, state: "BROADCAST", tx });
     }
     if (action === "fresh_nonce") {
+      // MACHINE PROOF (round-12): in live mode the admin must name the tx that
+      // consumed the reserved nonce; the server verifies ON-CHAIN that it (a)
+      // came from the service wallet, (b) used that nonce, and (c) is NOT the
+      // creator transfer this payout owes. Only then is a fresh nonce allowed.
+      if (config.paymentMode === "live") {
+        const observedTx = (req.body as { observedTx?: string })?.observedTx;
+        if (!observedTx || !/^0x[0-9a-fA-F]{64}$/.test(observedTx)) {
+          return void res.status(400).json({ error: "PROOF_REQUIRED", detail: "fresh_nonce requires observedTx — the tx that consumed the reserved nonce" });
+        }
+        const ord = repo.getOrder(orderId);
+        const payoutRow = repo.getPayout(orderId);
+        if (!ord || !payoutRow) return void res.status(404).json({ error: "ORDER_NOT_FOUND" });
+        const chainSvc = ord.environment === "testnet" ? chainTest : chainMain;
+        if (!chainSvc) return void res.status(503).json({ error: "CHAIN_UNAVAILABLE" });
+        const summary = await chainSvc.txSummary(observedTx);
+        if (!summary) return void res.status(400).json({ error: "PROOF_REJECTED", detail: "observedTx not found on-chain" });
+        if (summary.from !== config.serviceAddress.toLowerCase()) {
+          return void res.status(400).json({ error: "PROOF_REJECTED", detail: "observedTx was not sent by the service wallet" });
+        }
+        if (payoutRow.chain_nonce != null && summary.nonce !== Number(payoutRow.chain_nonce)) {
+          return void res.status(400).json({ error: "PROOF_REJECTED", detail: `observedTx used nonce ${summary.nonce}, not the reserved ${payoutRow.chain_nonce}` });
+        }
+        const semantic = await chainSvc.verifyUsdtTransfer(observedTx, String(payoutRow.payout_wallet), Number(payoutRow.amount_micro));
+        if (semantic === "confirmed") {
+          return void res.status(409).json({ error: "IS_THE_PAYOUT", detail: "observedTx IS the owed creator transfer — use attach_tx, not fresh_nonce" });
+        }
+        // reverted or mismatch: the nonce is PROVABLY consumed by a non-payout
+        // tx — releasing a fresh nonce cannot double-pay.
+      }
       const ok = repo.releasePayoutForFreshNonce(orderId, now());
       if (!ok) return void res.status(409).json({ error: "NOT_IN_NEEDS_RECONCILIATION" });
       void runPayoutWorker(repo, config, now, payoutSenders).catch(() => {});

@@ -83,6 +83,15 @@ export function loadCatalog(repo: Repo, nowSeconds: number, manifestPath?: strin
         copyFileSync(assetPath, byHashAbs);
       }
       repo.archiveAssetVersion(offer.assetSha256, offer.assetId, byHashRel, offer.mimeType, nowSeconds);
+      // Display rendition follows the same content-addressed discipline —
+      // the passport must show the SAME version the license binds.
+      const slug = entry.assetFile.replace(/^.*\//, "").replace(/\.[a-z]+$/i, "");
+      const displaySrc = resolve(PROJECT_ROOT, `catalog/display/${slug}.display.webp`);
+      const displayByHash = resolve(PROJECT_ROOT, `catalog/display/by-hash/${offer.assetSha256.replace(/^0x/, "")}.webp`);
+      if (existsSync(displaySrc) && !existsSync(displayByHash)) {
+        mkdirSync(resolve(PROJECT_ROOT, "catalog/display/by-hash"), { recursive: true });
+        copyFileSync(displaySrc, displayByHash);
+      }
     } catch (e) {
       skipped.push(`${offer.offerId}: asset archive failed (${e instanceof Error ? e.message : "?"})`);
     }
@@ -117,6 +126,13 @@ export function loadCatalog(repo: Repo, nowSeconds: number, manifestPath?: strin
           if (!parsed.success || !verifyOfferSignature(parsed.data)) continue;
           const { signature: _s2, ...unsigned2 } = parsed.data;
           repo.archiveOfferVersion(offerDigestHex(unsigned2), parsed.data.offerId, parsed.data, nowSeconds);
+          // Restore asset-version metadata too, so a fresh DB can still serve
+          // the archived bytes an old credential references.
+          const ext2 = parsed.data.mimeType === "image/png" ? "png" : parsed.data.mimeType.split("/")[1] ?? "bin";
+          const rel2 = `catalog/assets/by-hash/${parsed.data.assetSha256.replace(/^0x/, "")}.${ext2}`;
+          if (existsSync(resolve(PROJECT_ROOT, rel2))) {
+            repo.archiveAssetVersion(parsed.data.assetSha256, parsed.data.assetId, rel2, parsed.data.mimeType, nowSeconds);
+          }
         }
       }
     }

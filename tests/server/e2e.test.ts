@@ -467,3 +467,105 @@ describe("direct mode pre-402 asset lock (round-11)", () => {
     expect(paid.json.license.authorizationMode).toBe("x402_direct");
   });
 });
+
+describe("rail derives from the SIGNED quote (round-12 P0)", () => {
+  let base: string;
+  let server: Server;
+  const cfgWithTestnet = {
+    ...testConfig,
+    testnet: {
+      key: "testnet" as const,
+      network: "eip155:1952" as `${string}:${string}`,
+      chainId: 1952,
+      rpc: "http://127.0.0.1:1",
+      asset: "0x9e29b3aada05bf2d2c827af80bd28dc0b9b4fb0c",
+      assetName: "USD₮0",
+      assetVersion: "1",
+      explorerTx: "https://www.oklink.com/x-layer-test/tx/"
+    }
+  };
+  beforeAll(async () => {
+    const app = await createApp({ config: cfgWithTestnet as never, now: () => FIXED_NOW });
+    const started = await listen(app);
+    base = started.base; server = started.server; PORT = started.port;
+    return () => server.close();
+  });
+
+  async function signedBody(network?: string): Promise<Record<string, unknown>> {
+    const quote = await post(base, "/v1/quote", { use: USE, licenseeWallet: BUYER, ...(network ? { network } : {}) });
+    expect(quote.status).toBe(200);
+    const f = quote.json.purchaseIntentFields;
+    const unsigned = {
+      quoteId: f.quoteId, quoteCommitment: f.quoteCommitment, buyer: BUYER, licensee: BUYER,
+      assetSha256: f.assetSha256, offerDigest: f.offerDigest, policyAstHash: f.policyAstHash,
+      legalTextHash: f.legalTextHash, totalPrice: "0.10", currency: "USDT" as const,
+      settlementNetwork: f.settlementNetwork, paymentAsset: f.paymentAsset, payTo: f.payTo,
+      creatorPayoutMicro: f.creatorPayoutMicro, platformFeeMicro: f.platformFeeMicro,
+      expiresAt: f.expiresAt, nonce: sha256Hex(`rail-${network ?? "none"}-${Math.random()}`)
+    };
+    const signature = signTypedData("PurchaseIntent", purchaseIntentToTypedMessage(unsigned), BUYER_KEY);
+    return {
+      use: USE, licenseeWallet: BUYER, quoteCommitment: quote.json.quoteCommitment,
+      idempotencyKey: quote.json.idempotencyKey, purchaseIntent: { ...unsigned, signature }
+    };
+  }
+
+  it("a TESTNET quote with MISSING body.network settles on testnet — never a silent mainnet challenge", async () => {
+    const body = await signedBody("testnet"); // quote minted on the testnet rail
+    // body.network deliberately OMITTED — the signed quote decides.
+    const paid = await post(base, "/v1/acquire/social-commercial", body, { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-rail-1" });
+    expect(paid.status).toBe(200);
+    expect(paid.json.license.credentialEnvironment).toBe("testnet");
+    expect(paid.json.license.settlementNetwork).toBe("eip155:1952");
+  });
+
+  it("a TESTNET quote with network=mainnet is 400 RAIL_MISMATCH", async () => {
+    const body = await signedBody("testnet");
+    const res = await post(base, "/v1/acquire/social-commercial", { ...body, network: "mainnet" });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toBe("RAIL_MISMATCH");
+  });
+
+  it("a MAINNET quote with network=testnet is 400 RAIL_MISMATCH", async () => {
+    const body = await signedBody();
+    const res = await post(base, "/v1/acquire/social-commercial", { ...body, network: "testnet" });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toBe("RAIL_MISMATCH");
+  });
+
+  it('a typo network ("testent") is 400 INVALID_NETWORK — never a silent mainnet', async () => {
+    const res = await post(base, "/v1/acquire/social-commercial", { network: "testent" });
+    expect(res.status).toBe(400);
+    expect(res.json.error).toBe("INVALID_NETWORK");
+  });
+});
+
+describe("direct SKU digest immutability across requests (round-12 P0)", () => {
+  let base: string;
+  let server: Server;
+  beforeAll(async () => {
+    const app = await createApp({ config: testConfig, now: () => FIXED_NOW });
+    const started = await listen(app);
+    base = started.base; server = started.server; PORT = started.port;
+    return () => server.close();
+  });
+
+  it("malformed offerId is 400 INVALID_OFFER_ID, unknown is 404 — never a silent default", async () => {
+    const bad = await post(base, "/v1/acquire/social-commercial", { offerId: "DROP TABLE;" });
+    expect(bad.status).toBe(400);
+    expect(bad.json.error).toBe("INVALID_OFFER_ID");
+    const unknown = await post(base, "/v1/acquire/social-commercial", { offerId: "off-does-not-exist" });
+    expect(unknown.status).toBe(404);
+    expect(unknown.json.error).toBe("OFFER_NOT_FOUND");
+  });
+
+  it("the default SKU's 402 discloses the boot-pinned digest and the paid replay delivers exactly it", async () => {
+    const challenge = await post(base, "/v1/acquire/social-commercial", {});
+    expect(challenge.status).toBe(402);
+    const disclosed = challenge.json.directSku;
+    const paid = await post(base, "/v1/acquire/social-commercial", {}, { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-digest-pin-1" });
+    expect(paid.status).toBe(200);
+    expect(paid.json.license.offerDigest).toBe(disclosed.offerDigest);
+    expect(paid.json.license.assetSha256).toBe(disclosed.assetSha256);
+  });
+});

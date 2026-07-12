@@ -128,6 +128,16 @@ export class XLayerService {
     }
   }
 
+  /** Sender + nonce of an on-chain tx (for reconciliation proofs). */
+  async txSummary(tx: string): Promise<{ from: string; nonce: number } | null> {
+    try {
+      const t = await this.pub.getTransaction({ hash: tx as `0x${string}` });
+      return { from: t.from.toLowerCase(), nonce: t.nonce };
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * SEMANTIC receipt verification (round-11): a payout may be marked PAID only
    * by a receipt whose Transfer log proves the exact obligation — OUR token

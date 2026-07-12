@@ -66,6 +66,7 @@ export async function runDemoAcquire(
       settlementNetwork: sel.settlementNetwork,
       paymentAsset: sel.paymentAsset,
       payTo: sel.payTo,
+      payoutWallet: sel.payoutWallet,
       idempotencyKey: sel.idempotencyKey,
       expiresAt: sel.quoteExpiresAt
     },

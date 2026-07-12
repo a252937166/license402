@@ -51,6 +51,7 @@ export interface QuoteResult {
     policy: PolicyV1;
     policyAstHash: string;
     legalTextHash: string;
+    payoutWallet: string;
     effectiveGrant: {
       channels: string[];
       transformations: string[];
@@ -197,6 +198,9 @@ export function buildQuote(catalog: CatalogOffer[], use: UseSpec, licenseeWallet
       // The legal hash the buyer signs is the SELECTED OFFER's — never a
       // global file that may drift out of sync with what the creator signed.
       legalTextHash: offer.legalTextHash,
+      // Snapshot for the payout obligation: real money only ever follows the
+      // SIGNED offer's wallet as of quote time (round-12).
+      payoutWallet: offer.payoutWallet.toLowerCase(),
       effectiveGrant: {
         channels: [use.channel],
         transformations: [...use.transformations],

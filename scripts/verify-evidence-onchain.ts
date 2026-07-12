@@ -89,7 +89,10 @@ for (const f of files) {
   if (bundle.creatorPayout?.state === "PAID" && bundle.creatorPayout.confirmedTx) {
     const payoutWallet = String(bundle.creatorOffer.payoutWallet);
     const payoutMicro = BigInt(bundle.quote.creatorPayoutMicro);
-    const payout = await findTransfer(pub, token, String(bundle.creatorPayout.confirmedTx), { to: payoutWallet, value: payoutMicro });
+    // from = the named payout sender (service wallet): a third party sending
+    // the same amount to the creator can no longer satisfy this check.
+    const payoutSender = typeof bundle.creatorPayout.payoutSender === "string" ? String(bundle.creatorPayout.payoutSender) : undefined;
+    const payout = await findTransfer(pub, token, String(bundle.creatorPayout.confirmedTx), { from: payoutSender, to: payoutWallet, value: payoutMicro });
     console.log(`   ${payout.ok ? "✓" : "✗"} creator payout ${String(bundle.creatorPayout.confirmedTx).slice(0, 14)}… — ${payout.detail}`);
     allPass &&= payout.ok;
   }

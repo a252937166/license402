@@ -214,8 +214,8 @@ describe("round-11: payout binds the HISTORICAL offer wallet", () => {
     ).run(); // head has ALREADY moved to wallet B (re-sign after the quote)
     db.prepare(
       `INSERT INTO quotes (quote_id, quote_commitment, offer_id, offer_digest, licensee_wallet, use_spec_json,
-        use_spec_hash, price_micro, platform_fee_micro, creator_payout_micro, idempotency_key, expires_at, created_at)
-       VALUES ('q-9','0xc9','off-x','0xd1','0xbuyer','{}','0xu',100000,30000,70000,'idem-9',99,1)`
+        use_spec_hash, price_micro, platform_fee_micro, creator_payout_micro, payout_wallet, idempotency_key, expires_at, created_at)
+       VALUES ('q-9','0xc9','off-x','0xd1','0xbuyer','{}','0xu',100000,30000,70000,'0x00000000000000000000000000000000000000AA','idem-9',99,1)`
     ).run();
     db.prepare(
       `INSERT INTO orders (order_id, quote_id, quote_commitment, licensee_wallet, purchase_intent_json,
@@ -229,9 +229,49 @@ describe("round-11: payout binds the HISTORICAL offer wallet", () => {
 
     onSettlementSuccess(repo, "ord-h1", "0xsettletx", { nowSeconds: 10 });
     const payout = db.prepare(`SELECT payout_wallet, amount_micro FROM creator_payouts WHERE order_id='ord-h1'`).get() as Record<string, unknown>;
-    expect(payout.payout_wallet).toBe("0xWALLET_A"); // the wallet the buyer's signed terms named
+    expect(payout.payout_wallet).toBe("0x00000000000000000000000000000000000000aa"); // the QUOTE SNAPSHOT, not head wallet B
     expect(payout.amount_micro).toBe(70000);
     expect(SETTLED_STATES.has("PAYOUT_NEEDS_RECONCILIATION")).toBe(true); // license never regresses during reconciliation
+  });
+
+  it("fail closed: a missing payout snapshot parks the obligation — NOTHING is sent, no wallet is guessed", async () => {
+    const { onSettlementSuccess } = await import("../../src/server/orders/prepare.js");
+    const db = openDatabase(":memory:");
+    const repo = new Repo(db);
+    // Quote with NO payout snapshot AND an unresolvable digest (no archive row).
+    db.prepare(
+      `INSERT INTO offers (offer_id, offer_digest, asset_id, asset_sha256, licensor_wallet, payout_wallet,
+        creator_net_price_micro, valid_from, valid_until, offer_json, created_at)
+       VALUES ('off-y','0xheadY','a','0xa','0xLIC','0xHEADWALLET',70000,0,99,'{}',1)`
+    ).run();
+    db.prepare(
+      `INSERT INTO quotes (quote_id, quote_commitment, offer_id, offer_digest, licensee_wallet, use_spec_json,
+        use_spec_hash, price_micro, platform_fee_micro, creator_payout_micro, idempotency_key, expires_at, created_at)
+       VALUES ('q-10','0xc10','off-y','0xGONE','0xbuyer','{}','0xu',100000,30000,70000,'idem-10',99,1)`
+    ).run();
+    db.prepare(
+      `INSERT INTO orders (order_id, quote_id, quote_commitment, licensee_wallet, purchase_intent_json,
+        purchase_intent_digest, buyer_payment_id, status, environment, created_at, updated_at)
+       VALUES ('ord-h2','q-10','0xc10','0xbuyer','{}','0xpih2','pay-h2','DELIVERY_PREPARED','production',1,1)`
+    ).run();
+    db.prepare(
+      `INSERT INTO licenses (license_id, order_id, credential_json, issued_at, expires_at)
+       VALUES ('lic-h2','ord-h2','{"buyerPaymentId":"pay-h2","paymentAuthorizationDigest":"0xpad2","licensorWallet":"0xLIC"}',1,99)`
+    ).run();
+
+    onSettlementSuccess(repo, "ord-h2", "0xsettletx2", { nowSeconds: 10 });
+    const payout = db.prepare(`SELECT * FROM creator_payouts WHERE order_id='ord-h2'`).get() as Record<string, unknown>;
+    expect(payout.state).toBe("NEEDS_RECONCILIATION");
+    expect(payout.payout_wallet).toBe(""); // NO guessed wallet
+    expect(payout.amount_micro).toBe(0); // NO guessed amount
+    expect(String(payout.last_error)).toContain("HISTORICAL_OFFER_UNRESOLVED");
+    // License remains active-track (buyer already settled).
+    const order = db.prepare(`SELECT status FROM orders WHERE order_id='ord-h2'`).get() as { status: string };
+    expect(order.status).toBe("PAYOUT_NEEDS_RECONCILIATION");
+    // The worker never touches it.
+    const sender = new FakeSender();
+    await runPayoutWorker(repo, CONFIG, () => 100, { production: sender });
+    expect(sender.sends).toHaveLength(0);
   });
 });
 

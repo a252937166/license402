@@ -906,6 +906,11 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
       const sp=$("#subPay"), so=$("#subPayout");
       if(sp) sp.textContent="simulated · no funds moved";
       if(so) so.textContent="simulated · no funds moved";
+      // Main labels flip too — the simulation must be readable at a glance.
+      const payStep=document.querySelector('.step[data-k="pay"] .lbl');
+      const payoutStep=document.querySelector('.step[data-k="payout"] .lbl');
+      if(payStep) payStep.textContent="Payment simulated";
+      if(payoutStep) payoutStep.textContent="Payout simulated";
     }else{
       // Live: payout may still be settling; reflect the real order state.
       api("/v1/orders/"+CRED.orderId).then(o=>{

@@ -245,9 +245,11 @@ export function prepareDirectDelivery(
     }
   }
 
-  const offerRow = repo.getOffer(sel.offerId);
-  if (!offerRow) return { ok: false, error: { code: "QUOTE_NOT_FOUND", http: 404 } };
-  const offer = offerRow.offer;
+  // Deliver the EXACT signed version the quote (and the 402 disclosure)
+  // named — a head re-sign between challenge and paid replay must never
+  // change what the payment buys (round-12 P0).
+  const offer = repo.getOfferByDigest(sel.offerDigest) ?? repo.getOffer(sel.offerId)?.offer;
+  if (!offer) return { ok: false, error: { code: "QUOTE_NOT_FOUND", http: 404 } };
 
   const authorization: BuyerAuthorization = {
     mode: "x402_direct",
@@ -356,15 +358,25 @@ export function onSettlementSuccess(
     repo.updateOrderStatus(orderId, "LICENSE_ACTIVE", ctx.nowSeconds);
     repo.setLicenseStatus(orderId, "ACTIVE");
 
-    // REAL MONEY resolves from the HISTORICAL signed offer this quote bound —
-    // a creator who re-signs with a new payoutWallet between quote and payment
-    // must be paid at the wallet the BUYER's terms named, never the new head.
+    // REAL MONEY follows the quote's SNAPSHOT of the signed offer's wallet —
+    // frozen at mint, immutable since. NO fallback (round-12): if the snapshot
+    // is missing or malformed, the obligation is recorded fail-closed in
+    // NEEDS_RECONCILIATION and NOTHING is sent. The buyer's license stays
+    // active either way (it already settled).
     const quote = repo.getQuoteById(order.quoteId);
-    const signedOffer = quote ? repo.getOfferByDigest(quote.offerDigest) : undefined;
-    const headOffer = quote ? repo.getOffer(quote.offerId) : undefined;
-    const payoutWallet = signedOffer?.payoutWallet ?? headOffer?.payoutWallet ?? credential.licensorWallet;
-    const payoutMicro = quote?.creatorPayoutMicro ?? 70_000;
-    repo.enqueuePayout(orderId, payoutWallet, payoutMicro, ctx.nowSeconds);
+    // Legacy rows (pre-snapshot migration) resolve once from the archived
+    // signed offer their digest names — still never the current head.
+    const snapshotWallet = quote?.payoutWallet || (quote ? repo.getOfferByDigest(quote.offerDigest)?.payoutWallet ?? "" : "");
+    const payoutMicro = quote?.creatorPayoutMicro;
+    if (!quote || !/^0x[0-9a-fA-F]{40}$/.test(snapshotWallet) || !Number.isInteger(payoutMicro) || (payoutMicro as number) <= 0) {
+      repo.enqueuePayoutNeedsReconciliation(
+        orderId,
+        "HISTORICAL_OFFER_UNRESOLVED — payout snapshot missing/invalid; no funds moved, resolve manually",
+        ctx.nowSeconds
+      );
+      return;
+    }
+    repo.enqueuePayout(orderId, snapshotWallet.toLowerCase(), payoutMicro as number, ctx.nowSeconds);
     repo.updateOrderStatus(orderId, "CREATOR_PAYOUT_PENDING", ctx.nowSeconds);
   });
 }

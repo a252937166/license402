@@ -40,6 +40,8 @@ export interface QuoteRow {
   settlementNetwork: string;
   paymentAsset: string;
   payTo: string;
+  /** Snapshot of the SIGNED offer's payout wallet at mint — real money only ever follows this. */
+  payoutWallet: string;
   idempotencyKey: string;
   expiresAt: number;
 }
@@ -214,10 +216,10 @@ export class Repo {
       .prepare(
         `INSERT INTO quotes (quote_id, quote_commitment, offer_id, offer_digest, licensee_wallet, use_spec_json,
            use_spec_hash, price_micro, platform_fee_micro, creator_payout_micro,
-           settlement_network, payment_asset, pay_to, idempotency_key, expires_at, created_at)
+           settlement_network, payment_asset, pay_to, payout_wallet, idempotency_key, expires_at, created_at)
          VALUES (@quoteId, @quoteCommitment, @offerId, @offerDigest, @licenseeWallet, @useSpecJson,
            @useSpecHash, @priceMicro, @platformFeeMicro, @creatorPayoutMicro,
-           @settlementNetwork, @paymentAsset, @payTo, @idempotencyKey, @expiresAt, @createdAt)
+           @settlementNetwork, @paymentAsset, @payTo, @payoutWallet, @idempotencyKey, @expiresAt, @createdAt)
          ON CONFLICT(quote_id) DO NOTHING`
       )
       .run({
@@ -234,6 +236,7 @@ export class Repo {
         settlementNetwork: row.settlementNetwork,
         paymentAsset: row.paymentAsset,
         payTo: row.payTo,
+        payoutWallet: row.payoutWallet.toLowerCase(),
         idempotencyKey: row.idempotencyKey,
         expiresAt: row.expiresAt,
         createdAt: nowSeconds
@@ -255,6 +258,7 @@ export class Repo {
       settlementNetwork: (row.settlement_network as string) ?? "eip155:196",
       paymentAsset: (row.payment_asset as string) ?? "",
       payTo: (row.pay_to as string) ?? "",
+      payoutWallet: (row.payout_wallet as string) ?? "",
       idempotencyKey: row.idempotency_key as string,
       expiresAt: row.expires_at as number
     };
@@ -653,6 +657,32 @@ export class Repo {
         .run(confirmedTx, nowSeconds, orderId);
       this.db.prepare(`UPDATE outbox_jobs SET state = 'DONE', updated_at = ? WHERE kind = 'creator_payout' AND ref_id = ?`).run(nowSeconds, orderId);
       this.db.prepare(`UPDATE orders SET status = 'CREATOR_PAID', updated_at = ? WHERE order_id = ?`).run(nowSeconds, orderId);
+    });
+    tx();
+  }
+
+  /**
+   * FAIL-CLOSED payout obligation (round-12): the payout snapshot could not be
+   * resolved — record the obligation directly in NEEDS_RECONCILIATION. No
+   * wallet guess, no amount guess, no money moves until a human resolves it.
+   */
+  enqueuePayoutNeedsReconciliation(orderId: string, reason: string, nowSeconds: number): void {
+    const tx = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `INSERT INTO creator_payouts (order_id, payout_wallet, amount_micro, state, last_error, updated_at)
+             VALUES (?, '', 0, 'NEEDS_RECONCILIATION', ?, ?)
+             ON CONFLICT(order_id, payout_type) DO NOTHING`
+        )
+        .run(orderId, reason, nowSeconds);
+      this.db
+        .prepare(
+          `INSERT INTO outbox_jobs (kind, ref_id, state, last_error, created_at, updated_at)
+             VALUES ('creator_payout', ?, 'NEEDS_RECONCILIATION', ?, ?, ?)
+             ON CONFLICT(kind, ref_id) DO NOTHING`
+        )
+        .run(orderId, reason, nowSeconds, nowSeconds);
+      this.db.prepare(`UPDATE orders SET status = 'PAYOUT_NEEDS_RECONCILIATION', updated_at = ? WHERE order_id = ?`).run(nowSeconds, orderId);
     });
     tx();
   }

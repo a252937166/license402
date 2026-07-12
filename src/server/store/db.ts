@@ -23,6 +23,7 @@ export type OrderStatus =
   | "CREATOR_PAYOUT_PENDING"
   | "PAYOUT_RETRYING"
   | "PAYOUT_FAILED"
+  | "PAYOUT_NEEDS_RECONCILIATION"
   | "CREATOR_PAID";
 
 const SCHEMA = `
@@ -95,6 +96,7 @@ CREATE TABLE IF NOT EXISTS quotes (
   settlement_network TEXT NOT NULL DEFAULT 'eip155:196',
   payment_asset TEXT NOT NULL DEFAULT '',
   pay_to TEXT NOT NULL DEFAULT '',
+  payout_wallet TEXT NOT NULL DEFAULT '',
   idempotency_key TEXT NOT NULL,
   expires_at INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
@@ -204,6 +206,16 @@ function migrate(db: Database): void {
     db.exec(`ALTER TABLE orders ADD COLUMN payment_response_header TEXT`);
   }
   const qcols = db.prepare(`PRAGMA table_info(quotes)`).all() as { name: string }[];
+  if (!qcols.some((c) => c.name === "payout_wallet")) {
+    // Payout snapshot (round-12): the wallet REAL MONEY goes to is frozen into
+    // the quote at mint, derived from the signed offer. Backfill existing rows
+    // from the archived offer version their digest names (head as last resort).
+    db.exec(`ALTER TABLE quotes ADD COLUMN payout_wallet TEXT NOT NULL DEFAULT ''`);
+    db.exec(`UPDATE quotes SET payout_wallet = COALESCE(
+       (SELECT lower(json_extract(v.offer_json, '$.payoutWallet')) FROM offer_versions v WHERE v.offer_digest = quotes.offer_digest),
+       (SELECT lower(json_extract(o.offer_json, '$.payoutWallet')) FROM offers o WHERE o.offer_digest = quotes.offer_digest),
+       '') WHERE payout_wallet = ''`);
+  }
   if (!qcols.some((c) => c.name === "settlement_network")) {
     // Rail semantics (commitment v2): pre-existing quotes were all mainnet-era.
     db.exec(`ALTER TABLE quotes ADD COLUMN settlement_network TEXT NOT NULL DEFAULT 'eip155:196'`);
