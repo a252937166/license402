@@ -1,0 +1,57 @@
+{
+ "credentialVersion": "2",
+ "templateId": "social-commercial-v1",
+ "issuer": "0x9c9ee6576d9bbd28f89854c3f09bf8ad460f7a40",
+ "licensorWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+ "licenseeWallet": "0xc11e926344d0b05317861f57bae7f7d3990729e9",
+ "assetSha256": "0xac900027b7bfc6642d0469db2f99c95998b7e3a228e81dcd2ac9f1cbbd471bbf",
+ "policy": {
+  "policyVersion": 1,
+  "commercialUse": true,
+  "channels": [
+   "x",
+   "linkedin",
+   "instagram"
+  ],
+  "territory": "worldwide",
+  "maxDurationDays": 30,
+  "allowedTransformations": [
+   "crop",
+   "resize",
+   "overlay_text"
+  ],
+  "modelTraining": false,
+  "ragIndexing": false,
+  "exclusive": false,
+  "resale": false,
+  "sublicensing": false,
+  "attributionRequired": false
+ },
+ "grant": {
+  "channels": [
+   "x"
+  ],
+  "transformations": [
+   "crop",
+   "overlay_text"
+  ],
+  "territory": "worldwide",
+  "issuedAt": 1783959354,
+  "expiresAt": 1785168954
+ },
+ "legalTextHash": "0xd735ead67cdcb6e0d6325e0b19071b4e10cbdafc1dbb76041dd644a54155fb74",
+ "policyAstHash": "0x0f7f495269c80d8634dd59eab340f0a62644576b3406ddd0596aeceb95631dc8",
+ "offerDigest": "0x4c2b7513b46541a2665f0d38f70b84acc38d22592a65fb526b885454c48c2276",
+ "purchaseIntentDigest": "0x503af671100ca2741f2c84a808f31e6043ae4bce9c397ea98d98e4c35be0f1c8",
+ "paymentAuthorizationDigest": "0xdedb48ba2f43cf34de67eaf8f4e29af5cc7a6fe9f09bd381b9084a3207b1fd62",
+ "orderId": "ord-4355a86e49790f96",
+ "buyerPaymentId": "dedb48ba2f43cf34de67eaf8f4e29af5",
+ "credentialEnvironment": "production",
+ "settlementNetwork": "eip155:196",
+ "paymentAsset": "0x779ded0c9e1022225f8e0630b35a9b54be713736",
+ "authorizationMode": "x402_direct",
+ "buyerAuthorizationDigest": "0x503af671100ca2741f2c84a808f31e6043ae4bce9c397ea98d98e4c35be0f1c8",
+ "licenseId": "lic-0bb40bb54c1670b7",
+ "statusUrl": "https://license402.axiqo.xyz/v1/orders/ord-4355a86e49790f96",
+ "issuerSignature": "0x3501dd63298135ef2458d625aaab24ac9b2b3afb49a21b2679b9ef95aab74953109f3775501168986c24027acf4ac54e58563b6670d795fe98af94040c1d67811b"
+}

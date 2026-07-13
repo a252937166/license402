@@ -1,0 +1,16 @@
+HTTP/1.0 200 Connection established
+
+HTTP/2 200 
+server: nginx/1.30.3
+date: Mon, 13 Jul 2026 16:15:58 GMT
+content-type: application/json; charset=utf-8
+content-length: 2594
+x-license402-build: d2baaff
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+cross-origin-opener-policy: same-origin
+cache-control: no-store
+payment-response: eyJzdWNjZXNzIjp0cnVlLCJzdGF0dXMiOiJzdWNjZXNzIiwidHJhbnNhY3Rpb24iOiIweDYyOWVkOGU2NzM1ZWZjN2FjNWFiMTFkYWQ2Nzg2MWFlNzI0OTg5ODk0YzIwMjBhZjA0NmMxY2FjM2NlMGJmODEiLCJuZXR3b3JrIjoiZWlwMTU1OjE5NiIsInBheWVyIjoiMHhjMTFlOTI2MzQ0ZDBiMDUzMTc4NjFmNTdiYWU3ZjdkMzk5MDcyOWU5In0=
+etag: W/"a22-MI3uoTdgA+w4cO4pG4lQRqodbVM"
+cache-control: no-store
+
