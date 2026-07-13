@@ -1410,6 +1410,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
       setHeaders: (res, path) => {
         // Page shells must never be stale for judges; fonts/assets can cache.
         if (path.endsWith(".html")) res.setHeader("Cache-Control", "no-store");
+        // Brand images are embeddable anywhere (hackathon portals fetch them).
+        if (/\.(png|jpe?g|webp|mp4)$/.test(path)) res.setHeader("Access-Control-Allow-Origin", "*");
       }
     })
   );

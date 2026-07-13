@@ -325,6 +325,7 @@
   async function boot() {
     try {
       CFG = (await api("/config.json")).json;
+      if (CFG && CFG.listingUrl) { const h = $("#okxHire"); if (h) { h.href = CFG.listingUrl; h.style.display = "inline"; } }
       if (CFG && CFG.rails) {
         if (CFG.rails.mainnet && CFG.rails.mainnet.asset) RAILS.mainnet.asset = CFG.rails.mainnet.asset;
         if (CFG.rails.testnet && CFG.rails.testnet.asset) RAILS.testnet.asset = CFG.rails.testnet.asset;
