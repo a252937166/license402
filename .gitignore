@@ -16,3 +16,8 @@ data/
 *.db-shm
 .DS_Store
 BUILD_INFO.json
+.demo-buyers.json
+fund-demo-buyers.local.mjs
+buy-demo-buyers.local.sh
+watch-funding.local.sh
+.fund-watch/
