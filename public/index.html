@@ -119,6 +119,33 @@
   .btn-ghost{background:transparent;color:var(--text);border-color:var(--line-strong)}
   .btn-ghost:hover{border-color:var(--proof);color:#fff}
   .btn svg{width:15px;height:15px}
+  /* OKX.AI hire CTA — live-listing button */
+  .btn-okx{background:linear-gradient(180deg,#101720,#0b1118);color:#fff;border:1px solid var(--proof);font-weight:600;box-shadow:0 0 0 1px rgba(57,174,192,.12),0 10px 26px -14px rgba(57,174,192,.5)}
+  .btn-okx:hover{background:var(--proof-soft)}
+  .btn-okx .live-dot{width:7px;height:7px;border-radius:50%;background:var(--cleared);animation:hirePulse 1.8s infinite}
+  @keyframes hirePulse{0%{box-shadow:0 0 0 0 rgba(46,167,116,.55)}70%{box-shadow:0 0 0 8px rgba(46,167,116,0)}100%{box-shadow:0 0 0 0 rgba(46,167,116,0)}}
+  /* 06 · hire the agent */
+  #hire .hire-grid{display:grid;grid-template-columns:390px 1fr;gap:36px;align-items:start}
+  .hire-card{display:block;background:linear-gradient(180deg,#10151f,#0c1017);border:1px solid var(--line-strong);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow);transition:border-color .15s,transform .15s}
+  .hire-card:hover{border-color:var(--proof);transform:translateY(-2px)}
+  .hc-top{display:flex;gap:14px;align-items:center}
+  .hc-top img{width:56px;height:56px;border-radius:6px;border:1px solid var(--line-strong)}
+  .hc-top b{font-size:18px;letter-spacing:.02em;display:block}
+  .hc-id{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--fog-2);margin-top:4px;display:block;text-transform:uppercase}
+  .hc-live{color:var(--cleared)}
+  .hc-svc{border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-top:16px;background:rgba(57,174,192,.04)}
+  .hc-svc-name{font-weight:600;font-size:14px}
+  .hc-svc-desc{color:var(--fog);font-size:12.5px;line-height:1.55;margin-top:6px}
+  .hc-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-family:var(--mono)}
+  .hc-price{font-size:15px;font-weight:700}
+  .hc-go{font-size:12px;color:var(--proof);letter-spacing:.06em}
+  .hire-steps .hs{display:flex;gap:14px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .hire-steps .hs .node{font-family:var(--mono);font-size:11px;color:var(--proof);border:1px solid var(--line-strong);border-radius:100px;min-width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .hire-steps .hst b{display:block;font-size:14px;margin-bottom:3px}
+  .hire-steps .hst span{color:var(--fog);font-size:12.5px;line-height:1.55}
+  .hire-steps .hst a{color:var(--proof)}
+  .hire-cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+  @media(max-width:900px){#hire .hire-grid{grid-template-columns:1fr}}
 
   /* hero specimen: the licensed artwork under security paper */
   .specimen{position:relative}
@@ -368,6 +395,7 @@
         <a href="/buy">Buy live</a>
         <a href="/verify">Verify</a>
         <a href="#ledger">Receipts</a>
+        <a href="#hire" style="color:var(--proof)">Hire agent</a>
         <a href="https://github.com/a252937166/license402" target="_blank" rel="noopener">GitHub ↗</a>
       </nav>
       <div class="seal-badge">
@@ -387,8 +415,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
             Try the signed sample
           </a>
+          <a class="btn btn-okx" id="ctaOkx" href="https://www.okx.ai/agents/5089" target="_blank" rel="noopener"><span class="live-dot"></span>Hire the agent on OKX.AI ↗</a>
           <a class="btn btn-ghost" id="ctaBuy" href="/buy">Run the full loop · mainnet 0.10 / testnet FREE</a>
-          <a class="btn btn-ghost" id="ctaOkx" href="#" style="display:none" target="_blank" rel="noopener">Hire on OKX.AI ↗</a>
         </div>
         <div class="cta-note" id="ctaNote">Free sample — no wallet, no funds moved. The wallet flow settles for REAL: mainnet 0.10 USDT self-funded, or the identical loop FREE on X Layer testnet (official faucet funds you). Two signatures, zero gas.</div>
         <div style="margin-top:14px;overflow-x:auto"><table style="border-collapse:collapse;font-family:var(--mono);font-size:10.5px;color:var(--fog)">
@@ -652,6 +680,44 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   </div>
 </section>
 
+<!-- 6 · HIRE THE AGENT -->
+<section id="hire">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>Hire the agent</h2>
+      <p>The whole loop — pick, pay, deliver, prove — also runs as a hosted agent on the OKX.AI marketplace. Hire it and it does the buying for you.</p>
+    </div>
+    <div class="hire-grid">
+      <a class="hire-card" id="hireCard" href="https://www.okx.ai/agents/5089" target="_blank" rel="noopener" aria-label="Open the LICENSE402 listing on OKX.AI">
+        <div class="hc-top">
+          <img src="/favicon.png" alt="LICENSE402 agent avatar"/>
+          <div>
+            <b>LICENSE402</b>
+            <span class="hc-id">OKX.AI · Agent ID 5089 · <span class="hc-live">● live</span></span>
+          </div>
+        </div>
+        <div class="hc-svc">
+          <div class="hc-svc-name">Commercial image licensing</div>
+          <div class="hc-svc-desc">Buys an original artwork license on your behalf and returns the asset plus a signed, machine-checkable usage credential.</div>
+        </div>
+        <div class="hc-bottom"><span class="hc-price">0.1 USDT</span><span class="hc-go">Open listing ↗</span></div>
+      </a>
+      <div class="hire-steps">
+        <div class="hs"><span class="node">01</span><div class="hst"><b>Open the listing</b><span>Find LICENSE402 in the OKX.AI agent marketplace and start the “Commercial image licensing” service.</span></div></div>
+        <div class="hs"><span class="node">02</span><div class="hst"><b>Say what you need</b><span>Give it a licensee wallet (0x…) and a one-line intended use — channel, purpose, duration.</span></div></div>
+        <div class="hs"><span class="node">03</span><div class="hst"><b>The agent settles for real</b><span>It pays 0.10 USDT through x402 on X Layer and returns the asset, the signed credential, and receipt links.</span></div></div>
+        <div class="hs"><span class="node">04</span><div class="hst"><b>Anyone can verify</b><span>Feed the credential to <a href="/verify">/verify</a> or the scope API — PERMITTED / NOT_PERMITTED, deterministic.</span></div></div>
+        <div class="hire-cta-row">
+          <a class="btn btn-okx" id="hireOpen" href="https://www.okx.ai/agents/5089" target="_blank" rel="noopener"><span class="live-dot"></span>Hire on OKX.AI · 0.1 USDT ↗</a>
+          <a class="btn btn-ghost" href="/buy">or run it yourself with a wallet</a>
+        </div>
+        <div class="cta-note">Same kernel either way: the hosted agent buys through the same signed offers, pays the same price, and its orders land in the public receipts above.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap foot-grid">
     <div>
@@ -755,7 +821,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
   async function boot(){
     try{ CFG=await api("/config.json");
       const pill=$("#modePill"); pill.textContent=CFG.paymentMode==="live"?"LIVE · X LAYER":"PUBLIC DEMO"; pill.dataset.mode=CFG.paymentMode;
-      if(CFG.listingUrl){ const b=$("#ctaOkx"); b.href=CFG.listingUrl; b.style.display="inline-flex"; }
+      if(CFG.listingUrl){ ["#ctaOkx","#hireCard","#hireOpen"].forEach(s=>{const el=$(s); if(el) el.href=CFG.listingUrl;}); }
       $("#footMeta").innerHTML=`network ${CFG.network}<br>issuer ${short(CFG.issuer)}<br>pay-to ${short(CFG.payTo)}<br>settlement asset USDT (USD₮0 · ${short("0x779Ded0c9e1022225f8E0630b35a9b54bE713736")})`;
     }catch(e){}
     try{ const v=await api("/version.json"); if(v&&v.commit) $("#footBuild").textContent="build "+String(v.commit).slice(0,7); }catch(e){}

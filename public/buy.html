@@ -45,6 +45,15 @@
   .head h1{font-size:clamp(28px,4.4vw,42px);font-weight:850;letter-spacing:-.01em;margin:10px 0 8px}
   .head p{color:var(--fog);max-width:660px}
 
+  /* OKX.AI hire strip — delegate the whole flow to the listed agent */
+  .hirestrip{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:18px 0 4px;padding:13px 16px;border:1px solid var(--proof);border-radius:var(--radius);background:linear-gradient(90deg,rgba(57,174,192,.08),rgba(57,174,192,.02))}
+  .hirestrip .hs-txt{display:flex;align-items:center;gap:10px;color:var(--fog);font-size:13.5px;line-height:1.5}
+  .hirestrip .hs-txt b{color:var(--text)}
+  .hirestrip .hs-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--cleared);animation:hirePulse 1.8s infinite}
+  .hirestrip a{flex:none;font-family:var(--mono);font-size:12.5px;font-weight:700;letter-spacing:.04em;color:#04121a;background:var(--proof);padding:10px 16px;border-radius:var(--radius);white-space:nowrap}
+  .hirestrip a:hover{filter:brightness(1.08)}
+  @keyframes hirePulse{0%{box-shadow:0 0 0 0 rgba(46,167,116,.55)}70%{box-shadow:0 0 0 8px rgba(46,167,116,0)}100%{box-shadow:0 0 0 0 rgba(46,167,116,0)}}
+
   /* network rail selector */
   .rails{display:flex;gap:12px;margin:20px 0 4px;flex-wrap:wrap}
   .railopt{flex:1;min-width:260px;text-align:left;padding:14px 18px;border-radius:var(--radius);border:1px solid var(--line-strong);background:var(--raised);cursor:pointer;color:var(--text);font-family:var(--sans)}
@@ -148,6 +157,10 @@
     <div class="kick">LIVE PURCHASE · X402 · X LAYER</div>
     <h1>Buy a real license with your wallet.</h1>
     <p>Two signatures, zero gas: sign the exact terms (EIP-712 PurchaseIntent), then authorize the payment (EIP-3009). The facilitator settles on X Layer; the license activates only on confirmed settlement.</p>
+    <div class="hirestrip">
+      <div class="hs-txt"><span class="hs-dot"></span><span><b>Prefer to delegate?</b> This exact flow is live on OKX.AI as agent #5089 — hire it and it signs, pays and delivers on your behalf.</span></div>
+      <a id="okxHireStrip" href="https://www.okx.ai/agents/5089" target="_blank" rel="noopener">Hire on OKX.AI · 0.1 USDT ↗</a>
+    </div>
     <div class="rails" id="rails">
       <button class="railopt on" data-rail="mainnet">
         <div class="t">Mainnet <span class="tag">REAL · 0.10 USDT</span></div>
