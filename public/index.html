@@ -123,6 +123,7 @@
   .btn-okx{background:linear-gradient(180deg,#101720,#0b1118);color:#fff;border:1px solid var(--proof);font-weight:600;box-shadow:0 0 0 1px rgba(57,174,192,.12),0 10px 26px -14px rgba(57,174,192,.5)}
   .btn-okx:hover{background:var(--proof-soft)}
   .btn-okx .live-dot{width:7px;height:7px;border-radius:50%;background:var(--cleared);animation:hirePulse 1.8s infinite}
+  .okx-mark{width:16px;height:16px;flex:none;display:inline-block}
   @keyframes hirePulse{0%{box-shadow:0 0 0 0 rgba(46,167,116,.55)}70%{box-shadow:0 0 0 8px rgba(46,167,116,0)}100%{box-shadow:0 0 0 0 rgba(46,167,116,0)}}
   /* 06 · hire the agent */
   #hire .hire-grid{display:grid;grid-template-columns:390px 1fr;gap:36px;align-items:start}
@@ -415,7 +416,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
             Try the signed sample
           </a>
-          <a class="btn btn-okx" id="ctaOkx" href="https://www.okx.ai/agents/5089" target="_blank" rel="noopener"><span class="live-dot"></span>Hire the agent on OKX.AI ↗</a>
+          <a class="btn btn-okx" id="ctaOkx" href="https://www.okx.ai/agents/5089" target="_blank" rel="noopener"><svg class="okx-mark" viewBox="0 0 24 24" aria-hidden="true"><rect x="0" y="0" width="8" height="8" fill="#fff"/><rect x="16" y="0" width="8" height="8" fill="#fff"/><rect x="8" y="8" width="8" height="8" fill="#fff"/><rect x="0" y="16" width="8" height="8" fill="#fff"/><rect x="16" y="16" width="8" height="8" fill="#fff"/></svg><span class="live-dot"></span>Hire the agent on OKX.AI ↗</a>
           <a class="btn btn-ghost" id="ctaBuy" href="/buy">Run the full loop · mainnet 0.10 / testnet FREE</a>
         </div>
         <div class="cta-note" id="ctaNote">Free sample — no wallet, no funds moved. The wallet flow settles for REAL: mainnet 0.10 USDT self-funded, or the identical loop FREE on X Layer testnet (official faucet funds you). Two signatures, zero gas.</div>
@@ -709,7 +710,7 @@ curl -s https://license402.axiqo.xyz/v1/check-license-scope \
         <div class="hs"><span class="node">03</span><div class="hst"><b>The agent settles for real</b><span>It pays 0.10 USDT through x402 on X Layer and returns the asset, the signed credential, and receipt links.</span></div></div>
         <div class="hs"><span class="node">04</span><div class="hst"><b>Anyone can verify</b><span>Feed the credential to <a href="/verify">/verify</a> or the scope API — PERMITTED / NOT_PERMITTED, deterministic.</span></div></div>
         <div class="hire-cta-row">
-          <a class="btn btn-okx" id="hireOpen" href="https://www.okx.ai/agents/5089" target="_blank" rel="noopener"><span class="live-dot"></span>Hire on OKX.AI · 0.1 USDT ↗</a>
+          <a class="btn btn-okx" id="hireOpen" href="https://www.okx.ai/agents/5089" target="_blank" rel="noopener"><svg class="okx-mark" viewBox="0 0 24 24" aria-hidden="true"><rect x="0" y="0" width="8" height="8" fill="#fff"/><rect x="16" y="0" width="8" height="8" fill="#fff"/><rect x="8" y="8" width="8" height="8" fill="#fff"/><rect x="0" y="16" width="8" height="8" fill="#fff"/><rect x="16" y="16" width="8" height="8" fill="#fff"/></svg><span class="live-dot"></span>Hire on OKX.AI · 0.1 USDT ↗</a>
           <a class="btn btn-ghost" href="/buy">or run it yourself with a wallet</a>
         </div>
         <div class="cta-note">Same kernel either way: the hosted agent buys through the same signed offers, pays the same price, and its orders land in the public receipts above.</div>
