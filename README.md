@@ -11,8 +11,13 @@ INVALID_CREDENTIAL / INDETERMINATE` (+ `PERMITTED_TESTNET_ONLY` for test credent
 
 - **Live site:** https://license402.axiqo.xyz (check `/version.json` and the
   `X-License402-Build` header — every response carries the serving commit)
-- **OKX.AI listing:** ASP **#5089 "LICENSE402"**, service "Commercial image license"
-  (A2MCP, 0.1 USDT/call) — endpoint `POST /v1/acquire/social-commercial`
+- **OKX.AI listing (LIVE, approved):** https://www.okx.ai/agents/5089 — ASP **#5089
+  "LICENSE402"**, service "Commercial image license" (A2MCP, 0.1 USDT/call) — endpoint
+  `POST /v1/acquire/social-commercial`; a real marketplace purchase made with the
+  official `onchainos` CLI is documented in
+  [`docs/evidence/okxai-consumption/`](docs/evidence/okxai-consumption/)
+- **93-second demo:** https://youtu.be/hBStZt2mTIM (live listing · real purchase ·
+  on-chain settlement · scope verdicts)
 - **Pages:** [`/market`](https://license402.axiqo.xyz/market) (signed catalog) ·
   [`/buy`](https://license402.axiqo.xyz/buy) (wallet checkout, mainnet + free testnet) ·
   [`/verify`](https://license402.axiqo.xyz/verify) (paste any credential → verdict)
