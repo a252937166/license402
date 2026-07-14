@@ -16,8 +16,8 @@ INVALID_CREDENTIAL / INDETERMINATE` (+ `PERMITTED_TESTNET_ONLY` for test credent
   `POST /v1/acquire/social-commercial`; a real marketplace purchase made with the
   official `onchainos` CLI is documented in
   [`docs/evidence/okxai-consumption/`](docs/evidence/okxai-consumption/)
-- **93-second demo:** https://youtu.be/hBStZt2mTIM (live listing · real purchase ·
-  on-chain settlement · scope verdicts)
+- **Full demo (2:30):** https://youtu.be/zESXE8Ip0jk (live listing · real purchase ·
+  on-chain settlement · scope verdicts · built for AI agents)
 - **Pages:** [`/market`](https://license402.axiqo.xyz/market) (signed catalog) ·
   [`/buy`](https://license402.axiqo.xyz/buy) (wallet checkout, mainnet + free testnet) ·
   [`/verify`](https://license402.axiqo.xyz/verify) (paste any credential → verdict)
