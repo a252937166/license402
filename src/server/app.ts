@@ -15,6 +15,8 @@ import { buildQuote } from "./license/quote.js";
 import type { CatalogOffer } from "./license/quote.js";
 import { useSpecHash } from "./license/commitments.js";
 import { checkLicenseScope } from "./license/scopeCheck.js";
+import { recoverCredentialIssuer } from "./license/credential.js";
+import { verifyOfferSignature } from "./license/eligibility.js";
 import { EIP712_TYPES, privateKeyToAddress } from "./license/eip712.js";
 import { CREDENTIAL_VERSION, EIP712_DOMAIN } from "./license/vocab.js";
 import { formatMicroUsdt, CREATOR_PAYOUT_MICRO, PLATFORM_FEE_MICRO, SALE_PRICE_MICRO } from "./license/money.js";
@@ -247,7 +249,16 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   app.post("/v1/quote", (req: Request, res: Response) => {
     const parsedUse = UseSpecSchema.safeParse(req.body?.use);
     if (!parsedUse.success) {
-      res.status(400).json({ error: "INVALID_USESPEC", detail: parsedUse.error.issues.slice(0, 4) });
+      res.status(400).json({
+        error: "INVALID_USESPEC",
+        detail: parsedUse.error.issues.slice(0, 4),
+        usage: {
+          post: {
+            use: { brief: "cyberpunk dragon for a commercial X campaign", channel: "x", commercial: true, durationDays: 14, territory: "worldwide", transformations: ["crop", "overlay_text"], maxBudget: "0.10" },
+            licenseeWallet: "0x…(your wallet)"
+          }
+        }
+      });
       return;
     }
     const licenseeWallet = req.body?.licenseeWallet;
@@ -780,6 +791,93 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     res.status(402).json({ error: "SETTLEMENT_FAILED", detail: outcome.detail });
   });
 
+  // --- POST /v1/audit/license (paid · 0.02 USDT via x402) --------------------
+  // Companion marketplace SKU: an independent, machine-readable audit of an
+  // issued license — credential authenticity, offer signature, scope snapshot,
+  // and ON-CHAIN verification of the buyer settlement + creator payout
+  // receipts. Deeper than the free scope check (which stays free, as
+  // advertised): this one re-derives trust from chain state and returns a
+  // portable report. No credential is issued and no creator payout occurs;
+  // the fee is a flat platform service price.
+  const AUDIT_PRICE_MICRO = 20_000; // 0.02 USDT
+  app.post("/v1/audit/license", async (req: Request, res: Response) => {
+    const orderId =
+      typeof req.body?.orderId === "string"
+        ? req.body.orderId
+        : typeof (req.body?.license as { orderId?: unknown })?.orderId === "string"
+          ? String((req.body.license as { orderId: string }).orderId)
+          : "";
+
+    const verified = await payment.verify(req, AUDIT_PRICE_MICRO);
+    if (!verified) {
+      const challenge = await payment.challenge(`${config.publicOrigin}/v1/audit/license`, {
+        amountMicro: AUDIT_PRICE_MICRO,
+        description: "LICENSE402 · license audit report (credential authenticity + on-chain settlement verification)"
+      });
+      for (const [k, v] of Object.entries(challenge.headers)) res.setHeader(k, v);
+      res.status(challenge.status).json({
+        ...(challenge.body as Record<string, unknown>),
+        usage: { post: { orderId: "ord-…" }, note: "or { license: <credential JSON> }; the report covers that order" }
+      });
+      return;
+    }
+
+    // Payment verified but NOT settled — an unknown order refuses BEFORE any
+    // funds move (same discipline as acquire's NOT_SERVICEABLE).
+    const order = orderId ? repo.getOrder(orderId) : undefined;
+    if (!order) {
+      res.status(404).json({ error: "AUDIT_ORDER_NOT_FOUND", detail: "no funds moved — provide { orderId } or { license } of an existing order" });
+      return;
+    }
+    const credential = repo.getLicenseByOrder(order.orderId);
+    const quote = repo.getQuoteById(order.quoteId);
+    const offer = quote ? repo.getOfferByDigest(quote.offerDigest) : undefined;
+    const payout = repo.getPayout(order.orderId);
+
+    const issuerRecovered = credential ? recoverCredentialIssuer(credential) : null;
+    const credentialAuthentic = Boolean(credential && issuerRecovered === credential.issuer.toLowerCase());
+    const offerSignatureValid = Boolean(offer && verifyOfferSignature(offer));
+
+    // On-chain receipts — re-checked LIVE, not read from our own ledger.
+    const svc = order.environment === "testnet" ? chainTest : order.environment === "production" ? chainMain : undefined;
+    const receipt = async (tx: unknown): Promise<string> => {
+      if (typeof tx !== "string" || !tx.startsWith("0x")) return "absent";
+      if (!svc) return "unavailable (simulated environment)";
+      try {
+        return await svc.receiptStatus(tx);
+      } catch {
+        return "rpc_unavailable";
+      }
+    };
+    const buyerReceipt = await receipt(order.buyerSettleTx);
+    const payoutTx = payout?.confirmed_tx ?? payout?.broadcast_tx ?? null;
+    const payoutReceipt = await receipt(payoutTx);
+
+    const settled = await payment.settle(verified);
+    if (settled.status !== "success") {
+      res.status(502).json({ error: "SETTLEMENT_FAILED", detail: "audit fee did not settle — no funds moved, retry with a fresh authorization" });
+      return;
+    }
+    if (settled.responseHeader) res.setHeader("PAYMENT-RESPONSE", settled.responseHeader);
+    res.status(200).json({
+      report: "LICENSE402 license audit",
+      auditedOrder: order.orderId,
+      environment: order.environment,
+      credential: credential
+        ? { licenseId: credential.licenseId, authentic: credentialAuthentic, issuer: credential.issuer, recoveredSigner: issuerRecovered, credentialVersion: credential.credentialVersion, licensee: credential.licenseeWallet, assetSha256: credential.assetSha256, scope: credential.grant }
+        : null,
+      creatorOffer: offer ? { offerId: offer.offerId, offerVersion: offer.offerVersion, signatureValid: offerSignatureValid, licensor: offer.licensorWallet } : null,
+      onchain: {
+        buyerSettlement: { tx: order.buyerSettleTx ?? null, receipt: buyerReceipt },
+        creatorPayout: { tx: payoutTx, state: payout?.state ?? null, receipt: payoutReceipt }
+      },
+      orderStatus: order.status,
+      verdict: credentialAuthentic && offerSignatureValid && (svc ? buyerReceipt === "confirmed" : true) ? "AUTHENTIC" : "CHECK_FAILED",
+      proofBundle: `${config.publicOrigin}/v1/orders/${order.orderId}/bundle`,
+      offlineVerify: "clone github.com/a252937166/license402 && npm run verify:evidence -- <bundle.json>"
+    });
+  });
+
   // --- POST /v1/check-license-scope (free) -----------------------------------
   app.post("/v1/check-license-scope", (req: Request, res: Response) => {
     const result = checkLicenseScope({
@@ -1251,7 +1349,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
   app.get("/v1/ledger", (_req, res) => {
     res.json(ledgerJson(db, internalWallets));
   });
-  app.get("/v1/catalog", (_req, res) => {
+  const catalogHandler = (_req: Request, res: Response): void => {
     res.json({
       offers: catalogOffers().map((c) => ({
         assetId: c.offer.assetId,
@@ -1271,7 +1369,10 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         tags: c.tags ?? []
       }))
     });
-  });
+  };
+  // Marketplace A2MCP buyers POST to service endpoints — same shop window, both verbs.
+  app.get("/v1/catalog", catalogHandler);
+  app.post("/v1/catalog", catalogHandler);
   app.get("/config.json", (_req, res) => {
     const main = mainnetProfile(config);
     res.json({

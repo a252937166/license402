@@ -72,8 +72,11 @@ export class LivePaymentAdapter implements PaymentAdapter {
     return this.codecs!;
   }
 
-  requirements(): Record<string, unknown> {
-    const priceMicro = parseUsdtToMicro(this.config.priceUsd.replace(/^\$/, ""));
+  requirements(amountMicro?: number): Record<string, unknown> {
+    // Per-service pricing (marketplace companion SKUs): callers may override the
+    // default sale price; the facilitator verifies the buyer's authorization
+    // against EXACTLY this amount, so an underpaying signature never verifies.
+    const priceMicro = amountMicro ?? parseUsdtToMicro(this.config.priceUsd.replace(/^\$/, ""));
     return {
       scheme: "exact",
       network: this.profile.network,
@@ -87,22 +90,22 @@ export class LivePaymentAdapter implements PaymentAdapter {
     };
   }
 
-  async challenge(resourceUrl: string): Promise<Challenge> {
+  async challenge(resourceUrl: string, opts?: { amountMicro?: number; description?: string }): Promise<Challenge> {
     const { encodePaymentRequiredHeader } = await this.httpCodecs();
     const body = {
       x402Version: 2,
       resource: {
         url: resourceUrl,
-        description: "LICENSE402 · social-commercial content license (signed scope credential included)",
+        description: opts?.description ?? "LICENSE402 · social-commercial content license (signed scope credential included)",
         mimeType: "application/json"
       },
-      accepts: [this.requirements()],
+      accepts: [this.requirements(opts?.amountMicro)],
       error: "payment required"
     };
     return { status: 402, headers: { "PAYMENT-REQUIRED": encodePaymentRequiredHeader(body) }, body };
   }
 
-  async verify(req: Request): Promise<VerifiedPayment | null> {
+  async verify(req: Request, amountMicro?: number): Promise<VerifiedPayment | null> {
     const header = req.header("payment-signature") || req.header("x-payment") || req.header("payment");
     if (!header) return null; // no payment attached → 402 challenge
     let payload: Record<string, unknown>;
@@ -118,7 +121,7 @@ export class LivePaymentAdapter implements PaymentAdapter {
     // before a credential is issued or settlement is attempted.
     try {
       const client = await this.facilitatorClient();
-      const v = await client.verify(payload, this.requirements());
+      const v = await client.verify(payload, this.requirements(amountMicro));
       if (!v.isValid || !v.payer) {
         console.warn("[x402] verify rejected:", v.invalidReason ?? "no payer returned");
         return null;

@@ -569,3 +569,56 @@ describe("direct SKU digest immutability across requests (round-12 P0)", () => {
     expect(paid.json.license.assetSha256).toBe(disclosed.assetSha256);
   });
 });
+
+describe("paid license audit (companion marketplace SKU)", () => {
+  let base: string;
+  let server: Server;
+  beforeAll(async () => {
+    const app = await createApp({ config: testConfig, now: () => FIXED_NOW });
+    const started = await listen(app);
+    base = started.base;
+    server = started.server;
+    PORT = started.port;
+    return () => server.close();
+  });
+
+  it("402-challenges at 0.02, then returns an authenticity report against a real order", async () => {
+    // Buy something first so there is an order to audit.
+    const quote = await post(base, "/v1/quote", { use: USE, licenseeWallet: BUYER });
+    const f = quote.json.purchaseIntentFields;
+    const unsigned = {
+      quoteId: f.quoteId, quoteCommitment: f.quoteCommitment, buyer: BUYER, licensee: BUYER,
+      assetSha256: f.assetSha256, offerDigest: f.offerDigest, policyAstHash: f.policyAstHash,
+      legalTextHash: f.legalTextHash, totalPrice: "0.10", currency: "USDT" as const,
+      settlementNetwork: f.settlementNetwork, paymentAsset: f.paymentAsset, payTo: f.payTo,
+      creatorPayoutMicro: f.creatorPayoutMicro, platformFeeMicro: f.platformFeeMicro,
+      expiresAt: f.expiresAt, nonce: sha256Hex("audit-buy-nonce")
+    };
+    const signature = signTypedData("PurchaseIntent", purchaseIntentToTypedMessage(unsigned), BUYER_KEY);
+    const bought = await post(base, "/v1/acquire/social-commercial", {
+      use: USE, licenseeWallet: BUYER, quoteCommitment: quote.json.quoteCommitment,
+      idempotencyKey: quote.json.idempotencyKey, purchaseIntent: { ...unsigned, signature }
+    }, { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-audit-buy" });
+    expect(bought.status).toBe(200);
+    const orderId = bought.json.orderId;
+
+    // No payment → 402 challenge priced at the audit fee, with usage hint.
+    const challenge = await post(base, "/v1/audit/license", { orderId });
+    expect(challenge.status).toBe(402);
+    expect(challenge.json.accepts[0].amount).toBe("20000");
+    expect(challenge.json.usage.post.orderId).toBeDefined();
+
+    // Paid audit → full report.
+    const audit = await post(base, "/v1/audit/license", { orderId }, { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-audit-1" });
+    expect(audit.status).toBe(200);
+    expect(audit.json.credential.authentic).toBe(true);
+    expect(audit.json.creatorOffer.signatureValid).toBe(true);
+    expect(audit.json.verdict).toBe("AUTHENTIC");
+    expect(audit.json.proofBundle).toContain(orderId);
+
+    // Unknown order refuses AFTER verify but BEFORE settle — no funds move.
+    const missing = await post(base, "/v1/audit/license", { orderId: "ord-nope" }, { "x-dev-payer": BUYER, "x-dev-payment-id": "pay-audit-2" });
+    expect(missing.status).toBe(404);
+    expect(missing.json.error).toBe("AUDIT_ORDER_NOT_FOUND");
+  });
+});

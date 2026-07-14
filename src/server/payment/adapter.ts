@@ -41,14 +41,14 @@ export interface PaymentAdapter {
    * header) when no valid payment is attached. resourceUrl identifies the
    * protected resource in the challenge.
    */
-  challenge(resourceUrl: string): Promise<Challenge>;
+  challenge(resourceUrl: string, opts?: { amountMicro?: number; description?: string }): Promise<Challenge>;
   /**
    * Extract & verify the attached payment WITHOUT moving funds. Returns null when
    * absent or invalid → caller issues a 402 challenge. For live x402 this calls the
    * facilitator's verify endpoint, which returns the cryptographically-recovered
    * payer; the payer is known here, before any credential is issued or funds move.
    */
-  verify(req: Request): Promise<VerifiedPayment | null>;
+  verify(req: Request, amountMicro?: number): Promise<VerifiedPayment | null>;
   /**
    * Settle the verified payment on-chain. spec v4: only "success" activates the
    * license. On success the outcome carries the encoded PAYMENT-RESPONSE header.
@@ -70,18 +70,18 @@ export interface PaymentAdapter {
 export class DevPaymentAdapter implements PaymentAdapter {
   readonly mode = "dev" as const;
 
-  async challenge(resourceUrl: string): Promise<Challenge> {
+  async challenge(resourceUrl: string, opts?: { amountMicro?: number; description?: string }): Promise<Challenge> {
     // Same v2 PaymentRequired shape as live so clients exercise one format; the
     // note makes the simulation explicit.
     const body = {
       x402Version: 2,
-      resource: { url: resourceUrl, description: "LICENSE402 (dev mode — simulated settlement)", mimeType: "application/json" },
+      resource: { url: resourceUrl, description: opts?.description ?? "LICENSE402 (dev mode — simulated settlement)", mimeType: "application/json" },
       accepts: [
         {
           scheme: "exact",
           network: "eip155:196",
           asset: process.env.X402_ASSET ?? "0x0000000000000000000000000000000000000000",
-          amount: "100000",
+          amount: String(opts?.amountMicro ?? 100000),
           payTo: "0x0000000000000000000000000000000000000000",
           maxTimeoutSeconds: 120,
           extra: { note: "DEV MODE — attach X-Dev-Payer and X-Dev-Payment-Id headers to simulate settlement. Not a real payment." }
