@@ -60,6 +60,10 @@ retry with PAYMENT-SIGNATURE                       official x402 client, EIP-300
                                                    → 200 + license + asset + PAYMENT-RESPONSE
 GET  /v1/orders/:id                                settlement truth; creator payout tx when PAID
 POST /v1/check-license-scope                       deterministic verdict + per-term evidence
+POST /v1/catalog                                   signed catalog + provenance (free; GET works too)
+POST /v1/audit/license {orderId}                   paid 0.02 via x402: credential authenticity +
+                                                   LIVE on-chain re-check of settlement + payout
+                                                   receipts → AUTHENTIC / CHECK_FAILED
 GET  /v1/orders/:id/bundle                         proof bundle (all signatures, re-verifiable)
 ```
 
