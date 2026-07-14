@@ -853,12 +853,42 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
     const payoutTx = payout?.confirmed_tx ?? payout?.broadcast_tx ?? null;
     const payoutReceipt = await receipt(payoutTx);
 
-    const settled = await payment.settle(verified);
-    if (settled.status !== "success") {
-      res.status(502).json({ error: "SETTLEMENT_FAILED", detail: "audit fee did not settle — no funds moved, retry with a fresh authorization" });
+    let settled = await payment.settle(verified);
+    // X Layer confirmation regularly outlives the facilitator's sync window —
+    // the SAME recovery as the acquire endpoint: once a tx hash exists the
+    // payment is broadcast, so poll it to completion instead of failing a
+    // call the buyer has already funded.
+    const broadcastTx = settled.status === "pending" || settled.status === "timeout" ? settled.tx : settled.status === "success" ? settled.tx : null;
+    if ((settled.status === "pending" || settled.status === "timeout") && broadcastTx && payment.settleStatus) {
+      for (let i = 0; i < 6; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        try {
+          const st = await payment.settleStatus(broadcastTx);
+          if (st.status === "success") {
+            settled = { status: "success", tx: broadcastTx, responseHeader: synthesizePaymentResponse(broadcastTx, config.network, verified.verifiedPayer) ?? undefined };
+            break;
+          }
+          if (st.status === "failed") {
+            settled = { status: "failed", detail: st.detail ?? "settlement failed" };
+            break;
+          }
+        } catch {
+          // transient status-poll error — keep polling
+        }
+      }
+    }
+    if (settled.status !== "success" && !broadcastTx) {
+      // No transaction was ever broadcast — genuinely nothing moved.
+      console.warn("[audit] settle failed:", JSON.stringify(settled));
+      res.status(502).json({
+        error: "SETTLEMENT_FAILED",
+        detail: `audit fee did not settle (${"detail" in settled && settled.detail ? settled.detail : settled.status}) — no funds moved, retry with a fresh authorization`
+      });
       return;
     }
-    if (settled.responseHeader) res.setHeader("PAYMENT-RESPONSE", settled.responseHeader);
+    // Broadcast (and usually confirmed) — the buyer has paid or is about to:
+    // deliver the report they paid for, and say exactly where settlement stands.
+    if (settled.status === "success" && settled.responseHeader) res.setHeader("PAYMENT-RESPONSE", settled.responseHeader);
     res.status(200).json({
       report: "LICENSE402 license audit",
       auditedOrder: order.orderId,
@@ -872,6 +902,7 @@ export async function createApp(options: CreateAppOptions = {}): Promise<Express
         creatorPayout: { tx: payoutTx, state: payout?.state ?? null, receipt: payoutReceipt }
       },
       orderStatus: order.status,
+      auditFeeSettlement: settled.status === "success" ? { status: "settled", tx: settled.tx } : { status: "broadcast_pending", tx: broadcastTx },
       verdict: credentialAuthentic && offerSignatureValid && (svc ? buyerReceipt === "confirmed" : true) ? "AUTHENTIC" : "CHECK_FAILED",
       proofBundle: `${config.publicOrigin}/v1/orders/${order.orderId}/bundle`,
       offlineVerify: "clone github.com/a252937166/license402 && npm run verify:evidence -- <bundle.json>"
