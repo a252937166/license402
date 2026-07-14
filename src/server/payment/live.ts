@@ -130,7 +130,8 @@ export class LivePaymentAdapter implements PaymentAdapter {
         verifiedPayer: v.payer.toLowerCase(),
         buyerPaymentId: sha256Hex(header).slice(2, 34),
         paymentAuthorizationDigest: sha256Hex(header),
-        paymentHeaderRaw: header
+        paymentHeaderRaw: header,
+        amountMicro
       };
     } catch (e) {
       console.warn("[x402] verify error:", (e as Error).message);
@@ -150,7 +151,10 @@ export class LivePaymentAdapter implements PaymentAdapter {
 
     // syncSettle:true — the facilitator may still return "pending"/"timeout";
     // we gate activation on status==="success" and reconcile the rest.
-    const settled = await client.settle(payload, this.requirements());
+    // Settle against the SAME amount the payment was verified with — a
+    // companion-SKU authorization (e.g. 0.02 audit) must never be settled
+    // against the default sale price requirements.
+    const settled = await client.settle(payload, this.requirements(payment.amountMicro));
     if (settled.payer) payment.verifiedPayer = settled.payer.toLowerCase();
 
     if (settled.success && settled.status === "success") {

@@ -9,6 +9,9 @@ import { normalizeAddress } from "../license/eip712.js";
  */
 
 export interface VerifiedPayment {
+  /** The amount (micro-USDT) this payment was VERIFIED against — settle must
+   *  use the SAME requirements or the facilitator rejects the mismatch. */
+  amountMicro?: number;
   verifiedPayer: string;
   buyerPaymentId: string;
   paymentAuthorizationDigest: string;
