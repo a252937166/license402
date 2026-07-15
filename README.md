@@ -2,22 +2,24 @@
 
 [![CI](https://github.com/a252937166/license402/actions/workflows/ci.yml/badge.svg)](https://github.com/a252937166/license402/actions/workflows/ci.yml)
 
-An agent can download an image. **Using** it is a different question. LICENSE402 is an
-agent-native content-licensing service (an OKX.AI ASP): an agent buys a license for an
-original artwork, pays **0.10 USDT over x402 on X Layer**, and receives the asset plus a
-**signed, machine-checkable usage scope**. Any downstream agent can then ask, deterministically:
-*may I use this, this way?* → `PERMITTED / PERMITTED_WITH_DUTIES / NOT_PERMITTED /
-INVALID_CREDENTIAL / INDETERMINATE` (+ `PERMITTED_TESTNET_ONLY` for test credentials).
+An agent can download an image. **Using** it is a different question. LICENSE402 is the
+**content-rights pipeline for AI agents** (an OKX.AI ASP, Agent #5089): one agent
+**DISCOVERS** a cryptographically signed catalog, **BUYS** a commercial-use license for
+**0.10 USDT over x402 on X Layer**, **VERIFIES** the signed, machine-checkable scope
+before acting, and **AUDITS** the settlement live on chain (0.02/call). Any downstream
+agent can ask, deterministically: *may I use this, this way?* → `PERMITTED /
+PERMITTED_WITH_DUTIES / NOT_PERMITTED / INVALID_CREDENTIAL / INDETERMINATE`
+(+ `PERMITTED_TESTNET_ONLY` for test credentials).
 
 - **Live site:** https://license402.axiqo.xyz (check `/version.json` and the
   `X-License402-Build` header — every response carries the serving commit)
 - **OKX.AI listing (LIVE, approved):** https://www.okx.ai/agents/5089 — ASP **#5089
-  "LICENSE402"**, service "Commercial image license" (A2MCP, 0.1 USDT/call) — endpoint
-  `POST /v1/acquire/social-commercial`; a real marketplace purchase made with the
-  official `onchainos` CLI is documented in
-  [`docs/evidence/okxai-consumption/`](docs/evidence/okxai-consumption/)
-- **Full demo (2:30):** https://youtu.be/zESXE8Ip0jk (live listing · real purchase ·
-  on-chain settlement · scope verdicts · built for AI agents)
+  "LICENSE402"** with **four A2MCP services**: Commercial image license (0.1) ·
+  Artwork discovery (free) · Deterministic license quote (free) · On-chain license
+  audit (0.02). Real marketplace purchases with the official `onchainos` CLI are
+  documented in [`docs/evidence/okxai-consumption/`](docs/evidence/okxai-consumption/)
+- **Demo (1:40):** https://youtu.be/RE8IRqduqYk (discover · buy · verify · audit —
+  live listing, real mainnet settlements, deterministic verdicts)
 - **Pages:** [`/market`](https://license402.axiqo.xyz/market) (signed catalog) ·
   [`/buy`](https://license402.axiqo.xyz/buy) (wallet checkout, mainnet + free testnet) ·
   [`/verify`](https://license402.axiqo.xyz/verify) (paste any credential → verdict)
